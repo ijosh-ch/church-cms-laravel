@@ -29,5 +29,10 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="QUEUE_DRIVER" value="sync"/>
         <env name="MAIL_DRIVER" value="array"/>
+        <!-- WP 0A item 6: never let the suite fall through to .env's real MySQL database.
+             Disposable MySQL 8.4 fixture DB is WP 0A item 5 (Session 12); until then, an
+             isolated in-memory sqlite connection is the safety rail. -->
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
     </php>
 </phpunit>

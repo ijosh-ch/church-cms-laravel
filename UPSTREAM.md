@@ -319,6 +319,82 @@ Patch-level, single package, no dependency fan-out expected.
 
 ---
 
+### UP-005 — Characterize, then upgrade `phpoffice/phpspreadsheet` (test-first, owner-approved)
+
+| Field | Value |
+|---|---|
+| **Status** | **applied and verified 2026-08-09** |
+| **Files** | `composer.lock` (upstream-owned); `phpunit.xml` (upstream-owned, additive test-isolation env only); `tests/TestCase.php`, `tests/CreatesApplication.php`, `tests/Unit/.gitkeep`, `tests/Feature/Admin/MemberImportCharacterizationTest.php` (new, IFGF-added test scaffolding — the repo had zero tests before this entry) |
+| **Work package** | 0A item 6 (characterization coverage, required regardless) + item 3 finding (`DEPENDENCY_INVENTORY.md` "Prioritize now" row) |
+| **Disposition** | `carry` — generic security patch, contribution-eligible; the added test scaffolding is `contribute`-eligible once WP 0A item 7 CI exists |
+| **Conflict risk** | Low for `composer.lock` (single-package, in-range bump). Low for `phpunit.xml` (three added `<env>` lines, no removals). None for the new `tests/` files — they do not exist upstream. |
+
+**Problem**
+
+`phpoffice/phpspreadsheet` 1.30.0 carries 9 advisories, 2 critical (CVE-2026-34084 SSRF/RCE via
+`IOFactory::load`, CVE-2026-45034 patch bypass) plus CPU/memory-exhaustion DoS and an SSRF via
+`WEBSERVICE()` formula evaluation. `DEPENDENCY_INVENTORY.md` traced a **confirmed live sink**:
+`ImportMemberController.php:56` calls `Excel::import(new UsersImport, $request->file('import_file'))`
+directly on an admin-uploaded file, so any authenticated user who can reach `/admin/import` can hand
+PhpSpreadsheet a crafted workbook. This is the only critical finding in the whole audit with a
+proven path from untrusted input to vulnerable code — everything else critical has zero call
+sites — so the owner approved pulling it ahead of WP 0B, on the condition that the fix is provably
+behaviour-preserving.
+
+The repo had **zero tests** (`tests/` did not exist — no `TestCase.php`, no `CreatesApplication.php`,
+no suite directories). WP 0A item 6 requires characterization coverage for member import regardless
+of this upgrade, so writing it here is not extra scope, it is the prerequisite the owner's test-first
+order made explicit.
+
+**Alternatives considered**
+
+| Option | Rejected because |
+|---|---|
+| Upgrade first, characterize after | Owner's explicit instruction: a test written after the upgrade can't prove the upgrade didn't change behaviour, only that the new behaviour is internally consistent. Test-first is the only order that produces evidence. |
+| Full `composer update` (no package scope) | Prohibited by `TODO.md` and `MEMORY.md` — dissolves the pinned characterization baseline and conflates this fix with the other 39 remaining advisories. |
+| Bump `maatwebsite/excel` instead of `phpoffice/phpspreadsheet` directly | `maatwebsite/excel` 3.1.68 is already current and not advisory-bearing; its own constraint (`phpoffice/phpspreadsheet ^1.30.0`) is what caps the reachable version at 1.30.6, not an outdated `maatwebsite/excel`. Bumping it would be a no-op for this advisory set and outside the "targeted only" instruction. |
+| Characterize through the full HTTP middleware stack (`web`, `auth`, `churchadmin`, `permission:read-members`) | Disproportionate for a dependency-upgrade characterization test: it would require seeding Laratrust roles/permissions and the `churchadmin` gate, none of which `phpoffice/phpspreadsheet` touches. That coverage belongs to WP 0A item 6's own "authentication, existing roles and direct permissions" bullet, as a separate future test. Used `actingAs()` + `withoutMiddleware()` instead, scoped to the `Excel::import()` parsing boundary this upgrade actually touches. |
+| Characterize the full `UsersImport::collection()` business-logic path with a non-empty data row | `UsersImport::collection()` (`app/Imports/UsersImport.php`) dereferences an undefined `$request` variable as soon as `count($rows) > 0` — `"Attempt to assign property ... on null"`, a PHP `Error`, not caught by the method's own `catch (Exception $e)`. This is a **preexisting, unrelated defect** in business logic, independent of which phpspreadsheet version parsed the file; reproducing it here would characterize that bug, not the parsing boundary the upgrade touches. Used a **header-only** CSV fixture (zero data rows) instead — this still exercises the real `Excel::import()` → PhpSpreadsheet CSV reader path, just not the broken branch beyond it. Flagged as a follow-up, not fixed. |
+| Stand up the disposable MySQL 8.4 test database now (WP 0A item 5) | That is its own scheduled deliverable (`TODO.md` Session 12) with its own fixture-anonymization work. This single test's query (`User::ByRole(5)->ByChurch($church_id)->count()`) is a plain `WHERE` count with no MySQL-specific generated columns, collation, or locking — `build.md` TEST AND QUALITY COMMANDS explicitly permits SQLite for tests outside that set. Added `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:` to `phpunit.xml` instead, so the suite can never fall through to `.env`'s real `churchcms` MySQL database. Revisit when item 5 lands — this is a stopgap, not the deliverable. |
+
+**Chosen fix**
+
+```
+composer update phpoffice/phpspreadsheet --with-dependencies
+```
+
+Targeted, single package plus its own dependency fan-out (`composer/pcre`, `nikic/php-parser`,
+four `symfony/*` polyfill/string/console packages — all transitive to `phpoffice/phpspreadsheet`
+itself, not new top-level surface). `laravel/framework` and the other 192 locked packages
+untouched.
+
+**Regression tests required before this entry is closed**
+
+- [x] `tests/Feature/Admin/MemberImportCharacterizationTest.php` written and run **before** the
+      upgrade, against pinned `phpoffice/phpspreadsheet` 1.30.0 — **passed** (1 test, 4 assertions)
+- [x] `composer update phpoffice/phpspreadsheet --with-dependencies` — resolved to **1.30.6**
+- [x] Same test re-run **after** the upgrade — **passed unchanged** (1 test, 4 assertions)
+- [x] `laravel/framework` still **10.50.2**
+- [x] `composer validate --strict` clean
+- [x] `composer audit` advisory count fell 49/13 → **40/12**, removing all 9 `phpoffice/phpspreadsheet`
+      advisories (package fully cleared, no longer in the audit output)
+
+**Notes**
+
+`php artisan test` cannot run this or any future suite yet — installed `nunomaduro/collision`
+v6.4.0 is incompatible with installed PHPUnit 10.5.63 (`RequirementsException`: "Running PHPUnit
+10.x or Pest 2.x requires Collision 7.x"). Pre-existing, unrelated to this entry. Ran via
+`vendor/bin/phpunit` directly instead. Logged in `MEMORY.md` as a WP 0A item 7 (CI workflow)
+blocker, not fixed here — fixing it means bumping `nunomaduro/collision`, a separate package
+change outside this entry's "targeted only" scope.
+
+Remaining 4 `Imports` classes flagged by `DEPENDENCY_INVENTORY.md` (Attendance, Subscribers,
+Summary, and this one's sibling in `UsersImport`) share the same `Excel::import()` boundary and
+are now covered by the same upgraded `phpoffice/phpspreadsheet` version, but do not yet have their
+own characterization tests — WP 0A item 6 backlog, not required for this entry.
+
+---
+
 ## Security findings — deferred, not yet entries
 
 Recorded at first successful `composer audit`, 2026-08-08. **52 advisories across 14 packages.**
