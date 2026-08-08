@@ -3,58 +3,64 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-08-08 · **Session:** 1 · **Work package:** 0A (not yet started)
+**Updated:** 2026-08-09 · **Session:** 2b complete → 3 next · **Work package:** 0A (item 6 first
+test landed, item 3 findings actioned; item 4a next)
 
 ## Git
 
 | | |
 |---|---|
 | Branch | `codex-PRD` |
-| HEAD | `d8cfe08b617351ed18945ab4b1c56a396d6d8a46` |
-| Documentation baseline SHA | **not yet committed — blocks WP 0A** |
-| `origin/main` | `aa8194ec3c66a6a00514e476d1ff4b47f03064d4` |
-| `upstream/main` (reviewed) | `d12c110967fadbaa97fb2a108b71dd820a42e7ad` (2026-08-07, "Added privacy policy page") |
-| Divergence `HEAD...upstream/main` | 1 ahead, 8 behind |
+| HEAD | `e9596f5` (upstream pin freeze) ← `8c85781` (UP-006) ← `9045ce5` (UP-005) ← `e394e742` (docs baseline) |
+| Documentation baseline SHA | `e394e742783083070c5b618c4d6e9c2deb767aea` — committed 2026-08-09 |
+| `origin/codex-PRD` | tracked; this session's 3 commits plus this doc-reconciliation commit not yet pushed at write time — see session-end report |
+| `upstream/main` (reviewed) | `d12c110967fadbaa97fb2a108b71dd820a42e7ad` (2026-08-07, "Added privacy policy page") — **formally frozen**, see `UPSTREAM.md` Baseline table |
+| Divergence `HEAD...upstream/main` | 1 ahead, 8 behind (unchanged; no upstream sync performed) |
 | Merge rehearsal | never run |
 | `ifgf/main` | does not exist yet |
 | `deploy` | does not exist yet |
 
-Working tree: `PRD.md`, `.gitignore`, `composer.json`, `composer.lock` modified;
-`build.md`, `hosting.md`, `EXECUTION_PLAN.md`, `CONTEXT.md`, `MEMORY.md`, `TODO.md`,
-`CLAUDE.md`, `UPSTREAM.md`, `tools/` untracked. **Nothing committed.**
+Working tree at write time: this doc-reconciliation commit (`CLAUDE.md`, `CONTEXT.md`,
+`MEMORY.md`, `TODO.md`, `DEPENDENCY_INVENTORY.md`) is the only pending change — all Session 2b
+code/dependency work is already committed (`9045ce5`, `8c85781`, `e9596f5`).
 
-## Environment — **installed and booting**
+## Environment — installed and booting, unchanged from Session 2
 
 | | Installed | Target |
 |---|---|---|
 | PHP | **8.3.33** (`C:\php\8.3`), 27/27 extensions | 8.4 at WP 0B |
 | Composer | **2.10.2** | — |
-| Laravel | **10.50.2** (verified unchanged) | 13.x at WP 0B |
+| Laravel | **10.50.2** (reverified after both composer changes this session) | 13.x at WP 0B |
 | Node | **22.15.0** ← wrong line, `nvm use` did not stick | 16.20.2 for Mix 4 |
 | MySQL | client present | 8.4 LTS, not yet configured |
-| `vendor/` | 194 packages | — |
-| `node_modules/` | 1,286 packages | — |
-| `.env` | created; **`APP_KEY` not generated**, no DB configured | — |
+| `vendor/` | 183 packages (`composer show`, measured) — down from 194 at Session 2 end; UP-006 removed `botman/botman`, `botman/driver-web`, and 6 now-unused transitive dependents (`react/promise`, `react/event-loop`, `react/dns`, `react/cache`, `mpociot/pipeline`, `evenement/evenement`); `phpoffice/phpspreadsheet`'s UP-005 fan-out was version bumps only, no new packages | — |
+| `.env` | created; `APP_KEY` generated, no DB configured | — |
 
-`composer validate --strict` clean · `php artisan about` runs · `composer.json` now pins
-`config.platform.php = 8.3.33`.
-
-The assistant sandbox cannot run PHP: no root, and packagist/php.net/getcomposer are outside the
-network allowlist. **Every PHP command runs on the Windows host and its output is pasted back.**
-Bootstrap: `tools\setup-windows.ps1`, `tools\fix-php-ini.ps1`.
+`composer validate --strict` clean · `php artisan about` runs · `php artisan test` **broken**
+(`nunomaduro/collision` v6.4.0 vs PHPUnit 10.5.63 — see `MEMORY.md` Session 2b) — use
+`vendor/bin/phpunit` directly.
 
 ## Known debt
 
-- **52 Composer advisories / 14 packages** (symfony/yaml ×3 low, doctrine/annotations abandoned).
-- **166 npm vulnerabilities, 13 critical** (axios 0.18.1, Vue 2 EOL, Bootstrap 4.6 EOL).
-- **UP-003 unfixed** — `EventgalleryFactory.php` PSR-4 case mismatch.
+- **40 Composer advisories / 12 packages** (was 49/13 at Session 2 end; UP-005 cleared
+  `phpoffice/phpspreadsheet`'s 9). `doctrine/annotations` still abandoned, no replacement.
+- **166 npm vulnerabilities, 13 critical** (axios 0.18.1, Vue 2 EOL, Bootstrap 4.6 EOL) —
+  untouched this session.
+- `nunomaduro/collision`/PHPUnit 10 mismatch blocks `php artisan test` and, transitively, WP 0A
+  item 7's CI workflow. Not yet scheduled — flagged in `TODO.md`.
+- `app/Imports/UsersImport.php::collection()` fatal-errors on any nonempty import (undefined
+  `$request`). `app/Traits/SendPushNotification.php` fatal-errors on any real call (dead
+  `LaravelFCM\*` imports, never autoloaded). Both preexisting, both flagged in `TODO.md`, neither
+  fixed — out of scope for the sessions that found them.
 - Never run `npm audit fix` or unargumented `composer update` — both dissolve the baseline.
 
 ## Baseline shape
 
-668 PHP files · 172 controllers · 79 models · 93 migrations · 317 Blade views · **0 tests** ·
-183 Composer packages · 5 route files (`web`, `admin`, `api`, `guestapi`, `console`) ·
-1 existing custom package (`custompackages/brozot/laravel-fcm`, path repo).
+668 PHP files · 172 controllers · 79 models · 93 migrations · 317 Blade views · **1 test file, 1
+test** (`tests/Feature/Admin/MemberImportCharacterizationTest.php`, Session 2b — first ever) ·
+183 Composer packages · 52 npm packages · 5 route files (`web`, `admin`, `api`, `guestapi`,
+`console`) · 0 remaining custom packages in `custompackages/` (brozot removed; `ifgf/` not yet
+scaffolded — WP 0A item 11, Session 7).
 
 Laravel 10.50.2 / PHP `^8.2` / Vue 2.6 / laravel-mix 4 / webpack 4.
 
@@ -66,11 +72,18 @@ results as unreliable and prefer targeted reads. `graphify-out/` stays untracked
 
 ## Missing project files
 
-`AGENTS.md` · `.graphifyignore` · `custompackages/ifgf/church-operations` · `tests/**`
-— all remaining WP 0A deliverables.
+`AGENTS.md` · `.graphifyignore` · `custompackages/ifgf/church-operations` · the other ~10 planned
+characterization tests (auth/roles, groups/events, QR/attendance/exports/media — WP 0A item 6,
+Sessions 9–11) · disposable MySQL 8.4 fixture DB (item 5, Session 12, replaces the sqlite
+`:memory:` stopgap in `phpunit.xml`).
 
 ## Open gates
 
-1. **Documentation baseline not committed** — `build.md` OPERATING CONTRACT 6 blocks all coding.
-2. **WP 0A scope not confirmed** by owner.
-3. UP-002 exact resolved versions not yet recorded; UP-003 not yet fixed.
+1. **WP 0A scope not confirmed** by owner (unchanged from Session 2).
+2. `DEPENDENCY_INVENTORY.md`'s "Prioritize now" (`phpoffice/phpspreadsheet`) and both "remove"
+   verdicts (`botman/*`, orphaned `brozot/laravel-fcm`) are **now actioned** (UP-005, UP-006) —
+   this gate is closed. Remaining `DEPENDENCY_INVENTORY.md` upgrade/replace verdicts stay deferred
+   to WP 0B as originally planned.
+3. Route + migration inventory (WP 0A item 4a, Session 3) not yet started — see `TODO.md`.
+4. **New:** three items moved to `TODO.md` "Decisions awaiting the owner" this session — the
+   `UsersImport` crash, `SendPushNotification.php`'s dead FCM path, and collision/PHPUnit timing.

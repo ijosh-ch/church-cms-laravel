@@ -36,13 +36,41 @@ Hand-writing that file set costs ~6–8k tokens; the command costs ~40. For
 `custompackages/ifgf/church-operations`, generate into `app/`, then `git mv` and fix the namespace
 with one `sed`.
 
-Record the exact Laravel 13 generator flags here once, in Session 2 — do not re-derive them.
+**Verified Laravel 13 generator flags — Session 2, 2026-08-09.** Confirmed against a real
+`composer create-project laravel/laravel "^13.0"` skeleton (Laravel 13.24.0), not documentation.
+This repo is still Laravel 10.50.2 (WP 0B upgrades it) — do not assume these exist yet on `HEAD`.
 
-## PHP does not run in the sandbox
+- `make:model Foo -a/--all` → migration, seeder, factory, policy, resource controller, form
+  request classes. **Does not include a test** — add `--test`/`--pest`/`--phpunit` explicitly.
+  Other flags: `-c` controller, `-f` factory, `-m` migration, `-p`/`--pivot`, `--morph-pivot`,
+  `--policy`, `-s`/`--seed`, `-r`/`--resource`, `--api`, `-R`/`--requests`, `--force`.
+- `make:migration name --create=table|--table=table [--path=] [--realpath]` (`--fullpath`
+  deprecated).
+- `make:test name [-u/--unit] [--pest] [--phpunit] [-f/--force]`.
+- `make:policy name [-m/--model=] [-g/--guard=] [-f/--force]`.
+- `make:controller name [-r/--resource] [--api] [-i/--invokable] [-m/--model=] [-p/--parent=]
+  [-R/--requests] [-s/--singleton] [--creatable] [--type=] [--test|--pest|--phpunit] [--force]`.
+- `make:factory name [-m/--model=]`. `make:seeder name` (no options besides the global ones).
+- `make:job|make:command|make:observer|make:notification|make:rule|make:middleware|make:provider`
+  all take `-f/--force`; `make:job` adds `--sync`/`--batched`; `make:command` adds
+  `--command=`; `make:observer`/`make:request` are otherwise bare; `make:notification` adds
+  `-m/--markdown=`; `make:rule` adds `-i/--implicit`; `make:enum` adds `-s/--string`/`-i/--int`.
+- Every generator above also accepts `--test`/`--pest`/`--phpunit` (except `make:policy`,
+  `make:factory`, `make:seeder`, `make:provider`, `make:rule`, `make:enum` — no test flags there).
+- Global flags on every command: `-h/--help`, `--silent`, `-q/--quiet`, `-V/--version`,
+  `--ansi`/`--no-ansi`, `-n/--no-interaction`, `--env=`, `-v|vv|vvv/--verbose`.
 
-No root; packagist, php.net, and getcomposer are outside the network allowlist. Every PHP,
-Composer, Artisan, MySQL, and npm command runs on the Windows host and its output is pasted back.
-Always request piped output — `2>&1 | Select-Object -Last 60`. Budget 2 round-trips per session.
+## PHP does not run in the sandbox — RE-VERIFY, this may be stale
+
+This claim was written for whatever tool ran Session 1/1b. **Session 2 (Claude Code, 2026-08-09)
+ran `php`, `composer`, and `curl` to `packagist.org`/`repo.packagist.org` directly and successfully**
+— no host relay, no network block, no round-trip needed. If a future session is also Claude Code
+running directly on the Windows host, treat every round-trip-cost figure in `EXECUTION_PLAN.md`
+§3.4 (Rule T2, "2 verification round-trips per session") as **obsolete for this tool** — test that
+assumption once at session start rather than trusting this section. Still always pipe output
+(`2>&1 | tail -60` / `Select-Object -Last 60`) — full unfiltered logs are large regardless of
+round-trip cost. If a *different* tool (e.g. Codex CLI in a network-sandboxed container) resumes
+this project, the original constraint below may still hold for it.
 
 ## Search order
 

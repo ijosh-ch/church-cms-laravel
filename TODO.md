@@ -5,57 +5,71 @@
 > Every item names its `build.md` item number and its `PRD.md` line range where relevant.
 
 **Active work package:** 0A — Baseline and Safety Net (`build.md` L202–228)
-**Session:** 1 → 2
+**Session:** 3 → 4
 
 ---
 
-## Now
+## Now — Session 3
 
-1. **Record UP-002's resolved versions.** Run and paste:
-   `composer show 2>&1 | Select-String "symfony/css-selector|symfony/filesystem|lcobucci/clock|symfony/yaml|laravel/framework"`
-   Then close the UP-002 checklist in `UPSTREAM.md`.
-2. **Fix UP-003** — the PSR-4 case mismatch. Two-step rename because Git ignores case-only
-   renames on Windows:
-   ```
-   git mv database/factories/EventgalleryFactory.php database/factories/EventGalleryFactory.tmp
-   git mv database/factories/EventGalleryFactory.tmp database/factories/EventGalleryFactory.php
-   composer dump-autoload
-   ```
-3. **Generate the app key** — `php artisan key:generate`. `.env` exists but `APP_KEY` is empty.
-4. **Commit the baseline.** Stage `PRD.md`, `hosting.md`, `build.md`, `.gitignore`,
-   `composer.json`, `composer.lock`, `EXECUTION_PLAN.md`, `CONTEXT.md`, `MEMORY.md`, `TODO.md`,
-   `CLAUDE.md`, `UPSTREAM.md`, `tools/`. Record the SHA in `CONTEXT.md`.
-   *(OPERATING CONTRACT 6 — blocks all further coding)*
-5. **Confirm WP 0A scope** with the owner, then open Session 2.
-
-**Do not** run `npm audit fix`, `composer audit fix`, or unargumented `composer update`.
-Both lockfiles are the characterization baseline.
+1. **WP 0A item 4a — route + migration inventory.** Inventory the 5 route files (`web`, `admin`,
+   `api`, `guestapi`, `console`) and all 93 migrations. Confirm whether QR/attendance check-in uses
+   `temporarySignedRoute` — `DEPENDENCY_INVENTORY.md` flagged the `laravel/framework` signed-URL-
+   confusion advisory (CVE range includes 10.50.2); 1 `signedRoute` call site found in Session 2,
+   not yet traced to a route.
 
 ## Next — Work Package 0A (`build.md` L207–224)
 
 | Session | Item(s) | Action |
 |---|---|---|
-| 2 | 3 | Classify all 194 Composer packages: keep / upgrade / replace / remove. Triage the 52 advisories across 14 packages. Start from `EXECUTION_PLAN.md` §1.4 and the `UPSTREAM.md` security table. Record Laravel 13 generator flags in `CLAUDE.md`. |
-| 3 | 4a | Inventory 5 route files and 93 migrations. |
 | 4 | 4b | Inventory auth, roles, attendance, membership cards, exports, media, storage, queues, scheduler. |
 | 5 | 15 | Write `.graphifyignore`, rebuild the graph, confirm queries return source not `public/js/app.js`. **Do this early — it lowers the cost of every later session.** |
-| 6 | 9, 10 | Pin upstream SHA, record divergence, create `UPSTREAM.md` compatibility ledger and the ownership map. |
+| 6 | 9, 10 | Pin upstream SHA, record divergence, create `UPSTREAM.md` compatibility ledger and the ownership map. Formalizes the freeze already recorded in `UPSTREAM.md`'s "Pin decision — 2026-08-09" note. |
 | 7 | 11 | Scaffold `custompackages/ifgf/church-operations` with path loading and auto-discovery. No product behavior. |
 | 8 | 14 | Provider smoke tests from a clean checkout. |
-| 9–11 | 6 | Characterization tests — auth/roles, then member/groups/events, then QR/attendance/exports/media. Writing from **zero** existing tests. |
-| 12 | 5, 8 | Disposable MySQL 8.4 test database + anonymized fixtures. No real member data. |
-| 13 | 7, 13 | CI workflow + read-only upstream merge rehearsal. **Consider pulling forward** — a clean-checkout `composer install` on Linux would have caught UP-001, UP-002 and UP-003 before any of them cost a round-trip. Must include a PSR-4 autoload-warning check. |
+| 9–11 | 6 | Characterization tests — auth/roles, then member/groups/events, then QR/attendance/exports/media. `tests/Feature/Admin/MemberImportCharacterizationTest.php` (Session 2b) is the first, not the last. Verify no Markdown-mail template interpolates unescaped user text (league/commonmark exposure check, deferred from Session 2). |
+| 12 | 5, 8 | Disposable MySQL 8.4 test database + anonymized fixtures. No real member data. `phpunit.xml` currently points the suite at sqlite `:memory:` as a Session 2b stopgap — replace with the real fixture DB here, don't just add to it. |
+| 13 | 7, 13 | CI workflow + read-only upstream merge rehearsal. Must include a PSR-4 autoload-warning check. **Fix the `nunomaduro/collision`/PHPUnit 10 version mismatch first** (Session 2b finding — `php artisan test` currently throws `RequirementsException`; `vendor/bin/phpunit` works as a workaround but CI needs `artisan test` or an equivalent direct `phpunit` invocation either way). |
 | 14 | 12, gate | Branch topology (`main` / `ifgf/main` / `deploy`) + WP 0A exit gate review. |
 
 ## Blocked
 
-- **All coding** — documentation baseline uncommitted (item 2 above).
-- **Anything needing PHP** — toolchain not installed (item 1 above).
-- **WP 0B** — cannot start until the WP 0A exit gate passes. Findings already staged in
-  `EXECUTION_PLAN.md` §1.4; `laravel/legacy-factories` is a hard blocker.
+- **WP 0B** — cannot start until the WP 0A exit gate passes. Findings staged in
+  `EXECUTION_PLAN.md` §1.4 and `DEPENDENCY_INVENTORY.md`; `laravel/legacy-factories` is a hard
+  blocker.
 
 ## Decisions awaiting the owner
 
 - Production PHP pin: 8.4 recommended, subject to the extension audit *(WP 0B item 14)*.
 - Vue 2 / laravel-mix 4 → Vite: proposed as a separate IFGF-neutral package *(WP 0B item 8)*.
-- Whether to sync the 8 upstream commits currently behind before WP 0A, or pin and defer.
+  `DEPENDENCY_INVENTORY.md` lists the 14 npm packages this migration replaces wholesale.
+- Whether `barryvdh/laravel-dompdf`/`dompdf/dompdf` (confirmed unused, 6 advisories, zero call
+  sites) should be removed or kept for planned-but-unbuilt PDF export. **Ask before Session 4** —
+  PRD scope decides this, not the audit.
+- Which of `yarn.lock` / `package-lock.json` survives. `npm ci` is proven; recommend deleting
+  `yarn.lock`. Defer until the Vite decision is in view so it is not decided twice.
+- **New, Session 2b:** `app/Imports/UsersImport.php`'s `collection()` method dereferences an
+  undefined `$request` variable as soon as any import file has at least one data row — a PHP
+  `Error`, not caught by its own `catch (Exception $e)`. **Member import is currently broken for
+  every real (non-empty) file**, independent of the `phpoffice/phpspreadsheet` upgrade. Not fixed
+  in Session 2b (out of UP-005's "upgrade, don't fix business logic" scope) — see `UPSTREAM.md`
+  UP-005 "Alternatives considered". **Ask whether this is worth an out-of-band fix before Session
+  9–11's member/groups/events characterization work reaches it,** or whether it stays a documented
+  known-broken path until then.
+- **New, Session 2b:** `app/Traits/SendPushNotification.php` imports and instantiates
+  `LaravelFCM\Message\OptionsBuilder`/`PayloadNotificationBuilder` — classes that were never in the
+  autoloader even before UP-006 removed the orphaned `brozot/laravel-fcm` directory (confirmed via
+  `class_exists()`, see `UPSTREAM.md` UP-006). Push notifications via this trait have been silently
+  broken pre-existing. Rewriting it to call the already-installed
+  `laravel-notification-channels/fcm` is a real fix, not a removal, so it needs its own
+  characterization test + UPSTREAM.md entry — **ask whether to schedule this**, and if so where
+  (Session 4's "auth, roles, attendance..." inventory touches related notification listeners).
+
+## Resolved — 2026-08-09
+
+- `phpoffice/phpspreadsheet`: characterized (`tests/Feature/Admin/MemberImportCharacterizationTest.php`),
+  then upgraded 1.30.0 → 1.30.6. `UPSTREAM.md` UP-005. Committed `9045ce5`.
+- `botman/botman`, `botman/driver-web`, and orphaned `custompackages/brozot/laravel-fcm` removed;
+  confirmed the FCM push path was already unreachable before removal, so no characterization test
+  was required. `UPSTREAM.md` UP-006. Committed `8c85781`.
+- Upstream sync formally frozen at `d12c110` in `UPSTREAM.md`'s Baseline table; sync only after the
+  WP 0A exit gate. Committed `e9596f5`.

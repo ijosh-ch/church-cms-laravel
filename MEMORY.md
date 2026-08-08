@@ -6,6 +6,162 @@
 
 ---
 
+## 2026-08-09 — Session 2b — UP-005, UP-006, upstream pin: three owner-approved decisions actioned
+
+**Work package:** 0A item 6 (first characterization test) + item 3 findings actioned · **Branch:**
+`codex-PRD` · **HEAD:** `e9596f5` (preceded by `8c85781`, `9045ce5`)
+
+**Done**
+
+- **UP-005.** Stood up `tests/` from nothing — this repo had zero tests, no `TestCase.php`, no
+  `CreatesApplication.php`, no suite directories. Wrote
+  `tests/Feature/Admin/MemberImportCharacterizationTest.php` covering
+  `ImportMemberController.php:56` → `Excel::import()`, proved it green against pinned
+  `phpoffice/phpspreadsheet` 1.30.0, ran `composer update phpoffice/phpspreadsheet
+  --with-dependencies` → 1.30.6, re-ran the same test green and unchanged. `composer audit`:
+  49/13 → 40/12 advisories, `phpoffice/phpspreadsheet` fully cleared. `laravel/framework`
+  confirmed still 10.50.2 throughout.
+- **UP-006.** Removed `botman/botman` + `botman/driver-web` (zero call sites, reconfirmed) and the
+  orphaned `custompackages/brozot/laravel-fcm` (73 files) plus its `composer.json` `repositories`
+  entry. Did the required residual-reference grep first, found a real textual hit in
+  `app/Traits/SendPushNotification.php`, then proved via `class_exists()` that the referenced
+  `LaravelFCM\*` classes were never in the generated autoloader even before removal — so no
+  characterization test was required under `TODO.md`'s own "if reachable" rule.
+- Formally froze the upstream pin at `d12c110` in `UPSTREAM.md`'s Baseline table — no merge of the
+  8 outstanding upstream commits until the WP 0A exit gate passes.
+- Committed Session 2's own pending doc baseline (`CLAUDE.md`, `CONTEXT.md`, `MEMORY.md`,
+  `TODO.md`, `DEPENDENCY_INVENTORY.md`), which had sat uncommitted since that session ended.
+
+**Learned — carry forward**
+
+- **`php artisan test` is broken, independent of anything touched this session.** Installed
+  `nunomaduro/collision` v6.4.0 is incompatible with installed PHPUnit 10.5.63
+  (`RequirementsException`: "Running PHPUnit 10.x or Pest 2.x requires Collision 7.x"). Worked
+  around it by running `vendor/bin/phpunit` directly. Not fixed here — bumping `collision` is a
+  separate package change outside UP-005's "targeted only" scope, but it blocks WP 0A item 7 (CI
+  workflow) until resolved. Fix it in Session 13 or earlier if it starts costing round-trips.
+- **`app/Imports/UsersImport.php`'s `collection()` method is broken for any real import.** It
+  dereferences an undefined `$request` variable as soon as `count($rows) > 0` — `"Attempt to
+  assign property ... on null"`, a PHP `Error`, not caught by its own `catch (Exception $e)`.
+  Discovered while designing UP-005's fixture; deliberately used a **header-only** CSV (zero data
+  rows) to characterize the `Excel::import()`/phpspreadsheet boundary without also characterizing
+  this unrelated, preexisting crash. Member import is effectively non-functional today for any
+  file with actual data. Flagged in `TODO.md` "Decisions awaiting the owner" — not fixed.
+- **`app/Traits/SendPushNotification.php`'s FCM push path has been dead since before this fork's
+  IFGF work started, unrelated to UP-006.** It imports and instantiates
+  `LaravelFCM\Message\OptionsBuilder`/`PayloadNotificationBuilder`, but
+  `grep -n "LaravelFCM" vendor/composer/autoload_psr4.php` never matched, and
+  `class_exists('LaravelFCM\Message\OptionsBuilder')` returned `false` even before
+  `custompackages/brozot/laravel-fcm` was deleted — `brozot/laravel-fcm` was declared as a path
+  `repositories` entry but never actually `require`d, so it was never wired into the autoloader.
+  Any call to `sendNotification()` has been throwing a fatal `Error` in production. Left untouched
+  (fixing it is a real application-behavior change to an upstream-owned file, needs its own
+  UPSTREAM.md entry + characterization test) — flagged in `TODO.md`.
+- **SQLite `:memory:` is sufficient, and `build.md`-permitted, for tests that don't touch
+  MySQL-specific features.** Used it as a stopgap in `phpunit.xml` for UP-005's test since WP 0A
+  item 5's disposable MySQL 8.4 fixture database doesn't exist yet. All 93 migrations ran clean
+  against sqlite with zero MySQL-only syntax found (`DB::statement`, `->change()`, `ENGINE=`,
+  `FULLTEXT` all absent from every migration file, checked before trusting sqlite at all). Item 5
+  should replace this, not just add to it, once it lands (Session 12).
+- **A header-only fixture (template headers, zero data rows) is a clean way to characterize an
+  `Excel::import()`/phpspreadsheet upgrade in isolation** from unrelated business-logic bugs
+  downstream of the parse. Worth reusing for the other 4 `Imports` classes
+  (`DEPENDENCY_INVENTORY.md`: Attendance, Subscribers, Summary, plus this one) when WP 0A item 6
+  reaches them.
+- **`withoutMiddleware()` + `actingAs()` is the right scope for a dependency-upgrade
+  characterization test**, not the full `web`/`auth`/`churchadmin`/`permission:read-members`
+  middleware stack — that coverage belongs to WP 0A item 6's own "authentication, existing roles
+  and direct permissions" bullet as its own future test, not bundled into UP-005.
+
+**Open / not done**
+
+- WP 0A item 4a (route + migration inventory) — Session 3, now the literal next action in
+  `TODO.md`.
+- Three items moved to `TODO.md` "Decisions awaiting the owner": the `UsersImport::collection()`
+  crash, `SendPushNotification.php`'s dead FCM imports, and whether/when to fix the
+  `collision`/PHPUnit mismatch ahead of Session 13's CI workflow.
+- Did not touch `vendor/`, `node_modules/`, `yarn.lock`, or `package-lock.json` beyond what
+  `composer remove`/`composer update phpoffice/phpspreadsheet`/`composer update --lock` touched.
+
+---
+
+## 2026-08-09 — Session 2 — Baseline committed, dependency inventory complete
+
+**Work package:** 0A item 3 (dependency inventory), plus finishing item 2 (doc baseline commit) ·
+**Branch:** `codex-PRD` · **HEAD:** `e394e74` (docs baseline) preceded by `4e25e04` (generic repair)
+
+**Done**
+
+- Committed the two Session-1-blocked commits: `4e25e04` (composer.json/composer.lock/factory
+  rename) and `e394e74` (PRD.md, build.md, hosting.md, UPSTREAM.md, EXECUTION_PLAN.md, CLAUDE.md,
+  CONTEXT.md, MEMORY.md, TODO.md, .gitignore, tools/). **Gate 1 (documentation baseline
+  uncommitted) is now closed.** Recorded the docs-baseline SHA in `CONTEXT.md`.
+- Produced `DEPENDENCY_INVENTORY.md` — all 194 Composer packages and 51 npm direct packages
+  classified keep/upgrade/replace/remove, and the 49 Composer advisories (13 packages) triaged
+  by real exposure (grep'd actual call sites in `app/`), not severity label alone.
+- Verified the exact Laravel 13 artisan generator flags against a real
+  `composer create-project laravel/laravel "^13.0"` skeleton (13.24.0) and recorded them in
+  `CLAUDE.md` — not guessed from memory.
+
+**Learned — carry forward**
+
+- **UP-003's rename never actually reached git's index.** The working-tree file was correctly
+  cased (`EventGalleryFactory.php`) but `git status` showed no change at all, because this
+  checkout has `core.ignorecase=true`: Windows silently absorbed the case-only rename from
+  Session 1b without git noticing. `UPSTREAM.md` had every regression checkbox ticked, but the
+  commit would have shipped the broken lowercase filename to the Linux VPS. Fixed by `git mv`
+  through a **distinct intermediate filename** (not a case-only intermediate) —
+  `EventgalleryFactory.php` → `EventGalleryFactory_tmp_rename.php` → `EventGalleryFactory.php` —
+  which forces git to register two real path changes even under `core.ignorecase`. **Any future
+  case-only rename on this checkout needs the same two-hop trick with a non-case-only
+  intermediate name**, not the same-case-different-case two-step `build.md`/`UPSTREAM.md`
+  describe (that version silently no-ops here).
+- **This tool is not sandboxed the way Session 1/1b's was.** `php`, `composer`, and `curl` to
+  `packagist.org`/`repo.packagist.org` all worked directly with no host relay. `CLAUDE.md`'s "PHP
+  does not run in the sandbox" section and `EXECUTION_PLAN.md` §3.4's round-trip-cost model are
+  written for whatever ran Session 1/1b (probably a network-sandboxed container) and do not apply
+  to Claude Code running directly on this Windows host. Flagged inline in `CLAUDE.md`; did not
+  rewrite the cost model itself — re-verify at the start of whichever session reads this.
+- **Two findings beyond `EXECUTION_PLAN.md` §1.4's own predictions**, both now in
+  `DEPENDENCY_INVENTORY.md`: (1) `botman/botman`+`botman/driver-web` have **zero** call sites
+  anywhere in `app/`/`config/`/`routes/` — not just "high risk," dead code, remove outright.
+  (2) `custompackages/brozot/laravel-fcm` is an **orphaned path repository** — the directory and
+  the `composer.json` `repositories` entry both still exist, but nothing actually requires the
+  package anymore (superseded by `laravel-notification-channels/fcm`, already installed). It is
+  not one of the 194 resolved packages, so `composer show` won't surface it — only a
+  `composer.json`/filesystem cross-check catches it.
+- **Real-exposure triage flipped priority away from severity label** in two directions:
+  `phpoffice/phpspreadsheet` (9 advisories, 2 critical) has a **confirmed live sink** —
+  `ImportMemberController.php:56` calls `Excel::import()` on an admin-uploaded file — so it
+  should be fixed before WP 0B, not deferred with the rest of the compatibility work. Conversely
+  `dompdf/dompdf` (6 advisories) and `spatie/browsershot` (6 advisories) have **zero** call sites
+  anywhere in `app/` or `resources/views/` — present, patchable, but not urgent.
+- **npm's 166 vulnerabilities are almost entirely one root cause.** Nearly all critical/high
+  entries live inside the `laravel-mix`/`webpack@4` toolchain's own transitive dependencies —
+  patching them individually is wasted effort; they leave with the WP 0B Vite migration. The
+  npm-specific exceptions worth fixing *now*, independent of that timeline: `axios` (0.18→1.x,
+  high, cheap) and `lodash` (high, cheap). `vue-image-lightbox-carousel` is critical **and**
+  confirmed still in active use — replace, don't just delete the feature.
+- `@dymantic/vue-trix-editor` (high severity, unmaintained) and `@tiptap/*` (current, Vue-3-ready)
+  are both actively referenced in the Vue components right now — the app is mid-migration from
+  Trix to TipTap. Finish it and drop the Trix wrapper rather than patching it.
+
+**Open / not done**
+
+- WP 0A item 3 exit criteria met for this session's scope; **owner should review
+  `DEPENDENCY_INVENTORY.md`'s "Prioritize now" row (phpoffice/phpspreadsheet) before WP 0A
+  Session 3 starts**, since it argues for pulling that one upgrade earlier than WP 0B.
+- Confirm during WP 0A item 4 (route inventory, Session 3) whether QR/attendance check-in uses
+  `temporarySignedRoute` — the one `signedRoute` call site found needs to be checked against the
+  `laravel/framework` signed-URL-confusion advisory.
+- `custompackages/brozot/laravel-fcm` orphan removal and `botman/*` removal are recommended but
+  **not executed this session** — they are dependency changes, out of scope for an inventory-only
+  session, and need an explicit commit of their own with the owner's sign-off.
+- Did not touch `vendor/`, `node_modules/`, `composer.lock`, or `package-lock.json` — this session
+  was inventory and classification only, no upgrades applied.
+
+---
+
 ## 2026-08-08 — Session 1b — Toolchain installed, three upstream defects fixed
 
 **Work package:** 0A items 1–2 · **Branch:** `codex-PRD` · **HEAD:** `d8cfe08` (uncommitted work)
