@@ -19,6 +19,37 @@
 | Fork HEAD at time of writing | `d8cfe08b617351ed18945ab4b1c56a396d6d8a46` |
 | Divergence | 1 ahead, 8 behind |
 | Last merge rehearsal | never run |
+| **Pin status** | **Frozen, owner-approved 2026-08-09.** Do not merge the 8 outstanding `upstream/main` commits until the WP 0A exit gate passes. |
+
+### Pin decision — 2026-08-09 (Session 2b, `TODO.md` Now item 3)
+
+Owner decision, third of three approved in the same review as UP-005 and UP-006: **pin
+`upstream/main` at `d12c110` now, formally, as the characterization baseline; sync only after the
+WP 0A exit gate.**
+
+This is a state change, not a new fact — `d12c110` was already recorded above as the "reviewed"
+SHA before this decision. What changes here is that the 8-commit divergence is no longer just
+undecided drift to revisit opportunistically; it is **explicitly frozen** until characterization
+tests exist to prove a sync regresses nothing (`build.md` WORK PACKAGE 0A exit gate: "the upstream
+merge rehearsal passes"). Rationale: UP-001 through UP-006 already show upstream's own commits
+carry defects (desynced locks, stranded PHP-8.4-only packages, PSR-4 case mismatches) that were
+only caught because this fork stopped and verified before installing — merging 8 more commits
+sight-unseen, before this repo has a single characterization test for the areas those commits might
+touch, would reintroduce exactly the kind of unverified-drift risk WP 0A exists to close.
+
+**Alternatives considered**
+
+| Option | Rejected because |
+|---|---|
+| Merge the 8 outstanding commits now, characterize after | Same "test-first" reasoning as UP-005: a test written after a merge can't prove the merge didn't change behavior, only that the merged result is internally consistent. Two of the eight upstream defects already found (UP-001, UP-002) were partial-`composer update` residue — nothing rules out the other six carrying similar undiscovered issues. |
+| Leave the divergence formally undecided (status quo) | `TODO.md` records it under "Resolved — 2026-08-09" already; leaving `UPSTREAM.md`'s Baseline table silent on it would let a future session assume the 8 commits are just unreviewed rather than deliberately held back, and risk an accidental merge before the exit gate. |
+| Cherry-pick only the commits touching files this fork doesn't modify | Not evaluated — the eight commits' full diffs haven't been individually risk-assessed yet (`build.md` STARTUP SEQUENCE item 1 lists `git diff --name-only $(git merge-base HEAD upstream/main)..upstream/main` as a startup check, not yet run against all eight). Doing that triage now would be starting WP 0A item 4a's route/migration work early, which `TODO.md` schedules for Session 3, not this entry. |
+
+**Record formally closed at:** Session 6 (`build.md` items 9–10 — pin the reviewed upstream SHA,
+record divergence, create the compatibility ledger and ownership map). This entry documents the
+Session 2b freeze decision itself; Session 6 is where the full ledger requirement gets satisfied.
+
+---
 
 ## Disposition vocabulary
 
