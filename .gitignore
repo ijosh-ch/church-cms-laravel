@@ -69,3 +69,4 @@ public/uploads/files/*
 *.log
 composer.phar
 .env_churchcms
+/graphify-out

@@ -1,0 +1,81 @@
+# CLAUDE.md — repository operating rules
+
+> Read in full every session. Hard cap: 2,000 tokens. These rules are stricter than defaults and
+> override them. Method lives in `build.md`; scope in `PRD.md`; session budgeting in
+> `EXECUTION_PLAN.md`.
+
+## Start of session — exactly this, nothing more
+
+`git status --short --branch` → `git log -1` → `CONTEXT.md` → `TODO.md` → last 5 entries of
+`MEMORY.md` → this file → **only** the `build.md` / `PRD.md` line ranges the active TODO item
+names (`EXECUTION_PLAN.md` Appendix A). Then state the work package, step, and exit gate, and ask
+for confirmation. Cost of this preamble: ~20k. Anything more is leaking budget.
+
+## Never read whole
+
+`PRD.md` (32.8k), `build.md` (15.6k), `hosting.md` (5.4k), `graphify-out/graph.json` (15MB),
+`composer.lock` (490KB), `package-lock.json` (630KB), `yarn.lock`, `mysql-schema.sql`,
+`public/js/app.js`. Use `Read` with `offset`/`limit`, or query the file with a script.
+
+The everyday `build.md` load is L28–92 + L114–201 ≈ 6.1k tokens. That is the whole preamble.
+
+## Generate, do not hand-write
+
+Owner preference and the largest single token saving. Anything Artisan can scaffold, scaffold.
+
+```
+php artisan make:model Foo --all      # model + migration + factory + seeder
+                                      # + controller + requests + policy
+php artisan make:migration add_x_to_y --table=y
+php artisan make:test Foo/BarTest     # --unit for the unit layer
+php artisan make:policy FooPolicy --model=Foo
+php artisan make:{job,command,observer,notification,rule,enum,middleware,provider}
+```
+
+Hand-writing that file set costs ~6–8k tokens; the command costs ~40. For
+`custompackages/ifgf/church-operations`, generate into `app/`, then `git mv` and fix the namespace
+with one `sed`.
+
+Record the exact Laravel 13 generator flags here once, in Session 2 — do not re-derive them.
+
+## PHP does not run in the sandbox
+
+No root; packagist, php.net, and getcomposer are outside the network allowlist. Every PHP,
+Composer, Artisan, MySQL, and npm command runs on the Windows host and its output is pasted back.
+Always request piped output — `2>&1 | Select-Object -Last 60`. Budget 2 round-trips per session.
+
+## Search order
+
+1. `graphify query "<≤12 vocabulary tokens>" --budget 2500`, then open only the returned
+   `source_location` lines.
+2. Targeted `Grep` with a `glob` filter.
+3. Never a blind sweep — 668 PHP files and 317 Blade templates cost 20k+ tokens per answer.
+
+Graph results are unreliable until `.graphifyignore` lands (WP 0A Session 5): the graph currently
+indexes compiled `public/js/app.js`.
+
+## Hard prohibitions
+
+- **Never commit.** Stage named files, show the proposed message, wait. (`build.md` CONTRACT 7)
+- Never amend published commits, force-push, or skip hooks.
+- Never use `--ignore-platform-reqs`, `--no-verify`, or forced dependency resolutions.
+- Never edit a historical upstream migration. Expand → backfill → verify → contract.
+- Never touch `deploy`, production, live Google Calendar, real members, or biometric data.
+- Never commit real member data, secrets, or Graphify output.
+- Never edit an upstream-owned file without an approved `UPSTREAM.md` entry and a
+  characterization test.
+- Never run `migrate:fresh` / `db:wipe` without first printing and asserting the environment,
+  driver, host, and database name. (`build.md` L515)
+- Never start a second work package in one session, or begin an exit gate that will not fit.
+
+## Ownership
+
+New IFGF behavior goes in `custompackages/ifgf/church-operations`. New physical tables use the
+`ifgf_` prefix. Upstream model names and paths are preserved exactly — `Events`, `Userprofile`,
+`EventAttendanceSession`, `EventAttendee`, `GroupLink`. PRD names are aliases, not replacements.
+
+## End of session — at 120k used, stop and hand off
+
+Append to `MEMORY.md` (what was learned and what failed) → rewrite `TODO.md` so item 1 is the
+literal next action → update `CONTEXT.md` → emit the report fields from `build.md` L583–597.
+A session that runs to 100% without this costs the next session ~30k in rediscovery.
