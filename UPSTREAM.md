@@ -395,6 +395,107 @@ own characterization tests — WP 0A item 6 backlog, not required for this entry
 
 ---
 
+### UP-006 — Remove `botman/botman` + `botman/driver-web`, and the orphaned `custompackages/brozot/laravel-fcm` path repository
+
+| Field | Value |
+|---|---|
+| **Status** | **applied and verified 2026-08-09** |
+| **Files** | `composer.json` (upstream-owned, `require` + `repositories`), `composer.lock` (upstream-owned); `custompackages/brozot/laravel-fcm/**` deleted (upstream-owned directory, present since before this fork's IFGF work) |
+| **Work package** | 0A item 3 finding (`DEPENDENCY_INVENTORY.md` "remove" verdicts) |
+| **Disposition** | `retired` — both are dead weight removals, nothing to offer upstream |
+| **Conflict risk** | Low. Pure removals; nothing downstream adds behavior on top of either package. |
+
+**Problem**
+
+`DEPENDENCY_INVENTORY.md` (Session 2) classified two independent pieces of dead weight, owner
+reviewed and approved removing both in the same pass:
+
+1. **`botman/botman` 2.8.11 + `botman/driver-web` 1.5.3.** `grep -rl "BotMan" app/ config/
+   routes/` returns zero matches — nothing in this application ever constructs a BotMan bot. Also a
+   known Laravel 13 blocker (unmaintained since 2021), so removing it now shrinks the WP 0B
+   compatibility surface for free.
+2. **`custompackages/brozot/laravel-fcm`.** `composer.json`'s `repositories` array still declared
+   the path repository and the directory still existed on disk with its own `composer.json`, `src/`,
+   and `tests/` — but `composer show brozot/laravel-fcm` returned "not found": nothing in root
+   `composer.json`'s `require` section ever pulled it in. Superseded by
+   `laravel-notification-channels/fcm` 4.5.0 (already installed, part of the UP-001 fix set).
+
+**Residual-reference check — required by `TODO.md` before removing brozot**
+
+`grep -rli "brozot\|laravelfcm\|botman" .` (excluding the package's own directory and this
+session's docs) found one real hit: **`app/Traits/SendPushNotification.php`** imports
+`LaravelFCM\Message\OptionsBuilder`, `PayloadDataBuilder`, and `PayloadNotificationBuilder`, and
+its `sendNotification()` method actively instantiates `OptionsBuilder` and
+`PayloadNotificationBuilder` (only the actual `FCM::sendTo(...)` send call is commented out).
+
+Traced whether this makes the FCM path reachable, since a live path would require characterizing
+it first, the same rule `TODO.md` set for UP-005:
+
+- `grep -n "LaravelFCM" vendor/composer/autoload_psr4.php` — **no match**. The `LaravelFCM\`
+  namespace was never registered in the generated autoloader, because `brozot/laravel-fcm` was
+  never in `require` — only in `repositories`, which is inert without a matching `require` entry.
+- `php -r "require 'vendor/autoload.php'; var_dump(class_exists('LaravelFCM\Message\OptionsBuilder'));"`
+  — **`bool(false)`**, confirmed **before** any file in this entry was touched.
+- No service provider, config file, or manual `require_once` references the path anywhere in
+  `app/`, `config/`, or `bootstrap/` (grepped both).
+
+**Verdict: not reachable.** `App\Traits\SendPushNotification::sendNotification()` already throws
+`Error: Class "LaravelFCM\Message\OptionsBuilder" not found` the instant it is called, on the
+baseline that existed **before** this entry — independent of whether the orphaned
+`custompackages/brozot/laravel-fcm` directory is present, since it was never wired into the
+autoloader either way. Removing the directory and the inert `repositories` entry is therefore a
+no-op for runtime behavior: nothing that worked before still works, and nothing that was already
+broken becomes more broken. No characterization test required under `TODO.md`'s own conditional
+("if the FCM notification path is reachable") — it is not.
+
+Left `app/Traits/SendPushNotification.php` itself untouched: fixing its dead `LaravelFCM\*` imports
+to route through the already-installed `laravel-notification-channels/fcm` instead is an
+application-behavior change to an upstream-owned file, out of this entry's "remove dead weight"
+scope, and would need its own UPSTREAM.md entry and characterization test. Flagged in `MEMORY.md`
+as a follow-up.
+
+**Alternatives considered**
+
+| Option | Rejected because |
+|---|---|
+| Isolate `botman/*` instead of removing | `EXECUTION_PLAN.md` §1.4's original call, superseded once Session 2's grep found zero call sites — there is nothing to isolate, only to delete. |
+| Leave `custompackages/brozot/laravel-fcm` on disk, only drop the `repositories` entry | Leaves 60+ dead files (`src/`, `tests/`, `doc/`) silently carried in the tree with no reference anywhere; the whole point of the finding was that it's orphaned weight. Removed the directory too. |
+| Fix `App\Traits\SendPushNotification.php`'s dead imports in this same commit, since they're clearly broken | Scope creep past "remove dead weight": rewriting a trait to call `laravel-notification-channels/fcm` is new application behavior on an upstream-owned file, needs its own characterization test and UPSTREAM.md entry, and touches push-notification call sites (`EventsController`, `BirthdayPushEventListener`, and others) this entry never inventoried. Left broken exactly as found; flagged in `MEMORY.md`. |
+| Treat the `SendPushNotification.php` references as "reachable" out of caution, and write a characterization test anyway | Rejected once `class_exists()` proved the call already fatal-errors today, pre-removal — a test asserting "calling this throws a class-not-found Error" would characterize a bug already documented here in prose, not a behavior this removal changes. `TODO.md`'s conditional is about reachability, and reachability was disproven, not assumed. |
+| `composer update` (unscoped) to regenerate the lock after the `composer.json` edits | Prohibited by `TODO.md`/`MEMORY.md` — dissolves the pinned baseline. Used `composer remove botman/botman botman/driver-web` (which updates lock + json together, touching only those two packages and their now-unused dependents) followed by `composer update --lock` (hash-only refresh, no version resolution) for the manual `repositories` edit. |
+
+**Chosen fix**
+
+```
+composer remove botman/botman botman/driver-web
+rm -rf custompackages/brozot
+# composer.json: "repositories": [] (removed the brozot path entry)
+composer update --lock
+```
+
+**Regression tests required before this entry is closed**
+
+- [x] `grep -rn "botman\|brozot" composer.json composer.lock` — no matches
+- [x] `class_exists('BotMan\BotMan\BotMan')` — **false** (was already the only way BotMan could be
+      reached; never wired into any controller/route)
+- [x] `class_exists('LaravelFCM\Message\OptionsBuilder')` — **false**, both before and after this
+      entry (proves the removal changed nothing observable)
+- [x] `composer validate --strict` clean
+- [x] `composer install` resolves cleanly, `package:discover` runs with no missing-provider errors
+- [x] `php artisan about` runs — Laravel 10.50.2, PHP 8.3.33, unchanged
+- [x] `tests/Feature/Admin/MemberImportCharacterizationTest.php` (UP-005) still green — proves this
+      removal didn't disturb the adjacent `Excel::import()` path
+- [x] `composer audit` — still 40/12 (neither `botman/*` nor the never-installed `brozot/laravel-fcm`
+      carried an advisory; this entry is a dead-code removal, not a security fix)
+
+**Notes**
+
+`react/promise`, `react/event-loop`, `react/dns`, `react/cache`, `mpociot/pipeline`, and
+`evenement/evenement` were removed as `botman/botman`'s now-unused transitive dependents —
+confirmed by `composer remove`'s own dependency-tree resolution, not guessed.
+
+---
+
 ## Security findings — deferred, not yet entries
 
 Recorded at first successful `composer audit`, 2026-08-08. **52 advisories across 14 packages.**

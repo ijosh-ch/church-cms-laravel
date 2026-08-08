@@ -13,8 +13,6 @@
     "require": {
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^2.2",
-        "botman/botman": "^2.6",
-        "botman/driver-web": "^1.5",
         "darkaonline/l5-swagger": "^8.6",
         "google/cloud-language": "^0.31",
         "google/cloud-storage": "^1.42",
@@ -74,17 +72,7 @@
             "dont-discover": []
         }
     },
-    "repositories": [
-
-        {
-            "type": "path",
-            "url": "./custompackages/brozot/laravel-fcm"
-        }
-
-
-
-
-    ],
+    "repositories": [],
     "scripts": {
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
