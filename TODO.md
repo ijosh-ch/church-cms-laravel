@@ -22,7 +22,6 @@
 | Session | Item(s) | Action |
 |---|---|---|
 | 4 | 4b | Inventory auth, roles, attendance, membership cards, exports, media, storage, queues, scheduler. |
-| 5 | 15 | Write `.graphifyignore`, rebuild the graph, confirm queries return source not `public/js/app.js`. **Do this early — it lowers the cost of every later session.** |
 | 6 | 9, 10 | Pin upstream SHA, record divergence, create `UPSTREAM.md` compatibility ledger and the ownership map. Formalizes the freeze already recorded in `UPSTREAM.md`'s "Pin decision — 2026-08-09" note. |
 | 7 | 11 | Scaffold `custompackages/ifgf/church-operations` with path loading and auto-discovery. No product behavior. |
 | 8 | 14 | Provider smoke tests from a clean checkout. |
@@ -73,3 +72,8 @@
   was required. `UPSTREAM.md` UP-006. Committed `8c85781`.
 - Upstream sync formally frozen at `d12c110` in `UPSTREAM.md`'s Baseline table; sync only after the
   WP 0A exit gate. Committed `e9596f5`.
+- **Out-of-order, owner-requested:** WP 0A item 15 (`.graphifyignore`) pulled forward from Session
+  5. `graph.json` 15MB → 7.7MB; `public/js/app.js` and other compiled/vendored assets no longer
+  indexed; verified via a live query. See `CONTEXT.md` "Graphify" for detail and the one open,
+  non-blocking `fail-closed` warning. Session 5's remaining scope (rebuild cadence, confirm no
+  regressions once more code lands) is unaffected — this just closes the item early.

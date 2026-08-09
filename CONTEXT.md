@@ -66,9 +66,19 @@ Laravel 10.50.2 / PHP `^8.2` / Vue 2.6 / laravel-mix 4 / webpack 4.
 
 ## Graphify
 
-`graphify-out/` present but **stale and noisy** — it indexes compiled `public/js/app.js`.
-`.graphifyignore` does not exist. Scheduled for WP 0A Session 5. Until then, treat graph query
-results as unreliable and prefer targeted reads. `graphify-out/` stays untracked.
+`.graphifyignore` added and verified (WP 0A item 15, pulled forward from Session 5 at owner
+request — done out of the planned order, Session 3's route/migration inventory has not started).
+`graph.json` 15MB → 7.7MB (6919 nodes, down from an unrecorded higher count); `public/js/app.js`
+and other compiled/vendored assets (`public/css/`, `public/audio/*.min.js`, `public/uploads/`,
+`storage/{api-docs,app,debugbar,framework,logs}/`, `bootstrap/cache/`, `public/installer/`) no
+longer indexed. Verified via `graphify query "member import controller Excel spreadsheet"` — every
+result is real source (`ImportMemberController.php`, `config/excel.php`, `UPSTREAM.md`) or
+first-party glue code kept by explicit negation (`public/js/custom.js`, `public/audio/app.js`).
+Graph queries are now reliable — use them per `CLAUDE.md` search order. One open, non-blocking
+oddity: `graphify update .` reports a stable `fail-closed: kept 3 node(s) from 1 file(s)` warning
+across repeat runs; traced as far as confirming it isn't any `public/` file, not resolved further
+— low priority, `graphify diagnose` or a `--force` rebuild is the next step if anyone picks it up.
+`graphify-out/` stays untracked.
 
 ## Missing project files
 

@@ -1,0 +1,50 @@
+# WP 0A item 15 (build.md L207-224): exclude compiled assets, dependencies,
+# runtime storage, uploads, exports, secrets, and real personal data from the
+# code graph. Patterns follow .gitignore syntax and are merged with it —
+# vendor/, node_modules/, .env are already covered there and not repeated here.
+
+# Compiled/vendored frontend output. webpack.mix.js compiles
+# resources/assets/js/app.js -> public/js/app.js (11MB — the reason
+# graph.json exploded to 15MB, per CONTEXT.md/Session 1) and
+# resources/assets/sass/app.scss -> public/css/*. Everything else under
+# public/js/ is a vendored third-party library checked in directly
+# (jquery, moment, trix, fullcalendar, code_mirror, loadingoverlay,
+# bootstrap-notify). Two small hand-written first-party files sit alongside
+# them (public/js/attachments.js, public/js/custom.js) and are kept.
+/public/js/*
+!/public/js/attachments.js
+!/public/js/custom.js
+/public/css/
+/public/mix-manifest.json
+
+# Same pattern, separate directory: vendored WebAudioRecorder library +
+# encoder .mem blobs for the audio-recording widget, plus one hand-written
+# glue script (public/audio/app.js — unrelated to public/js/app.js, kept).
+/public/audio/*
+!/public/audio/app.js
+
+# Bundled third-party installer — vendored, not application source.
+/public/installer/
+
+# Broken symlink-as-text-file artifact: storage:link checked out as a plain
+# file on a prior contributor's machine (content is a literal absolute path
+# string, not a real symlink). Harmless, not source.
+/public/storage_old
+
+# User-uploaded content and exports. Never code, and per build.md SECURITY
+# AND DATA RULES this storage class must never enter Graphify output,
+# regardless of what's currently sitting in it.
+/public/uploads/
+
+# Laravel runtime storage — logs, framework cache/sessions/views, generated
+# API docs, debugbar captures. Regenerated on every request/deploy, never
+# architecturally meaningful. .gitignore only excludes storage/*.key; the
+# rest of storage/ was never covered.
+/storage/api-docs/
+/storage/app/
+/storage/debugbar/
+/storage/framework/
+/storage/logs/
+
+# Generated Laravel bootstrap cache.
+/bootstrap/cache/
