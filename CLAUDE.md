@@ -13,7 +13,8 @@ for confirmation. Cost of this preamble: ~20k. Anything more is leaking budget.
 
 ## Never read whole
 
-`PRD.md` (32.8k), `build.md` (15.6k), `hosting.md` (5.4k), `graphify-out/graph.json` (15MB),
+`PRD.md` (~33.9k after the 2026-08-09 QR amendments), `build.md` (15.6k), `hosting.md` (5.4k),
+`graphify-out/graph.json` (7.3MB),
 `composer.lock` (490KB), `package-lock.json` (630KB), `yarn.lock`, `mysql-schema.sql`,
 `public/js/app.js`. Use `Read` with `offset`/`limit`, or query the file with a script.
 
@@ -39,8 +40,9 @@ with one `sed`.
 **Verified Laravel 13 generator flags — Session 2, 2026-08-09.** Confirmed against a real
 `composer create-project laravel/laravel "^13.0"` skeleton (Laravel 13.24.0), not documentation.
 This repo is now **Laravel 13.24.0** (WP 0B landed 2026-08-10) — these generators are available on
-`HEAD`. PHP is pinned to 8.4.24 in `composer.json`; note bare `php` may still resolve to 8.3.33
-until the Machine PATH is fixed (`TODO.md` item 1) — use `C:\php\8.4\php.exe` explicitly if so.
+`HEAD`. PHP is pinned to 8.4.24 in `composer.json` and bare `php` **resolves to 8.4.24** —
+`C:\php\8.4` is first on the Machine PATH and `C:\php\8.3` was deleted 2026-08-10. There is no
+longer a PATH-reorder PHP rollback; see `CONTEXT.md`.
 
 - `make:model Foo -a/--all` → migration, seeder, factory, policy, resource controller, form
   request classes. **Does not include a test** — add `--test`/`--pest`/`--phpunit` explicitly.
@@ -62,17 +64,18 @@ until the Machine PATH is fixed (`TODO.md` item 1) — use `C:\php\8.4\php.exe` 
 - Global flags on every command: `-h/--help`, `--silent`, `-q/--quiet`, `-V/--version`,
   `--ansi`/`--no-ansi`, `-n/--no-interaction`, `--env=`, `-v|vv|vvv/--verbose`.
 
-## PHP does not run in the sandbox — RE-VERIFY, this may be stale
+## Whether PHP runs is TOOL-DEPENDENT — settled, do not re-test
 
-This claim was written for whatever tool ran Session 1/1b. **Session 2 (Claude Code, 2026-08-09)
-ran `php`, `composer`, and `curl` to `packagist.org`/`repo.packagist.org` directly and successfully**
-— no host relay, no network block, no round-trip needed. If a future session is also Claude Code
-running directly on the Windows host, treat every round-trip-cost figure in `EXECUTION_PLAN.md`
-§3.4 (Rule T2, "2 verification round-trips per session") as **obsolete for this tool** — test that
-assumption once at session start rather than trusting this section. Still always pipe output
-(`2>&1 | tail -60` / `Select-Object -Last 60`) — full unfiltered logs are large regardless of
-round-trip cost. If a *different* tool (e.g. Codex CLI in a network-sandboxed container) resumes
-this project, the original constraint below may still hold for it.
+Not stale — **tool-dependent**, and both halves are true. Identify your tool once, apply the row,
+do not re-verify.
+
+| Tool | php / composer / artisan | Consequence |
+|---|---|---|
+| **Claude Code**, Windows host | **Runs directly.** Verified Sessions 2 and 4 — three Laravel majors and a MySQL 8.4 upgrade. Packagist reachable. | `EXECUTION_PLAN.md` §3.4 Rule T2 ("2 round-trips per session") is **obsolete here** — verify inline. |
+| **Cowork** | **Does not run.** Linux sandbox, no PHP, no Composer, no root; packagist off-allowlist. Re-verified 2026-08-10. But `Read`/`Write`/`Edit`/`Glob`/`Grep` reach all selected Windows folders, and `git` reads work. | Read, analyse, design and write freely; **hand every** php/artisan/test command to the owner. **Batch them** — §3.4's budget binds. |
+| **Codex CLI** | Unsettled. `AGENTS.md` claims Session 2 ran php directly; `CLAUDE.md` claimed the same session for Claude Code. One attribution is wrong. | On the host, use row 1; in a container, row 2. Confirm once, then fix this row. |
+
+Always pipe output (`2>&1 | tail -60` / `Select-Object -Last 60`) regardless of tool.
 
 ## Search order
 
@@ -81,8 +84,9 @@ this project, the original constraint below may still hold for it.
 2. Targeted `Grep` with a `glob` filter.
 3. Never a blind sweep — 668 PHP files and 317 Blade templates cost 20k+ tokens per answer.
 
-Graph results are unreliable until `.graphifyignore` lands (WP 0A Session 5): the graph currently
-indexes compiled `public/js/app.js`.
+`.graphifyignore` landed 2026-08-09 and the graph was rebuilt: **15 MB → 7.3 MB**, compiled
+`public/js/app.js` no longer indexed. Graph results now return source. Re-run the build after any
+large refactor.
 
 ## Hard prohibitions
 
@@ -95,7 +99,7 @@ indexes compiled `public/js/app.js`.
 - Never edit an upstream-owned file without an approved `UPSTREAM.md` entry and a
   characterization test.
 - Never run `migrate:fresh` / `db:wipe` without first printing and asserting the environment,
-  driver, host, and database name. (`build.md` L515)
+  driver, host, and database name. (`build.md` L517)
 - Never start a second work package in one session, or begin an exit gate that will not fit.
 
 ## Ownership
@@ -107,5 +111,5 @@ New IFGF behavior goes in `custompackages/ifgf/church-operations`. New physical 
 ## End of session — at 120k used, stop and hand off
 
 Append to `MEMORY.md` (what was learned and what failed) → rewrite `TODO.md` so item 1 is the
-literal next action → update `CONTEXT.md` → emit the report fields from `build.md` L583–597.
+literal next action → update `CONTEXT.md` → emit the report fields from `build.md` L585–599.
 A session that runs to 100% without this costs the next session ~30k in rediscovery.

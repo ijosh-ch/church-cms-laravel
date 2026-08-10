@@ -6,6 +6,61 @@
 > table, cross-checked against real usage in `app/`, `routes/`, and `resources/`. Not read at
 > session start — `CONTEXT.md`/`TODO.md` link here; this file itself has no token cap.
 
+---
+
+## ⚠ Post-WP-0B status — 2026-08-10
+
+**Everything below the "Method" heading is a Laravel 10-era snapshot taken on 2026-08-09.** The
+platform upgrade (`UPSTREAM.md` UP-007) changed the dependency set underneath it. Treat the
+194-row table as the *reasoning record* — the call-site analysis in its Reason column is still
+valid and expensive to reproduce — but **not as a current version list.**
+
+**Verified from `composer.lock` today: 188 packages (152 production, 36 dev)**, down from 194.
+
+| Package | Table says | Actually installed 2026-08-10 |
+|---|---|---|
+| `laravel/framework` | 10.50.2 | **13.24.0** |
+| `laravel/sanctum` | 3.3.3 | **4.3.3** |
+| `laravel/tinker` | 2.x | **3.0.2** |
+| `laravel/ui` | 4.x | **4.6.3** |
+| `laravel/dusk` | 7.x | **8.6.0** |
+| `santigarcor/laratrust` | 7.2.1 | **8.5.5** |
+| `spatie/laravel-medialibrary` | 10.15.0 | **11.23.5** |
+| `spatie/laravel-activitylog` | 4.x | **4.12.3** |
+| `nunomaduro/collision` | 6.4.0 | **8.9.5** |
+| `phpunit/phpunit` | 10.5.x | **11.5.56** |
+| `barryvdh/laravel-dompdf` | 2.2.0 | **3.1.2** |
+| `laravel-notification-channels/fcm` | 4.5.0 | **6.1.0** |
+| `nckg/laravel-impersonate` | 3.x | **4.0.1** |
+| `symfony/yaml` | 7.4.11 (UP-004) | **7.4.15** |
+| `laravel/legacy-factories` | 1.4.2, "remove" | **removed** ✅ |
+| `botman/botman`, `botman/driver-web` | "remove" | **removed** ✅ (UP-006) |
+| `laracasts/presenter` | *not classified — this table missed it* | **removed**, reimplemented at `app/Support/Presenter/` (UP-007) |
+| `doctrine/annotations` | 2.0.2, "remove" | **still present at 2.0.2, still abandoned** ❌ |
+| `phpoffice/phpspreadsheet` | 1.30.x, "prioritize now" | **1.30.6** — still 1.x. The 9 advisories including the RCE/SSRF pair on the admin import path are **not cleared**; UP-005 characterized it but the major upgrade to 2.x/3.x was never done |
+| `bacon/bacon-qr-code` | 2.0.8, "keep" | 2.0.8 — but note it needs `imagick`, which is **not installed**, so `/` 500s |
+
+**Two things this table got wrong, worth keeping:**
+
+1. **It missed the only real Laravel 13 blocker.** `laracasts/presenter` 0.2.8 has no advisory and
+   is its own newest release, so a scan keyed on "outdated or advisory-bearing" classified it
+   `keep`. It was the one package that made Laravel 13 impossible. A package can be current and
+   still be a dead end — check the *upper* bound of each direct dependency's framework constraint,
+   not just whether a newer version exists.
+2. **`doctrine/annotations` and `phpoffice/phpspreadsheet` are still open.** Both were flagged for
+   action; neither was actioned. The phpspreadsheet one matters most — it is the highest-severity
+   finding in this document and it sits on a live admin file-upload path.
+
+**Regenerating the advisory triage** needs a fresh `composer audit` on the Windows host; the counts
+below (49 advisories / 13 packages) predate every version bump above and are **not** to be quoted.
+
+```
+php C:\composer\composer.phar audit --format=plain 2>&1 | Select-Object -Last 80
+composer show --direct --outdated 2>&1 | Select-Object -Last 60
+```
+
+---
+
 ## Method
 
 Severity label alone does not set priority here — the same method `UPSTREAM.md` UP-004 used for

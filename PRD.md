@@ -12,9 +12,9 @@
 
 **Production release branch:** protected `deploy`, promoted from an exact approved `ifgf/main` commit
 
-**Source baseline:** ChurchCMS upstream commit `d12c110967fadbaa97fb2a108b71dd820a42e7ad` from 2026-08-07, Laravel 10, PHP 8.2+, MySQL, MIT license
+**Source baseline:** ChurchCMS upstream commit `d12c110967fadbaa97fb2a108b71dd820a42e7ad` from 2026-08-07 (Laravel 10, PHP 8.2+, MySQL, MIT license). **Upgraded baseline as of 2026-08-10: Laravel 13.24.0, PHP 8.4.24, MySQL 8.4.11 LTS**, carried as an IFGF-neutral downstream patch series on `contrib/laravel-supported-platform`. The upstream SHA above is unchanged and remains the pinned characterization baseline.
 
-**Production baseline gate:** Laravel 10 is no longer security-supported. Phase 0 must upgrade the source to the newest stable Laravel major and a supported PHP pair before feature delivery. As of this PRD date, the target is Laravel 13 with PHP 8.3 through 8.5, subject to the compatibility spike in Phase 0. MySQL 8.0 reached end of life in April 2026; production targets MySQL 8.4 LTS.
+**Production baseline gate:** **Satisfied 2026-08-10.** Laravel 10 is no longer security-supported, and Phase 0 accordingly upgraded the source to Laravel 13.24.0 on PHP 8.4.24 with MySQL 8.4 LTS before feature delivery (Work Package 0B). The gate's remaining condition — characterization coverage proving the upgrade preserved behaviour — is **not yet met** and is tracked as WP 0A item 6 / gate 5.
 **Scope of this branch:** Documentation only. No application implementation is authorized by this PRD task.
 
 ---
@@ -166,7 +166,7 @@ Graphify source anchors include `app/models/church.py:L8-L204`, `app/models/user
 
 | Existing capability | Verified source | Decision |
 |---|---|---|
-| Laravel 10 and PHP 8.2 source baseline | `composer.json` | Upgrade in Phase 0 before production reuse |
+| ~~Laravel 10 and PHP 8.2~~ → **Laravel 13.24.0 and PHP 8.4.24** source baseline | `composer.json` | **Upgraded 2026-08-10 (WP 0B).** Characterization coverage still outstanding |
 | Member identity and extended profiles | users and userprofiles migrations | Extend without replacing authentication |
 | Roles and permissions | roles, permissions, pivots, RoleSeeder, and permission middleware | Reuse Laratrust; replace legacy presets with member, leader, and admin |
 | Legacy user groups | `user_group`, `users.usergroup_id`, group-based middleware, Gate bypasses, login and query branches | Map and retire through Phase 0 authorization cutover; never run as a parallel bypass |
@@ -1596,7 +1596,9 @@ Before production writes begin, rollback may restore the pre-import database and
 
 ### Phase 0: Foundations and migration tooling
 
-First pin and reconcile the reviewed upstream commit, create the `ifgf/main` integration branch, establish the internal package seam, produce `UPSTREAM.md`, and make a clean upstream merge rehearsal part of CI. Then run a compatibility spike and upgrade the Laravel 10 source through the reviewed intermediate steps to the newest stable Laravel major. The target as of this PRD date is Laravel 13 with `laravel/framework:^13.0` and a compatible PHP 8.3 through 8.5 runtime. Upgrade the database test and production baseline to MySQL 8.4 LTS. Keep the platform-upgrade series IFGF-neutral and suitable for upstream contribution. Inventory package compatibility, replace abandoned dependencies, decide the Vue 2 and Laravel Mix modernization path, regenerate lockfiles, and regression-test authentication, roles, QR attendance, events, queues, exports, storage, migrations, and critical browser flows.
+First pin and reconcile the reviewed upstream commit, create the `ifgf/main` integration branch, establish the internal package seam, produce `UPSTREAM.md`, and make a clean upstream merge rehearsal part of CI. Then run a compatibility spike and upgrade the Laravel 10 source through the reviewed intermediate steps to the newest stable Laravel major.
+
+**Status as of 2026-08-10.** The upstream pin (`d12c110`), `UPSTREAM.md`, `ifgf/main`, CI and the platform upgrade are **done**: the source is on `laravel/framework:^13.0` (13.24.0) with PHP 8.4.24 and MySQL 8.4.11 LTS, the series is IFGF-neutral on `contrib/laravel-supported-platform`, package compatibility is inventoried and abandoned dependencies removed, and lockfiles are regenerated. **Still open:** the package seam (`custompackages/ifgf/church-operations` is not scaffolded), the merge rehearsal (never run), the Vue 2 / Laravel Mix modernization decision (deferred by approval), and the regression coverage for authentication, roles, QR attendance, events, queues, exports, storage, migrations and critical browser flows — which is the gating item, not a formality.
 
 Then deliver the branch model, member extensions, event types, occurrence lifecycle, permissions, import provenance, dry-run import commands, and the approved privacy data-flow inventory.
 
@@ -1719,7 +1721,7 @@ Minimum automated coverage includes unit tests for domain services, feature test
 10. The only top-level roles are member, leader, and admin. Leader attendance is assignment-scoped; the leader and admin roles can view the shared read-only birthday page; only admin manages Calendar synchronization.
 11. The fork's `main` mirrors `upstream/main`; IFGF integration work lives on `ifgf/main`; work-package branches start from `ifgf/main`; public contribution branches start cleanly from `upstream/main`; and production receives only tagged, approved commits through protected branch `deploy`.
 12. New IFGF behavior lives in the auto-discovered `custompackages/ifgf/church-operations` package. Package-owned physical tables use the `ifgf_` prefix and sidecars rather than adding business fields to central upstream tables.
-13. Production security takes precedence if upstream remains on Laravel 10. The supported-platform upgrade is maintained as an IFGF-neutral downstream patch and proposed upstream when practical.
+13. Production security takes precedence if upstream remains on Laravel 10. **Actioned 2026-08-10:** upstream is still on Laravel 10 at the pinned SHA `d12c110`, so this fork upgraded ahead of it. The supported-platform series is recorded as an IFGF-neutral maintained downstream patch in `UPSTREAM.md` **UP-007**, and will be proposed upstream when practical. Note that `laracasts/presenter` — an upstream-owned dependency — was replaced in-house to unblock Laravel 13; that is the largest single item in the patch series and the one most likely to conflict on a future sync.
 14. Live recognition runs in a separate Python edge project; Laravel is the control plane and sole attendance writer.
 15. Private S3-compatible object storage is the production default for member profile and attendance media. MySQL stores metadata and encrypted biometric templates, not image bytes.
 16. Profile-display, biometric-enrollment, live-recognition, and group-photo-matching consents are distinct and independently revocable.

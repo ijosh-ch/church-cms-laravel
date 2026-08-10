@@ -17,8 +17,9 @@
 | Reviewed `upstream/main` SHA | `d12c110967fadbaa97fb2a108b71dd820a42e7ad` |
 | Upstream commit date | 2026-08-07 — "Added privacy policy page" |
 | Fork HEAD at time of writing | `d8cfe08b617351ed18945ab4b1c56a396d6d8a46` |
-| Divergence | 1 ahead, 8 behind |
-| Last merge rehearsal | never run |
+| Fork HEAD 2026-08-10 | `87742dc` on `contrib/laravel-supported-platform` — 17 commits ahead of `f2ad3bb`, **local only, nothing pushed** |
+| Divergence | 1 ahead, 8 behind (at pin time); the supported-platform series has since widened it — see UP-007 |
+| Last merge rehearsal | **never run** — required by `build.md` WP 0A exit gate and WP 0B item 12 |
 | **Pin status** | **Frozen, owner-approved 2026-08-09.** Do not merge the 8 outstanding `upstream/main` commits until the WP 0A exit gate passes. |
 
 ### Pin decision — 2026-08-09 (Session 2b, `TODO.md` Now item 3)
@@ -524,6 +525,100 @@ composer update --lock
 `react/promise`, `react/event-loop`, `react/dns`, `react/cache`, `mpociot/pipeline`, and
 `evenement/evenement` were removed as `botman/botman`'s now-unused transitive dependents —
 confirmed by `composer remove`'s own dependency-tree resolution, not guessed.
+
+---
+
+### UP-007 — The supported-platform series: Laravel 10 → 13, PHP 8.4, and the in-house replacement of `laracasts/presenter`
+
+| Field | Value |
+|---|---|
+| **Status** | **applied 2026-08-10; NOT yet verified by characterization tests** |
+| **Files** | `composer.json`, `composer.lock`, `app/Models/User.php`, `app/Models/Role.php`, `app/Models/Permission.php`, `app/Models/Userprofile.php`, `app/Models/FeedbackMessage.php`, `app/Http/Middleware/AdminOrPermission.php`, `app/Presenters/UserprofilePresenter.php`, `public/css/app.css`, `public/js/app.js`, `public/mix-manifest.json` — all upstream-owned. Plus four **new** IFGF-neutral files under `app/Support/Presenter/`, and `.github/workflows/ci.yml` (new). |
+| **Commits** | `086f33d` (legacy-factories), `9a39cde` (L10→11), `32e65f9` (L11→12), `30db6c9` (L12→13 + presenter), `06b9766` (platform pin + CI), `831cf2d`, `87742dc` |
+| **Work package** | 0B items 1–5, 7, 9, 10, 13, 14 |
+| **Disposition** | `contribute` for the framework-compatibility commits — they are IFGF-neutral and were deliberately kept replayable. `carry` for the presenter replacement until upstream removes `laracasts/presenter` itself. |
+| **Conflict risk** | **High.** Six upstream-owned model/middleware files on the authorization surface, plus `composer.json`/`composer.lock`, which upstream also edits. `public/js/app.js` and `public/css/app.css` are committed build artifacts and will conflict on any upstream frontend change. |
+
+**Problem**
+
+Upstream remains on Laravel 10 at the pinned baseline `d12c110`. Laravel 10 left security support in
+February 2025 (PRD §13.1.18), so `build.md` TECHNICAL BASELINE 1 and PRD §13.1.13 both require this
+fork to upgrade ahead of upstream and carry the delta downstream. This entry is that delta.
+
+**`laracasts/presenter` was the sole hard blocker**
+
+Not laratrust — an earlier reading that laratrust also blocked 13 was wrong; the solver was listing
+older 8.x versions, and installed **8.5.5 declares `^13.0`** (8.5.4 is the first that does). Always
+check the *installed* version's own `composer.json` before believing a solver summary.
+
+`laracasts/presenter` 0.2.8 is its newest release and constrains `illuminate/support` to `^12.0`.
+There is no 13-compatible release and no upstream activity. Upstream requires it; the fork cannot
+reach Laravel 13 while it is in `composer.json`. It was therefore **removed from `composer.json`
+and reimplemented in-house** at `app/Support/Presenter/` — four files, ~60 lines,
+behaviour-identical: `Presenter`, `PresentableInterface`, `PresentableTrait`, `PresenterException`.
+The one upstream consumer, `app/Presenters/UserprofilePresenter.php`, was repointed at the new
+namespace; `app/Models/Userprofile.php`'s `$presenter` property is unchanged in value.
+
+This is an **upstream-owned change**: the dependency is declared in upstream's `composer.json` and
+the consuming presenter and model are upstream files. It is the single most likely item in this
+series to conflict on a future sync, because any upstream commit touching `composer.json` will
+collide with its removal.
+
+**Laratrust 8 renamed its entire public API**
+
+`LaratrustUserTrait` → `HasRolesAndPermissions`; `Models\LaratrustRole` → `Models\Role`;
+`Models\LaratrustPermission` → `Models\Permission`; `Middleware\LaratrustPermission` →
+`Middleware\Permission`. Four call sites, **all on the authorization surface**
+(`User`, `Role`, `Permission`, `AdminOrPermission`). Each was aliased on import so the local class
+names are unchanged — deliberately, to keep the diff minimal and the replay cheap.
+
+**Version deltas recorded**
+
+| Package | Was | Now |
+|---|---|---|
+| `laravel/framework` | 10.50.2 | **13.24.0** |
+| PHP (`config.platform`) | 8.3.33 | **8.4.24** (`require` is `^8.3`) |
+| `laravel/sanctum` | 3.3.3 | 4.3.3 |
+| `santigarcor/laratrust` | 7.2.1 | 8.5.5 |
+| `spatie/laravel-medialibrary` | 10.15.0 | 11.23.5 |
+| `nunomaduro/collision` | 6.4.0 | 8.9.5 |
+| `phpunit/phpunit` | 10.5.x | 11.5.56 |
+| `laravel/tinker` | 2.x | 3.0.2 |
+| `laravel/dusk` | 7.x | 8.6.0 |
+| `laravel/legacy-factories` | 1.4.2 | **removed** (Laravel 11 hard blocker) |
+| `botman/*` | 2.8.11 / 1.5.3 | **removed** (UP-006) |
+| `laracasts/presenter` | 0.2.8 | **removed → `app/Support/Presenter/`** |
+| MySQL | 8.4.9 | 8.4.11 LTS |
+
+**Alternatives considered**
+
+| Option | Rejected because |
+|---|---|
+| Fork `laracasts/presenter` as a path repository and patch its constraint | Adds a second orphaned path repo of exactly the kind UP-006 had just deleted, and the package is ~60 lines. Vendoring it in-house under `app/Support/` is smaller, greppable, and carries no lockfile entry to conflict on. |
+| Retire the presenter pattern into Eloquent accessors instead | Larger behavioural change on upstream-owned models with no characterization tests to prove equivalence — exactly the risk this series should not take. **Still open as an owner decision** (`TODO.md`). |
+| Stop at Laravel 12, where `laracasts/presenter` still resolves | Defers rather than solves; 12 is not the newest stable major and `build.md` TECHNICAL BASELINE 2 requires the newest. |
+| Group the three major upgrades into one commit | `build.md` WP 0B item 2 permits grouping only while solver and regression evidence stay attributable per transition. They were kept separate precisely so a bad major can be bisected. |
+| Wait for upstream to upgrade first | Upstream has not moved off Laravel 10; PRD §13.1.13 makes production security take precedence. |
+
+**Regression tests required before this entry is closed**
+
+- [x] `composer install` resolves cleanly at 13.24.0 / PHP 8.4.24; `package:discover` clean
+- [x] `php artisan about` reports Laravel 13.24.0, PHP 8.4.24
+- [x] `php artisan test` green — but **1 test only** (`MemberImportCharacterizationTest`)
+- [x] `/login` and `/register` return HTTP 200 with rendered pages against the seeded test DB
+- [x] `npm run production` builds (exit 0)
+- [ ] **Characterization coverage for auth, roles and direct permissions, member profile, member QR / membership card, attendance session open/scan/lock/unlock, group access and exports.** WP 0A item 6 / gate 5. **This entry cannot be closed without it** — three majors were crossed on the authorization surface with no regression detection.
+- [ ] **Merge rehearsal against `upstream/main`** — never run. `build.md` WP 0B item 12 requires proving this series reapplies to the latest upstream baseline; the presenter removal is the likeliest failure point.
+- [ ] Fresh-database migrate + seed from a clean checkout (WP 0A item 14)
+
+**Notes**
+
+`/` returns HTTP 500 because the `imagick` extension is missing (`BaconQrCode`). **Pre-existing and
+not part of this series** — imagick was absent from both the 8.3 and 8.4 installs and from the
+project's 27-extension list, so `/` failed identically before the upgrade. `gd` is present.
+Separately, `app/Models/FeedbackMessage.php` points `$presenter` at a non-existent
+`App\Presenters\UserPresenter`; that model's `present()` has always thrown. Both are in `TODO.md`,
+neither is a regression from this entry.
 
 ---
 

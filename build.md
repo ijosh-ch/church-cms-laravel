@@ -113,7 +113,7 @@ If a source is unavailable on the execution machine, do not invent its behavior.
 
 TECHNICAL BASELINE
 
-1. The current application is a Laravel 10 and PHP 8.2 source baseline. Laravel 10 is not an acceptable production target.
+1. The application baseline is **Laravel 13.24.0 on PHP 8.4.24, as of 2026-08-10** (Work Package 0B, branch `contrib/laravel-supported-platform`). It was a Laravel 10 / PHP 8.2 source baseline when this document was written; that upgrade is done, not pending. Laravel 10 remains an unacceptable production target and this repository is no longer on it.
 2. Use the newest stable Laravel major available when Work Package 0B begins. As of 2026-08-08, this is Laravel 13 with `laravel/framework:^13.0`; it supports PHP 8.3 through 8.5 and receives security fixes through 2028-03-17. Verify the official Laravel release table again at execution time and record the exact framework, PHP, Composer, PHPUnit or Pest, and Node pins. A newer major than the approved PRD target requires a short compatibility delta and owner confirmation, not a silent version change.
 3. Production database is MySQL 8.4 LTS with InnoDB, utf8mb4, UTC storage, foreign keys, and named constraints. MySQL 8.0 reached end of life in April 2026 and is migration-source compatibility only, not the production target.
 4. The existing frontend uses Vue 2 and Laravel Mix 4. Characterize the existing UI first. Then either preserve it through a supported production toolchain or modernize the root build as a separate IFGF-neutral compatibility package, preferably to Vite, without combining a visual redesign with the framework upgrade. New IFGF screens and assets remain package-owned. The decision, dependency audit, browser regression, and upstream contribution disposition are Phase 0 gates.
@@ -227,6 +227,8 @@ Exit gate:
 The current source installs reproducibly or has a documented blocker, critical existing behavior has characterization coverage, the package seam loads without changing product behavior, UPSTREAM.md and the ownership map are reviewed, CI runs from a clean checkout, the upstream merge rehearsal passes, and the upgrade compatibility matrix is reviewed.
 
 WORK PACKAGE 0B: SUPPORTED PLATFORM UPGRADE
+
+STATUS: SUBSTANTIALLY COMPLETE — 2026-08-10. Retained below as the historical specification and as the checklist the exit gate is measured against. Laravel 10.50.2 → 13.24.0 in three attributable commits, PHP pinned 8.4.24, MySQL 8.4.11 LTS, `laravel/legacy-factories` and `botman/*` removed, `laracasts/presenter` replaced in-house at `app/Support/Presenter/`, CI added. Item 6 (characterization tests) and item 8 (the Vite decision) are NOT done — item 6 was skipped by explicit owner directive mid-session and is now the highest-priority open debt; item 8 is a separately approved deferral. Items 11 and 12 (upstream contribution and the patch-series record) are partially done: see `UPSTREAM.md` UP-007. Do not re-plan this work package; close its two open items.
 
 Goal:
 Move the application to the newest stable Laravel major and a supported PHP pair before adding product features. The current approved target is Laravel 13.
@@ -606,9 +608,14 @@ Start a fresh engineering task on the approved documentation commit and provide 
 Execute Work Package 0A only. Do not upgrade dependencies or implement product features yet. Establish the reproducible baseline, Graphify-assisted source inventory, characterization tests, CI safety net, and compatibility matrix. Show the Phase 0B plan and proposed commit message for review when the Work Package 0A exit gate passes.
 ```
 
-## Recommended Laravel 13 upgrade instruction
+## Recommended Laravel 13 upgrade instruction — SPENT, SUPERSEDED 2026-08-10
 
-Use this only after Work Package 0A passes and the owner approves Work Package 0B:
+**Do not issue this prompt.** It was executed in Session 4; the application is on Laravel 13.24.0
+and PHP 8.4.24. Retained verbatim as the record of what was authorized. The unfinished parts of
+WP 0B — characterization tests (item 6) and the Vite decision (item 8) — are tracked in `TODO.md`,
+not restarted from here.
+
+Original text, for the record:
 
 ```text
 Execute Work Package 0B only. Recheck Laravel's official support table and confirm that Laravel 13 remains the newest stable major. Upgrade the ChurchCMS Laravel 10 baseline through attributable Laravel 11, 12, and 13 compatibility steps to `laravel/framework:^13.0`, selecting the newest fully compatible supported PHP release. Upgrade the test and production database target to MySQL 8.4 LTS. Preserve characterized behavior, keep the platform series IFGF-neutral, isolate IFGF product features, audit every Composer and frontend dependency, decide the Vue 2 and Laravel Mix modernization path, run the full regression and upstream merge-rehearsal gates, and stop for review without deploying or pushing `deploy`.

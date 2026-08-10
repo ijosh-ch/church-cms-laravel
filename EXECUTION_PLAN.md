@@ -14,23 +14,37 @@ resumed by the next session at an exact, verifiable checkpoint.
 
 ## Part 1 — Requirements audit
 
-### 1.1 Verdict
+### 1.1 Verdict — SUPERSEDED 2026-08-10
 
-**Nothing is installed.** This is a source checkout only.
+The original 2026-08-08 verdict was **"nothing is installed."** That is no longer true; the
+toolchain landed in Sessions 1b–4. Current state:
 
-| Requirement | Declared | Found | Status |
+| Requirement | Declared | Found 2026-08-10 | Status |
 |---|---|---|---|
-| PHP | `^8.2` (composer.json), `^8.2` (lock platform) | none | **MISSING** |
-| Composer | 2.x | none | **MISSING** |
-| MySQL | 8.4 LTS (hosting.md) | none | **MISSING** |
-| Node | unpinned — no `engines`, no `.nvmrc` | v22.22.3 | **WRONG LINE** |
-| npm | — | 10.9.8 | present |
-| `vendor/` | 148 prod + 35 dev packages | absent | **MISSING** |
-| `node_modules/` | 13 dev + 39 prod packages | absent | **MISSING** |
-| `.env` | from `.env.example` | absent | **MISSING** |
-| `tests/` | characterization suite (WP 0A item 6) | **0 files** | **MISSING** |
+| PHP | `^8.3` (composer.json), `8.4.24` (`config.platform`) | 8.4.24, first on Machine PATH | **OK** |
+| Composer | 2.x | 2.10.2 | **OK** |
+| MySQL | 8.4 LTS (hosting.md) | 8.4.11 LTS | **OK** |
+| Node | unpinned — no `engines`, no `.nvmrc` | v22.15.0 | **WRONG LINE** — laravel-mix 4 wants 16.20.2; unresolved, and moot if Vite lands |
+| npm | — | present | OK |
+| `vendor/` | 152 prod + 36 dev packages | installed | **OK** |
+| `node_modules/` | 1,286 packages | installed; `npm run production` exits 0 | **OK**, 166 advisories |
+| `.env` / `.env.testing` | from `.env.example` | both present, `.env.testing` gitignored | **OK** |
+| `tests/` | characterization suite (WP 0A item 6) | **4 files, 1 real test** | **STILL MISSING — the one open blocker** |
 
-### 1.2 Why the assistant cannot install this itself
+Everything in this table except the last two rows is closed. **Do not re-plan installation work.**
+
+### 1.1a Original verdict, 2026-08-08 — historical
+
+"**Nothing is installed.** This is a source checkout only." PHP, Composer, MySQL, `vendor/`,
+`node_modules/`, `.env` and `tests/` were all absent. Retained so the Session 1 estimates below
+remain interpretable.
+
+### 1.2 Why the assistant cannot install this itself — TOOL-DEPENDENT, see `CLAUDE.md`
+
+**This section is true for Cowork and false for Claude Code.** `CLAUDE.md` § "Whether PHP runs is
+TOOL-DEPENDENT" carries the settled matrix; Sessions 2 and 4 ran `php`, `composer`, `artisan` and
+the full upgrade directly on the Windows host. The table below describes the **Cowork / sandboxed**
+case only, which remains accurate as re-verified 2026-08-10.
 
 The assistant's sandbox is Linux with no root and a network allowlist. Verified:
 
@@ -57,21 +71,22 @@ Run `tools\setup-windows.ps1` from an elevated PowerShell, then paste the versio
 | MySQL | **8.4 LTS** | 8.0 reached EOL April 2026; it is migration-source only. |
 | Node for the legacy build | **16.20.2** via nvm-windows | laravel-mix 4 / webpack 4 will not build on Node 22. Pin in `.nvmrc` once proven. |
 
-### 1.4 Blockers already visible in `composer.lock` (feed Work Package 0B)
+### 1.4 Blockers visible in `composer.lock` — RESOLVED 2026-08-10 except the frontend
 
-Recorded now so WP 0B does not rediscover them at token cost.
+Every prediction below was actioned in WP 0B. Outcomes recorded so nothing is re-litigated.
 
-| Package | Locked | Laravel 13 risk |
+| Package | Predicted | Outcome 2026-08-10 |
 |---|---|---|
-| `laravel/legacy-factories` | v1.4.2 | **Hard blocker.** Laravel 10 max. Must be removed and factories rewritten. |
-| `botman/botman` + `botman/driver-web` | v2.8.11 / v1.5.3 | **High.** Effectively unmaintained for Laravel 11+. Removal or isolation candidate. |
-| `spatie/laravel-medialibrary` | v10.15.0 | **High.** Needs v11/v12. Also not authoritative for IFGF media per `build.md` invariant 35. |
-| `laravel/sanctum` | v3.3.3 | Needs `^4`. |
-| `nunomaduro/collision` | v6.4.0 | Needs `^8`. |
-| `santigarcor/laratrust` | v7.2.1 | Needs v8+. Physical model for roles — invariant 9. Cannot be dropped. |
-| `custompackages/brozot/laravel-fcm` | 1.0.0 (path repo) | Local fork. `build.md` WP 0B item 4 requires an explicit audit. |
-| `doctrine/annotations` | 2.0.2 | Marked **abandoned** upstream. |
-| Frontend: Vue 2.6 / laravel-mix 4 / webpack 4 | — | Vue 2 is EOL. Drives the Vite decision, WP 0B item 8. |
+| `laravel/legacy-factories` | **Hard blocker.** Laravel 10 max. | **Removed** in `086f33d`, before the framework was touched. Correct call. |
+| `botman/botman` + `botman/driver-web` | **High.** Isolation candidate. | **Removed** — UP-006 found zero call sites; there was nothing to isolate. |
+| `spatie/laravel-medialibrary` | **High.** Needs v11/v12. | **11.23.5.** |
+| `laravel/sanctum` | Needs `^4`. | **4.3.3.** |
+| `nunomaduro/collision` | Needs `^8`. | **8.9.5** — and it forced PHPUnit 10 → **11.5.56**, which this table did not predict. |
+| `santigarcor/laratrust` | Needs v8+. Cannot be dropped. | **8.5.5.** Its entire public API was renamed; four authorization call sites aliased on import. See UP-007. |
+| `custompackages/brozot/laravel-fcm` | Local fork, needs audit. | **Removed** — orphaned path repo, never in `require`, never autoloaded (UP-006). |
+| `doctrine/annotations` | Abandoned upstream. | **Still present at 2.0.2**, still abandoned, still transitive. Not yet traced to its parent. Open. |
+| **`laracasts/presenter`** | **NOT PREDICTED** | **The actual sole hard blocker for Laravel 13.** 0.2.8 stops at `illuminate/support ^12.0`. Replaced in-house (UP-007). The lesson: constraint-scanning `composer.lock` missed it because 0.2.8 is the *newest* release — a package can be current and still be a dead end. |
+| Frontend: Vue 2.6 / laravel-mix 4 / webpack 4 | Vue 2 EOL; drives the Vite decision. | **Unresolved and deferred by approval.** Build still exits 0; 166 npm advisories stand. WP 0B item 8. |
 
 ### 1.5 Required PHP extensions
 
@@ -119,13 +134,13 @@ starting it and hands off. `build.md` is explicit: do not mark a gate complete b
 | Scope | Steps | Source |
 |---|---|---|
 | WP 0A | 15 | `build.md` L207–224 |
-| WP 0B | 14 | L234–249 |
-| WP 0C | 19 | L260–280 |
-| WP 0D | 5 | L292–297 |
+| WP 0B | 14 | L236–251 |
+| WP 0C | 19 | L262–282 |
+| WP 0D | 5 | L294–299 |
 | **Phase 0 subtotal** | **53** | |
 | Phase 1 (22 subpackages × 16-step slice loop, L183–200) | 352 | |
-| Phase 2 (2A 6, 2B 3, 2C 4, other 3) | 16 | L446–482 |
-| Phase 3 | 5 | L490–494 |
+| Phase 2 (2A 6, 2B 3, 2C 4, other 3) | 16 | L448–484 |
+| Phase 3 | 5 | L492–496 |
 | **Total** | **426** | |
 
 Every Phase 1+ subpackage runs the same 16-step loop: map to PRD → fetch upstream SHA → query
@@ -182,14 +197,19 @@ feels. It then, in this order:
 1. Writes the `MEMORY.md` entry for what was completed.
 2. Rewrites `TODO.md` so the top item is the exact next action.
 3. Updates `CONTEXT.md` (branch, SHA, work package, session number).
-4. Emits the end-of-work-package report fields from `build.md` L585–597.
+4. Emits the end-of-work-package report fields from `build.md` L585–599.
 
 A session that runs to 100% without doing this is a lost session — the next one re-derives state
 at ~30k tokens of waste.
 
-### 3.4 Windows round-trip cost
+### 3.4 Windows round-trip cost — applies to Cowork only
 
-Because the assistant cannot run PHP, each verification cycle costs tokens:
+**Tool-dependent.** In **Claude Code on the Windows host** PHP runs inline and Rule T2's
+"2 round-trips per session" budget does not apply — verify freely, still piping output. In
+**Cowork** every figure below is live and binding. See `CLAUDE.md` § "Whether PHP runs is
+TOOL-DEPENDENT". Do not re-test this at session start.
+
+Where the assistant cannot run PHP, each verification cycle costs tokens:
 
 | Round-trip | Typical cost |
 |---|---:|
@@ -250,6 +270,11 @@ scoped at work-package resolution and re-enumerated when their approval gate ope
 
 ### 4.1 Work Package 0A — baseline and safety net (E: 12–14)
 
+**Progress 2026-08-10:** sessions 1–6 and 12 are **done**; 13 is **half done** (CI green, merge
+rehearsal never run); 14 is **half done** (`ifgf/main` created locally and unpushed, `deploy`
+correctly absent, exit gate never formally reviewed). Sessions **7 (package scaffold)** and
+**9–11 (characterization)** are **not started** and are the whole remaining critical path.
+
 | # | Session | `build.md` items | Preamble | Work | Exit condition |
 |---|---|---|---|---:|---:|
 | 1 | Toolchain + doc baseline commit | 1, 2 | 30k | 40k | Versions recorded; PRD/hosting/build committed; SHA in `CONTEXT.md` |
@@ -269,25 +294,39 @@ scoped at work-package resolution and re-enumerated when their approval gate ope
 
 ### 4.2 Remaining scope
 
+**Revised 2026-08-10.** WP 0B is spent — it cost **1 session**, not the 14–16 estimated. That is
+the single largest estimate error in this plan and is worth understanding rather than celebrating:
+the upgrade was fast because item 6 (characterization tests) was skipped by owner directive, and
+that work has not disappeared, it has moved. The ±40% confidence band on WP 0B was also wrong in
+the wrong direction — dependency resolution turned out to be the *easy* part; the unpredictable
+part was a single abandoned 60-line package no constraint scan flagged.
+
 | Scope | Approval units | Steps | E (sessions) | Dominant cost |
 |---|---:|---:|---:|---|
-| WP 0B — platform upgrade | 1 | 14 | 14–16 | 3 Laravel majors + 183-package audit + Vue2/Mix4 → Vite |
+| ~~WP 0B — platform upgrade~~ | ~~1~~ | ~~14~~ | **SPENT — 1** | Done 2026-08-10. Items 6 and 8 carried forward below, not re-estimated here |
+| WP 0A closeout — package seam, provider smoke tests, merge rehearsal, exit gate | 0 (already approved) | 4 | 2–3 | Merge rehearsal is the unknown |
+| **WP 0A item 6 — characterization tests (carried from 0B)** | 0 (already approved) | 1 | **3–5** | 8-minute suite until `schema:dump` lands; 7 behaviour surfaces; every run is an owner round-trip in Cowork |
+| Vite migration (WP 0B item 8, deferred) | 1 | 1 | 4–6 | Separate approved decision; must not mix with a framework upgrade |
 | WP 0C — schema + migration foundation | 1 | 19 | 14–18 | 93 legacy migrations, `usergroup_id` removal, import pipeline |
 | WP 0D — privacy gates | 1 | 5 | 3–4 | Documentation-heavy, low tool cost |
-| **Phase 0 total** | **4** | **53** | **43–52** | |
+| **Phase 0 remaining** | **2** | **34** | **26–36** | Was 43–52 including WP 0B |
 | Phase 1A — member registry + portal | 5 | 80 | 12–15 | |
 | Phase 1B — events + attendance | 5 | 80 | 14–18 | Largest Phase 1 epic |
 | Phase 1C — iCare, CGSL, ministries | 4 | 64 | 10–13 | |
 | Phase 1D — calendar, reports, imports | 5 | 80 | 13–16 | Google Calendar adapter + import commit |
 | Phase 1E — production readiness | 3 | 48 | 8–11 | Two gates need external authorization |
 | **Phase 1 total** | **22** | **352** | **57–73** | |
-| **MVP total (Phase 0 + 1)** | **26** | **405** | **100–125** | |
+| **MVP remaining (Phase 0 + 1)** | **24** | **386** | **83–109** | Was 100–125 |
 | Phase 2 — hardening + recognition | 3 | 16 | 22–28 | Separate Python edge repository |
 | Phase 3 — ticketing | 1 | 5 | 7–9 | |
-| **Full programme** | **30** | **426** | **129–162** | |
+| **Full programme remaining** | **28** | **407** | **112–146** | Was 129–162 |
+
+These are full-PRD figures. `PRODUCTION_PATH.md` carries the Release-1-scoped numbers, which are
+lower and are the ones to plan against.
 
 **Estimate basis:** 668 PHP files · 172 controllers · 79 models · 93 migrations · 317 Blade
-templates · **0 existing tests** · 183 Composer packages · 52 npm packages. The zero-test baseline
+templates · **1 existing test** (`MemberImportCharacterizationTest`) · 188 Composer packages ·
+52 npm packages. The near-zero-test baseline
 is the biggest driver: Phase 0A writes characterization coverage from nothing, and every Phase 1
 slice writes its tests before its code.
 
@@ -337,12 +376,12 @@ A handoff is bad if the next session has to ask any of these:
 
 Never read these files whole. Read the range.
 
-### `PRD.md` (~33,900 tokens total) — **line map re-derived 2026-08-09 after the QR amendments**
+### `PRD.md` (~34,100 tokens total) — **line map re-derived 2026-08-10 after the WP 0B reconciliation**
 
 | Lines | ~Tokens | Section |
 |---|---:|---|
 | 22–75 | 1,374 | 1. Executive Summary |
-| 76–216 | 3,184 | 2. Evidence and Existing-System Inventory |
+| 76–216 | 3,203 | 2. Evidence and Existing-System Inventory |
 | 217–263 | 780 | 3. Product Scope and Personas |
 | 264–952 | 9,582 | 4. Domain Model — **split by subsection; never read whole** |
 | 953–1183 | 7,418 | 5. Functional Requirements (FR-01 … FR-14) |
@@ -350,17 +389,17 @@ Never read these files whole. Read the range.
 | 1324–1496 | 3,009 | 7. Application Architecture |
 | 1497–1528 | 1,007 | 8. Non-Functional Requirements |
 | 1529–1594 | 771 | 9. Migration Plan |
-| 1595–1628 | 882 | 10. Delivery Plan |
-| 1629–1679 | 1,860 | 11. Acceptance Test Matrix |
-| 1680–1705 | 776 | 12. Engineering Rules for the Implementing LLM |
-| 1706–1756 | 1,567 | 13. Decisions and Open Questions |
-| 1757–1781 | 560 | 14. External References |
+| 1595–1630 | 940 | 10. Delivery Plan |
+| 1631–1681 | 1,860 | 11. Acceptance Test Matrix |
+| 1682–1707 | 776 | 12. Engineering Rules for the Implementing LLM |
+| 1708–1758 | 1,663 | 13. Decisions and Open Questions |
+| 1759–1783 | 560 | 14. External References |
 
 > **Re-derive this table after every `PRD.md` edit.** A stale line map sends sessions to the wrong
 > range, which costs more than the edit saved. One command:
 > `python3 -c "..."` on `^## ` headings — see `MEMORY.md` 2026-08-09 Session 3g.
 
-### `build.md` (15,590 tokens total)
+### `build.md` (15,914 tokens total) — **line map re-derived 2026-08-10**
 
 | Lines | Section | Read when |
 |---|---|---|
@@ -370,18 +409,20 @@ Never read these files whole. Read the range.
 | 141–178 | Architectural Invariants | every session |
 | 179–201 | Implementation Strategy | every Phase 1+ session |
 | 202–228 | Work Package 0A | 0A only |
-| 229–254 | Work Package 0B | 0B only |
-| 255–285 | Work Package 0C | 0C only |
-| 286–302 | Work Package 0D | 0D only |
-| 303–330 | Phase 1A | 1A only |
-| 331–357 | Phase 1B | 1B only |
-| 358–380 | Phase 1C | 1C only |
-| 381–405 | Phase 1D | 1D only |
-| 406–437 | Phase 1E | 1E only |
-| 438–483 | Phase 2 | 2A/2B/2C only |
-| 484–499 | Phase 3 | 3 only |
-| 500–533 | Test and Quality Commands | any session running tests |
-| 534–548 | Production Release to `deploy` | 1E.3 only |
+| 229–256 | Work Package 0B — **marked complete 2026-08-10**; read for the exit-gate checklist only | 0A/0B closeout |
+| 257–287 | Work Package 0C | 0C only |
+| 288–304 | Work Package 0D | 0D only |
+| 305–332 | Phase 1A | 1A only |
+| 333–359 | Phase 1B | 1B only |
+| 360–382 | Phase 1C | 1C only |
+| 383–407 | Phase 1D | 1D only |
+| 408–439 | Phase 1E | 1E only |
+| 440–485 | Phase 2 | 2A/2B/2C only |
+| 486–501 | Phase 3 | 3 only |
+| 502–535 | Test and Quality Commands | any session running tests |
+| 536–550 | Production Release to `deploy` | 1E.3 only |
+| 585–599 | End-of-Work-Package Report | every session end |
+| 611–623 | Laravel 13 upgrade instruction — **spent, do not issue** | never |
 | 549–566 | Security and Data Rules | any session touching data or media |
 | 567–582 | Decision and Blocker Policy | when blocked |
 | 583–598 | End-of-Work-Package Report | every session end |

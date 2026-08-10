@@ -10,14 +10,22 @@ complete (Laravel 13 + PHP 8.4 landed); WP 0A gates 3 and 5 still open
 
 | | |
 |---|---|
-| Branch | `contrib/laravel-supported-platform` (14 commits ahead of `f2ad3bb`) |
-| HEAD | `06b9766` (C4/C5/C6 + CI) ← `30db6c9` (L13) ← `32e65f9` (L12) ← `9a39cde` (L11) |
+| Branch | `contrib/laravel-supported-platform` (17 commits ahead of `f2ad3bb`) |
+| HEAD | `87742dc` (HTTP verify + 8.3/backup deletion) ← `831cf2d` ← `df9b41e` ← `06b9766` (C4/C5/C6 + CI) ← `30db6c9` (L13) ← `32e65f9` (L12) ← `9a39cde` (L11) |
 | `codex-PRD` | `086f33d` — Session 3 docs + gates 1/2/6/7 work, all committed |
 | `ifgf/main` | **created** at `aa8194e` (= `main`), local only, not pushed |
 | `main` | `aa8194e` — clean subset of `upstream/main`, no local commits |
 | `upstream/main` | `d12c110` — **still frozen**, 8 commits ahead. Do not merge until WP 0A exit gate |
 | `deploy` | does not exist (correct) |
-| Pushed? | **Nothing pushed this session.** All 14 commits are local only. |
+| Pushed? | **Nothing pushed.** All 17 commits are local only. |
+
+## Documents
+
+Reconciled to the post-WP-0B state on **2026-08-10** (Session 5, Cowork): `build.md`, `PRD.md`,
+`CLAUDE.md`, `AGENTS.md`, `EXECUTION_PLAN.md`, `PRODUCTION_PATH.md`, `DEPENDENCY_INVENTORY.md`,
+`UPSTREAM.md` (**UP-007** added for the platform series). `EXECUTION_PLAN.md` Appendix A line maps
+for both `PRD.md` and `build.md` were re-derived after those edits. `CLAUDE.md`/`AGENTS.md` now
+carry a settled tool-capability matrix instead of a "re-verify this" note — do not re-test it.
 
 ## Environment — upgraded to latest LTS
 
@@ -48,7 +56,7 @@ machine and is not in the project's 27-extension list. `gd` is present. See `TOD
 - `phpunit.xml` points at it via `APP_ENV=testing`; the sqlite `:memory:` stopgap is gone.
 - `App\Providers\DatabaseSafetyServiceProvider` prints and asserts environment/driver/host/database
   before `migrate:fresh`/`db:wipe`/`migrate:reset` and refuses anything not provably disposable
-  (`build.md` L515). Both paths verified.
+  (`build.md` L517). Both paths verified.
 - **`php artisan test` works** (collision 6→7→8, PHPUnit 11). **1 test, 1 passed, 4 assertions** —
   identical at Laravel 10, 11, 12, 13 and under PHP 8.4.
 - **The suite takes ~8 minutes for that single test** — `RefreshDatabase` replays 93 migrations per

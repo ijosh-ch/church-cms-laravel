@@ -8,7 +8,11 @@
 
 ## The problem with the current plan
 
-`EXECUTION_PLAN.md` estimates **~100–125 sessions to complete Phase 0 + Phase 1**, and treats all
+*(Written 2026-08-09, before WP 0B landed. The 100–125 figure below is the original full-PRD
+estimate; `EXECUTION_PLAN.md` §4.2 now carries **83–109 remaining**, and the R1-scoped table at the
+bottom of this file is the one to plan against.)*
+
+`EXECUTION_PLAN.md` estimated **~100–125 sessions to complete Phase 0 + Phase 1**, and treats all
 of Phase 1 as one release. That is a long time before the church gets anything, and it carries the
 risk of every big-bang migration: the first real feedback arrives after all the work is done.
 
@@ -84,7 +88,9 @@ Unchanged, still separately gated.
 **February 2025** under Laravel's 2-year policy. The baseline has been unsupported for roughly
 eighteen months. `build.md` already states Laravel 10 is not an acceptable production target, and
 `hosting.md` agrees. **Work Package 0B is a hard production blocker**, not an improvement — it
-cannot be deferred to Release 2.
+cannot be deferred to Release 2. **Closed 2026-08-10:** the source is on Laravel 13.24.0 / PHP
+8.4.24 / MySQL 8.4.11 LTS. The framework risk described in this section is retired; the
+*verification* risk it created is not — see the estimate note below.
 
 **FR-11 must come early, not late.** `usergroup_id` appears in **33 files**. Every one is an
 authorization path, and there must be no window where a legacy route grants broader access than
@@ -96,10 +102,16 @@ and the current plan has it buried inside WP 0C.
 
 ## Revised session estimate
 
+**Revised 2026-08-10 — WP 0B is spent.** It cost one session, not 14–16, because characterization
+(item 6) was skipped by owner directive. That work moved into the WP 0A row rather than vanishing,
+and it is now the critical path. The Vite decision (item 8) is separately deferred and is broken
+out below instead of being buried inside 0B.
+
 | Stage | Current plan | R1 scope | Change |
 |---|---:|---:|---|
-| WP 0A remaining (items 4–15) | 11 | **8** | Characterize only what R1 touches |
-| WP 0B platform upgrade | 14–16 | **14–16** | Unchanged — hard blocker |
+| WP 0A remaining — package seam, characterization, provider smoke tests, merge rehearsal, exit gate | 11 | **6–9** | Characterize only what R1 touches. **Characterization is the whole gate now** |
+| ~~WP 0B platform upgrade~~ | ~~14–16~~ | **0 — spent 2026-08-10** | Laravel 13.24.0 / PHP 8.4.24 / MySQL 8.4.11 landed in one session |
+| Vite migration (was WP 0B item 8) | — | **4–6** | Deferred by approval; broken out so it is not silently dropped |
 | WP 0C schema + migration | 14–18 | **10–13** | No CGSL, ministry, registration tables |
 | WP 0D privacy gates | 3–4 | **3–4** | Unchanged |
 | Phase 1A member + QR | 12–15 | **10–12** | Merge UI deferred |
@@ -107,10 +119,15 @@ and the current plan has it buried inside WP 0C.
 | **Phase 1C.1–1C.2 iCare** | 10–13 | **5–7** | **Added back.** Groups, roster, manual tick-list, photo storage. No CGSL, no ministries, no face detection |
 | Phase 1D calendar + reports + import | 13–16 | **8–10** | 1D.1, minimal 1D.3, 1D.4, 1D.5 only |
 | Phase 1E production | 8–11 | **8–11** | Unchanged |
-| **Total to production** | **~100–125** | **73–90** | **≈ 28% less** |
+| **Total to production** | **~100–125** | **55–70** | **≈ 45% less than the original plan** |
 
 Release 2 then costs roughly 20–28 sessions on top, so the full PRD still lands around the
 original estimate — it just lands *after* production instead of before it.
+
+**Read the 73–90 → 55–70 drop carefully.** It is almost entirely WP 0B coming in under estimate,
+and WP 0B came in under estimate partly because it shipped without its safety net. The remaining
+number assumes the characterization debt is repaid in the WP 0A row. If it is deferred again, the
+total does not shrink further — it moves into Phase 1 as rework at a worse exchange rate.
 
 ---
 
@@ -142,12 +159,17 @@ member QRs (escalation C1) — new codes go out while the old path still works.
 
 ## Immediate next actions, in order
 
+*(Rewritten 2026-08-10. Items 1–3 and 5 of the original list are done; the order below is what
+actually remains.)*
+
 | # | Action | Package |
 |---|---|---|
-| 1 | Commit Session 3's uncommitted work: `.graphifyignore`, `ROUTE_MIGRATION_INVENTORY.md`, `WORKBOOK_INVENTORY.md`, `GAS_INVENTORY.md`, `PRD_OPEN_QUESTIONS.md`, `PRD_REVIEW.md`, this file, and the memory-file updates | — |
-| 2 | Extend `.graphifyignore` to `_ai/`, `_design_reference/`, `_code_reference/`, root planning `.md` — cheap, makes every later search better | 0A item 15 |
-| 3 | Apply the PRD amendments in `PRD_REVIEW.md` §2.4 and Part 1.5, plus the Q3 resolution | PRD baseline |
-| 4 | Finish WP 0A items 4b–14 at R1 scope | 0A |
-| 5 | **WP 0B — the Laravel 13 upgrade.** Largest single block; unsupported framework is the biggest production risk carried today | 0B |
+| 1 | **Characterization tests for the Release 1 surface** — auth, roles and direct permissions, member profile, member QR / membership card, attendance session open/scan/lock/unlock, group access, exports. Nothing else should start first: it is the only thing that can tell you whether the Laravel 13 upgrade preserved behaviour | 0A item 6 / gate 5 |
+| 2 | Fix the 8-minute suite (`schema:dump`, needs `mysqldump` on PATH) **before** writing those tests, or every run costs hours | 0A item 5 |
+| 3 | Scaffold `custompackages/ifgf/church-operations` — nothing IFGF-specific can legally land until it exists | 0A item 11 |
+| 4 | Provider smoke tests from a clean checkout; then the upstream merge rehearsal, which has never run | 0A items 13, 14 |
+| 5 | Formally review and close the WP 0A / WP 0B exit gate; merge `contrib/laravel-supported-platform` into `ifgf/main`; push (nothing is pushed) | 0A gate |
+| 6 | Resolve `imagick` — `/` returns 500 without it. Pre-existing, but it blocks the server redeploy | — |
+| 7 | Then WP 0C (`tools/PROMPTS.md` P1) | 0C |
 
 Item 5 is where the real work starts. Everything before it is preparation.
