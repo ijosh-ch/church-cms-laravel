@@ -1,0 +1,105 @@
+name: CI
+
+# WP 0A item 7 / gate 4. Proves the repository installs and passes from a CLEAN
+# CHECKOUT ON LINUX -- the condition that would have caught upstream defects
+# UP-001..UP-004 before they cost round-trips, and the condition that matters for
+# redeploying this project onto a Linux server.
+#
+# Deliberately does NOT use --ignore-platform-reqs, --no-verify, or any forced
+# resolution (CLAUDE.md hard prohibitions).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        # Match the local toolchain: MySQL 8.4 LTS.
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          # Name carries an obvious test marker, per build.md L515.
+          MYSQL_DATABASE: churchcms_test_disposable
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          # Matches composer.json config.platform.php.
+          php-version: '8.4'
+          extensions: bcmath, ctype, curl, dom, exif, fileinfo, filter, gd, iconv, intl, mbstring, openssl, pdo, pdo_mysql, phar, session, simplexml, sodium, tokenizer, xml, xmlreader, xmlwriter, zip
+          coverage: none
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        # No --ignore-platform-reqs. If the lock cannot be satisfied on Linux at
+        # the pinned PHP version, this job must fail rather than paper over it.
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Security audit
+        # Advisories are reported but do not fail the build yet -- the baseline
+        # carries known advisories that are tracked in DEPENDENCY_INVENTORY.md.
+        # Tighten to a hard failure once that backlog is cleared.
+        run: composer audit || true
+
+      - name: PSR-4 autoload compliance
+        # Fails on any "Class ... does not comply with psr-4 autoloading standard"
+        # warning. Case-mismatched filenames pass on Windows and break on Linux,
+        # which is exactly the class of defect this job exists to catch.
+        run: |
+          set -o pipefail
+          composer dump-autoload --optimize --no-interaction 2>&1 | tee autoload.log
+          if grep -qi "does not comply\|Ambiguous class resolution" autoload.log; then
+            echo "::error::PSR-4 autoload warnings detected"
+            grep -i "does not comply\|Ambiguous class resolution" autoload.log
+            exit 1
+          fi
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          {
+            echo "APP_ENV=testing"
+            echo "DB_CONNECTION=mysql"
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_PORT=3306"
+            echo "DB_DATABASE=churchcms_test_disposable"
+            echo "DB_USERNAME=root"
+            echo "DB_PASSWORD=root"
+          } > .env.testing
+
+      - name: Run migrations and seeders
+        # DatabaseSafetyServiceProvider (build.md L515) prints and asserts
+        # environment/driver/host/database before this is allowed to run.
+        run: php artisan migrate:fresh --seed --env=testing
+
+      - name: Run test suite
+        run: php artisan test

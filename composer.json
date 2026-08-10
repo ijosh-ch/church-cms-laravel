@@ -11,7 +11,7 @@
     "license": "MIT",
     "type": "project",
     "require": {
-        "php": "^8.2",
+        "php": "^8.3",
         "barryvdh/laravel-dompdf": "^3.0",
         "darkaonline/l5-swagger": "^8.6",
         "google/cloud-language": "^0.31",
@@ -88,7 +88,7 @@
             "block-insecure": false
         },
         "platform": {
-            "php": "8.3.33"
+            "php": "8.4.24"
         },
         "preferred-install": "dist",
         "sort-packages": true,
