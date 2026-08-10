@@ -38,7 +38,9 @@ with one `sed`.
 
 **Verified Laravel 13 generator flags — Session 2, 2026-08-09.** Confirmed against a real
 `composer create-project laravel/laravel "^13.0"` skeleton (Laravel 13.24.0), not documentation.
-This repo is still Laravel 10.50.2 (WP 0B upgrades it) — do not assume these exist yet on `HEAD`.
+This repo is now **Laravel 13.24.0** (WP 0B landed 2026-08-10) — these generators are available on
+`HEAD`. PHP is pinned to 8.4.24 in `composer.json`; note bare `php` may still resolve to 8.3.33
+until the Machine PATH is fixed (`TODO.md` item 1) — use `C:\php\8.4\php.exe` explicitly if so.
 
 - `make:model Foo -a/--all` → migration, seeder, factory, policy, resource controller, form
   request classes. **Does not include a test** — add `--test`/`--pest`/`--phpunit` explicitly.

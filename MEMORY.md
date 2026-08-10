@@ -6,6 +6,69 @@
 
 ---
 
+## 2026-08-10 — Session 4 — Toolchain to latest LTS; Laravel 10 → 13; PHP 8.4 pinned
+
+**Done:** WP 0A gates 1, 2, 6, 7 closed + CI (gate 4). WP 0B effectively complete:
+**Laravel 10.50.2 → 13.24.0** in three attributable commits, **PHP 8.4.24** pinned,
+**MySQL 8.4.9 → 8.4.11**. 14 commits on `contrib/laravel-supported-platform`.
+
+**Owner directive mid-session:** after B1–B4, the owner asked to skip ahead and finish the
+upgrade. **B5 (characterization tests) and B7 (baseline) were NOT done.** The three majors are
+therefore verified against **one** test, not the Release-1 safety net WP 0A was designed to
+produce. This is the single largest caveat on the whole upgrade — see "Not verified" below.
+
+**Learned — carry forward**
+
+- **`laracasts/presenter` was the sole hard blocker for Laravel 13**, not laratrust. 0.2.8 is its
+  newest release and stops at `illuminate/support ^12.0`. **An earlier reading that laratrust also
+  blocked 13 was wrong** — the solver was listing older 8.x versions; installed **8.5.5 declares
+  `^13.0`** (8.5.4 is the first that does). Always check the *installed* version's own
+  `composer.json` before believing a solver summary. Replaced in-house at
+  `app/Support/Presenter/` (~60 lines, 4 files, behaviour-identical).
+- **Laratrust 8 renamed its entire public API** — `LaratrustUserTrait` → `HasRolesAndPermissions`,
+  `Models\LaratrustRole` → `Models\Role`, `Models\LaratrustPermission` → `Models\Permission`,
+  `Middleware\LaratrustPermission` → `Middleware\Permission`. Four call sites, all on the
+  authorization surface. Aliased on import so local class names are unchanged.
+- **`composer require` silently moved runtime packages into `require-dev`** twice (10→11 and
+  11→12) because the non-interactive prompt default answers "no" to the move question and then
+  writes to the wrong section anyway. **Edit `composer.json` directly for multi-package major
+  bumps** — that is what the 12→13 step did, and it was clean.
+- **collision ≥8.6 conflicts with PHPUnit 10**, so 11→12 forced `phpunit/phpunit ^10.5 → ^11.0`.
+  The first attempt failed closed on exactly that rather than downgrading silently. Good signal:
+  the no-forced-resolution rule surfaced a real constraint instead of hiding it.
+- **`Illuminate\Console\Events\CommandStarting` is never dispatched when `APP_ENV=testing`** —
+  `Foundation\Console\Kernel` only bridges Symfony's console events when `! runningUnitTests()`.
+  A safety guard built on it silently no-ops in exactly the environment it exists to protect.
+  `DatabaseSafetyServiceProvider` therefore registers **two** listeners; see its docblock.
+- **The suite is now ~8 minutes for ONE test** because `RefreshDatabase` replays all 93 migrations
+  against MySQL per test class. `php artisan schema:dump` is the fix; it fails locally because
+  `mysqldump` is not on PATH (it is in `C:\Program Files\MySQL\MySQL Server 8.4\bin`).
+  **Resolve this before B5** — 10–15 characterization tests at this cost is hours per run.
+- **MySQL 8.4 on Windows: `'root'@'localhost'` ≠ `'root'@'127.0.0.1'`.** `localhost` means
+  named-pipe/shared-memory; Workbench and the CLI connect over TCP. The original "failed
+  connection" was a *missing account for that host*, not a wrong password. Also:
+  `--skip-grant-tables` disables networking entirely on Windows, so it is useless for remote
+  inspection there.
+- **Docs correction — `console.php` DOES schedule tasks.** `schedule:list` shows
+  `gego:checkquote` (hourly) and `gego:checkgetresponse` (daily).
+  `ROUTE_MIGRATION_INVENTORY.md`'s "no scheduled tasks" claim is static-analysis error.
+
+**Not verified — read before trusting this upgrade**
+
+- **No characterization tests exist** for auth, roles, member profile, QR/membership card,
+  attendance open/scan/lock/unlock, group access or exports. The upgrade is green against
+  `MemberImportCharacterizationTest` only (1 test, 4 assertions, identical at 10/11/12/13/8.4).
+- **`route:list` reports 730 routes; the inventory claims 812 static declarations.** 12 are
+  commented out; ~70 remain unexplained, most likely duplicate method+URI pairs. **There is no
+  pre-upgrade `route:list` to diff against**, so this is NOT proven upgrade-neutral.
+- **PHP 8.4 is pinned but not the resolved `php`** — `C:\php\8.3` is in the MACHINE PATH, which
+  wins over User PATH. Needs one elevated command (in `TODO.md`).
+- **Pre-existing defect found, not fixed:** `app/Models/FeedbackMessage.php` sets `$presenter` to
+  `App\Presenters\UserPresenter`, which does not exist — `present()` on that model has always
+  thrown. Unrelated to the upgrade.
+
+---
+
 ## 2026-08-09 — Session 2b — UP-005, UP-006, upstream pin: three owner-approved decisions actioned
 
 **Work package:** 0A item 6 (first characterization test) + item 3 findings actioned · **Branch:**

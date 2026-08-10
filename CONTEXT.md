@@ -3,97 +3,76 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-08-09 · **Session:** 2b complete → 3 next · **Work package:** 0A (item 6 first
-test landed, item 3 findings actioned; item 4a next)
+**Updated:** 2026-08-10 · **Session:** 4 complete → 5 next · **Work package:** 0B substantially
+complete (Laravel 13 + PHP 8.4 landed); WP 0A gates 3 and 5 still open
 
 ## Git
 
 | | |
 |---|---|
-| Branch | `codex-PRD` |
-| HEAD | `e9596f5` (upstream pin freeze) ← `8c85781` (UP-006) ← `9045ce5` (UP-005) ← `e394e742` (docs baseline) |
-| Documentation baseline SHA | `e394e742783083070c5b618c4d6e9c2deb767aea` — committed 2026-08-09 |
-| `origin/codex-PRD` | tracked; this session's 3 commits plus this doc-reconciliation commit not yet pushed at write time — see session-end report |
-| `upstream/main` (reviewed) | `d12c110967fadbaa97fb2a108b71dd820a42e7ad` (2026-08-07, "Added privacy policy page") — **formally frozen**, see `UPSTREAM.md` Baseline table |
-| Divergence `HEAD...upstream/main` | 1 ahead, 8 behind (unchanged; no upstream sync performed) |
-| Merge rehearsal | never run |
-| `ifgf/main` | does not exist yet |
-| `deploy` | does not exist yet |
+| Branch | `contrib/laravel-supported-platform` (14 commits ahead of `f2ad3bb`) |
+| HEAD | `06b9766` (C4/C5/C6 + CI) ← `30db6c9` (L13) ← `32e65f9` (L12) ← `9a39cde` (L11) |
+| `codex-PRD` | `086f33d` — Session 3 docs + gates 1/2/6/7 work, all committed |
+| `ifgf/main` | **created** at `aa8194e` (= `main`), local only, not pushed |
+| `main` | `aa8194e` — clean subset of `upstream/main`, no local commits |
+| `upstream/main` | `d12c110` — **still frozen**, 8 commits ahead. Do not merge until WP 0A exit gate |
+| `deploy` | does not exist (correct) |
+| Pushed? | **Nothing pushed this session.** All 14 commits are local only. |
 
-Working tree at write time: this doc-reconciliation commit (`CLAUDE.md`, `CONTEXT.md`,
-`MEMORY.md`, `TODO.md`, `DEPENDENCY_INVENTORY.md`) is the only pending change — all Session 2b
-code/dependency work is already committed (`9045ce5`, `8c85781`, `e9596f5`).
+## Environment — upgraded to latest LTS
 
-## Environment — installed and booting, unchanged from Session 2
+| | Installed | Active | Target |
+|---|---|---|---|
+| PHP | 8.3.33 **and** 8.4.24 | **8.3.33** ← see note | 8.4 |
+| Laravel | **13.24.0** | 13.24.0 | ✅ done |
+| MySQL | **8.4.11 LTS** | 8.4.11 | ✅ done |
+| Composer | 2.10.2 | — | — |
+| Node | 22.15.0 | — | 16.20.2 for Mix 4 (unresolved) |
+| PHPUnit | 11.x | — | — |
 
-| | Installed | Target |
-|---|---|---|
-| PHP | **8.3.33** (`C:\php\8.3`), 27/27 extensions | 8.4 at WP 0B |
-| Composer | **2.10.2** | — |
-| Laravel | **10.50.2** (reverified after both composer changes this session) | 13.x at WP 0B |
-| Node | **22.15.0** ← wrong line, `nvm use` did not stick | 16.20.2 for Mix 4 |
-| MySQL | client present | 8.4 LTS, not yet configured |
-| `vendor/` | 183 packages (`composer show`, measured) — down from 194 at Session 2 end; UP-006 removed `botman/botman`, `botman/driver-web`, and 6 now-unused transitive dependents (`react/promise`, `react/event-loop`, `react/dns`, `react/cache`, `mpociot/pipeline`, `evenement/evenement`); `phpoffice/phpspreadsheet`'s UP-005 fan-out was version bumps only, no new packages | — |
-| `.env` | created; `APP_KEY` generated, no DB configured | — |
+**PHP 8.4 is pinned in `composer.json` (`config.platform.php = 8.4.24`) and everything is verified
+under it, but bare `php` still resolves to 8.3.33** — `C:\php\8.3` sits in the MACHINE PATH, which
+Windows places ahead of the User PATH where `C:\php\8.4` was added. One elevated command finishes
+it; see `TODO.md` item 1. Until then use `C:\php\8.4\php.exe` explicitly.
 
-`composer validate --strict` clean · `php artisan about` runs · `php artisan test` **broken**
-(`nunomaduro/collision` v6.4.0 vs PHPUnit 10.5.63 — see `MEMORY.md` Session 2b) — use
-`vendor/bin/phpunit` directly.
+## Test and database
+
+- **Disposable DB:** `churchcms_test_disposable` on MySQL 8.4.11, owned by user `iJosh`, scoped to
+  that database only. Credentials in `.env.testing` (**gitignored**).
+- `phpunit.xml` points at it via `APP_ENV=testing`; the sqlite `:memory:` stopgap is gone.
+- `App\Providers\DatabaseSafetyServiceProvider` prints and asserts environment/driver/host/database
+  before `migrate:fresh`/`db:wipe`/`migrate:reset` and refuses anything not provably disposable
+  (`build.md` L515). Both paths verified.
+- **`php artisan test` works** (collision 6→7→8, PHPUnit 11). **1 test, 1 passed, 4 assertions** —
+  identical at Laravel 10, 11, 12, 13 and under PHP 8.4.
+- **The suite takes ~8 minutes for that single test** — `RefreshDatabase` replays 93 migrations per
+  test class. Fix with `php artisan schema:dump` **before** writing more tests.
 
 ## Known debt
 
-- **40 Composer advisories / 12 packages** (was 49/13 at Session 2 end; UP-005 cleared
-  `phpoffice/phpspreadsheet`'s 9). `doctrine/annotations` still abandoned, no replacement.
-- **166 npm vulnerabilities, 13 critical** (axios 0.18.1, Vue 2 EOL, Bootstrap 4.6 EOL) —
-  untouched this session.
-- `nunomaduro/collision`/PHPUnit 10 mismatch blocks `php artisan test` and, transitively, WP 0A
-  item 7's CI workflow. Not yet scheduled — flagged in `TODO.md`.
-- `app/Imports/UsersImport.php::collection()` fatal-errors on any nonempty import (undefined
-  `$request`). `app/Traits/SendPushNotification.php` fatal-errors on any real call (dead
-  `LaravelFCM\*` imports, never autoloaded). Both preexisting, both flagged in `TODO.md`, neither
-  fixed — out of scope for the sessions that found them.
-- Never run `npm audit fix` or unargumented `composer update` — both dissolve the baseline.
+- **No characterization tests** for the Release 1 surface (WP 0A item 6 / gate 5). The entire
+  10→13 upgrade is verified against one import test. **This is the largest open risk.**
+- **166 npm vulnerabilities** (17 low, 78 moderate, 58 high, 13 critical), unchanged. Vue 2 EOL
+  with an unfixable ReDoS advisory. `npm run production` **still builds** (exit 0, 290s). Never run
+  `npm audit fix`.
+- `route:list` = 730 vs the inventory's 812 static declarations (12 commented; ~70 unexplained).
+  Not proven upgrade-neutral — no pre-upgrade baseline exists.
+- `app/Models/FeedbackMessage.php` references a non-existent `App\Presenters\UserPresenter`.
+- `app/Imports/UsersImport.php::collection()` and `app/Traits/SendPushNotification.php` remain
+  broken (pre-existing, both documented since Session 2b).
+- `mysqldump` not on PATH → `schema:dump` unavailable locally.
 
 ## Baseline shape
 
-668 PHP files · 172 controllers · 79 models · 93 migrations · 317 Blade views · **1 test file, 1
-test** (`tests/Feature/Admin/MemberImportCharacterizationTest.php`, Session 2b — first ever) ·
-183 Composer packages · 52 npm packages · 5 route files (`web`, `admin`, `api`, `guestapi`,
-`console`) · 0 remaining custom packages in `custompackages/` (brozot removed; `ifgf/` not yet
-scaffolded — WP 0A item 11, Session 7).
-
-Laravel 10.50.2 / PHP `^8.2` / Vue 2.6 / laravel-mix 4 / webpack 4.
-
-## Graphify
-
-`.graphifyignore` added and verified (WP 0A item 15, pulled forward from Session 5 at owner
-request — done out of the planned order, Session 3's route/migration inventory has not started).
-`graph.json` 15MB → 7.7MB (6919 nodes, down from an unrecorded higher count); `public/js/app.js`
-and other compiled/vendored assets (`public/css/`, `public/audio/*.min.js`, `public/uploads/`,
-`storage/{api-docs,app,debugbar,framework,logs}/`, `bootstrap/cache/`, `public/installer/`) no
-longer indexed. Verified via `graphify query "member import controller Excel spreadsheet"` — every
-result is real source (`ImportMemberController.php`, `config/excel.php`, `UPSTREAM.md`) or
-first-party glue code kept by explicit negation (`public/js/custom.js`, `public/audio/app.js`).
-Graph queries are now reliable — use them per `CLAUDE.md` search order. One open, non-blocking
-oddity: `graphify update .` reports a stable `fail-closed: kept 3 node(s) from 1 file(s)` warning
-across repeat runs; traced as far as confirming it isn't any `public/` file, not resolved further
-— low priority, `graphify diagnose` or a `--force` rebuild is the next step if anyone picks it up.
-`graphify-out/` stays untracked.
-
-## Missing project files
-
-`AGENTS.md` · `.graphifyignore` · `custompackages/ifgf/church-operations` · the other ~10 planned
-characterization tests (auth/roles, groups/events, QR/attendance/exports/media — WP 0A item 6,
-Sessions 9–11) · disposable MySQL 8.4 fixture DB (item 5, Session 12, replaces the sqlite
-`:memory:` stopgap in `phpunit.xml`).
+Laravel **13.24.0** / PHP `^8.3` (pinned 8.4.24) / Vue 2.6 / laravel-mix 4 / webpack 4.
+730 registered routes · 93 migrations · 1 test file · `.github/workflows/ci.yml` (new) ·
+`app/Support/Presenter/` (new, replaces `laracasts/presenter`) ·
+`custompackages/ifgf/church-operations` **still not scaffolded** (WP 0A item 11, gate 3).
 
 ## Open gates
 
-1. **WP 0A scope not confirmed** by owner (unchanged from Session 2).
-2. `DEPENDENCY_INVENTORY.md`'s "Prioritize now" (`phpoffice/phpspreadsheet`) and both "remove"
-   verdicts (`botman/*`, orphaned `brozot/laravel-fcm`) are **now actioned** (UP-005, UP-006) —
-   this gate is closed. Remaining `DEPENDENCY_INVENTORY.md` upgrade/replace verdicts stay deferred
-   to WP 0B as originally planned.
-3. Route + migration inventory (WP 0A item 4a, Session 3) not yet started — see `TODO.md`.
-4. **New:** three items moved to `TODO.md` "Decisions awaiting the owner" this session — the
-   `UsersImport` crash, `SendPushNotification.php`'s dead FCM path, and collision/PHPUnit timing.
+1. **WP 0A gate 3** — no `custompackages/ifgf/church-operations`. Nowhere for IFGF code to live.
+2. **WP 0A gate 5** — characterization tests. Deferred by owner directive; still the real gate.
+3. **C7 not done** — `UPSTREAM.md` not updated for this session's upstream-owned file changes, and
+   the merge rehearsal has never run.
+4. Upstream still frozen at `d12c110`; 8 commits unmerged by design.
