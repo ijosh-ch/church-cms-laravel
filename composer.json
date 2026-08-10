@@ -12,15 +12,15 @@
     "type": "project",
     "require": {
         "php": "^8.2",
-        "barryvdh/laravel-dompdf": "^2.2",
+        "barryvdh/laravel-dompdf": "^3.0",
         "darkaonline/l5-swagger": "^8.6",
         "google/cloud-language": "^0.31",
         "google/cloud-storage": "^1.42",
         "guzzlehttp/guzzle": "^7.4",
-        "kreait/laravel-firebase": "^5.10",
+        "kreait/laravel-firebase": "^6.0",
         "laracasts/presenter": "0.2.*",
-        "laravel-notification-channels/fcm": "^4.5",
-        "laravel/framework": "^11.0",
+        "laravel-notification-channels/fcm": "^5.0",
+        "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10",
         "laravel/ui": "^4.5",
@@ -45,8 +45,8 @@
         "filp/whoops": "^2.14",
         "laravel/dusk": "^8.0",
         "mockery/mockery": "^1.5",
-        "nunomaduro/collision": "^8.0",
-        "phpunit/phpunit": "^10.5"
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^11.0"
     },
     "autoload": {
         "classmap": [
