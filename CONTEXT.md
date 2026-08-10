@@ -23,17 +23,23 @@ complete (Laravel 13 + PHP 8.4 landed); WP 0A gates 3 and 5 still open
 
 | | Installed | Active | Target |
 |---|---|---|---|
-| PHP | 8.3.33 **and** 8.4.24 | **8.3.33** ← see note | 8.4 |
+| PHP | **8.4.24 only** (8.3 deleted) | **8.4.24** | ✅ done |
 | Laravel | **13.24.0** | 13.24.0 | ✅ done |
 | MySQL | **8.4.11 LTS** | 8.4.11 | ✅ done |
 | Composer | 2.10.2 | — | — |
 | Node | 22.15.0 | — | 16.20.2 for Mix 4 (unresolved) |
 | PHPUnit | 11.x | — | — |
 
-**PHP 8.4 is pinned in `composer.json` (`config.platform.php = 8.4.24`) and everything is verified
-under it, but bare `php` still resolves to 8.3.33** — `C:\php\8.3` sits in the MACHINE PATH, which
-Windows places ahead of the User PATH where `C:\php\8.4` was added. One elevated command finishes
-it; see `TODO.md` item 1. Until then use `C:\php\8.4\php.exe` explicitly.
+**PHP 8.4.24 is the resolved runtime** (`C:\php\8.4` first on the Machine PATH) and is pinned in
+`composer.json` as `config.platform.php`. **`C:\php\8.3` was deleted 2026-08-10** once 8.4 was
+verified serving real pages — there is no longer a local PHP rollback by PATH reorder. To roll
+back, reinstall 8.3 from `windows.php.net` and re-run `tools\fix-php-ini.ps1 -PhpRoot C:\php\8.3`
+(about two minutes; that is exactly how 8.4 was installed this session).
+
+**Verified serving HTTP on 13.24.0 + 8.4.24:** `/login` and `/register` return 200 with rendered
+pages against the seeded test database. `/` returns 500 — **pre-existing**, not an upgrade
+regression: the QR backend needs the `imagick` extension, which has never been installed on this
+machine and is not in the project's 27-extension list. `gd` is present. See `TODO.md`.
 
 ## Test and database
 

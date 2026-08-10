@@ -11,20 +11,29 @@
 
 ## Now
 
-1. **Fix the 8-minute test suite before writing any more tests.** `RefreshDatabase` replays all 93
+1. **`imagick` is missing and `/` returns 500 because of it.** The QR backend
+   (`simplesoftwareio/simple-qrcode` → `BaconQrCode`) throws
+   `RuntimeException: You need to install the imagick extension to use this back end`.
+   **Pre-existing, not caused by the upgrade** — imagick has never been installed here and is
+   absent from the 27-extension list in `tools/fix-php-ini.ps1`. Two options: install the imagick
+   DLL for PHP 8.4, or switch the QR writer to the **`gd`** backend, which IS present. **This must
+   be resolved before the server redeploy** — otherwise the homepage 500s in production too. Add
+   whichever choice to `tools/fix-php-ini.ps1` and to the CI workflow's extension list.
+
+2. **Fix the 8-minute test suite before writing any more tests.** `RefreshDatabase` replays all 93
    migrations per test class. `php artisan schema:dump` collapses them into one SQL file but needs
    `mysqldump`, which is not on PATH — it is in `C:\Program Files\MySQL\MySQL Server 8.4\bin`. Add
-   that directory to the Machine PATH (elevated) and re-run. Doing item 2 first without this makes
+   that directory to the Machine PATH (elevated) and re-run. Doing item 3 first without this makes
    every future suite run take hours.
 
-2. **WP 0A item 6 / gate 5 — characterization tests for the Release 1 surface.** Auth, roles and
+3. **WP 0A item 6 / gate 5 — characterization tests for the Release 1 surface.** Auth, roles and
    direct permissions, member profile, member QR / membership card, event attendance session
    open/scan/lock/unlock, group access, exports. **This is the gate that was skipped to reach
    Laravel 13** — the whole 10→13 upgrade currently rests on one import test. Nothing about the
    upgrade should be called "safe" until this exists. Do **not** write tests for CGSL, ministries,
    registration or Worship Night (Release 2, `PRODUCTION_PATH.md`).
 
-3. **Re-verify the route count.** `route:list` = 730 vs `ROUTE_MIGRATION_INVENTORY.md`'s 812 static
+4. **Re-verify the route count.** `route:list` = 730 vs `ROUTE_MIGRATION_INVENTORY.md`'s 812 static
    declarations; 12 are commented out, ~70 unexplained. Almost certainly pre-existing duplicate
    method+URI pairs, but there is **no pre-upgrade baseline to diff against**. Check out `086f33d`
    (pre-upgrade), run `route:list --json`, and diff. Correct the inventory either way — and while

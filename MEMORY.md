@@ -53,6 +53,33 @@ produce. This is the single largest caveat on the whole upgrade — see "Not ver
   `gego:checkquote` (hourly) and `gego:checkgetresponse` (daily).
   `ROUTE_MIGRATION_INVENTORY.md`'s "no scheduled tasks" claim is static-analysis error.
 
+**Late-session additions (HTTP verification + cleanup)**
+
+- **The app serves real pages on Laravel 13 + PHP 8.4** — `/login` and `/register` return **200**
+  with rendered HTML against the seeded test DB. This is the first time the app was exercised over
+  HTTP at all this session; everything before it was CLI only, and a framework that boots `artisan`
+  can still fail on every request. Worth doing before declaring any upgrade good.
+- **`/` returns 500: `imagick` extension missing** (`BaconQrCode` needs it). **Pre-existing** —
+  imagick is absent from *both* the old 8.3 and new 8.4 installs and was never in the project's
+  27-extension list, so `/` failed identically before the upgrade. `gd` is present and is the
+  cheaper fix. **Blocks the server redeploy** if unresolved. `TODO.md` item 1.
+- **`.env.testing` REPLACES `.env`; it does not merge.** The B4 version held only `DB_*` keys, so a
+  served request died on a missing `APP_KEY` while the PHPUnit suite passed (phpunit.xml supplies
+  those separately). It is now a complete environment copied from `.env` with DB overrides. A
+  DB-only `.env.<env>` file looks correct and passes tests while breaking the actual app.
+- **`php artisan serve --env=testing` does not reach the served subprocess** — the flag configures
+  the serve command, not the child that handles requests. Export `APP_ENV=testing` as a real
+  environment variable instead.
+- **Deleted after verification:** `C:\php\8.3` (88 MB) and
+  `D:\MySQL\data-backup-pre-8.4.11-20260810` (201 MB), plus two stale `php.ini.bak-*` files.
+  Live `customer_service` data confirmed byte-identical before the backup was removed, and no file
+  in the repo or `composer.bat` hardcoded an 8.3 path. **There is no longer a PATH-reorder PHP
+  rollback** — reinstalling 8.3 from `windows.php.net` plus `tools\fix-php-ini.ps1` takes about two
+  minutes and is the documented path now.
+- **MySQL root auth is intermittently flaky on this box.** A verified-working root login failed
+  again later in the session with no restart between. Unresolved; the scoped `iJosh` user has been
+  reliable throughout. Prefer it, and do not assume a failed root login means a wrong password.
+
 **Not verified — read before trusting this upgrade**
 
 - **No characterization tests exist** for auth, roles, member profile, QR/membership card,
