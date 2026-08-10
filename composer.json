@@ -46,7 +46,7 @@
         "laravel/dusk": "^7.0",
         "laravel/legacy-factories": "^1.4",
         "mockery/mockery": "^1.5",
-        "nunomaduro/collision": "^6.0",
+        "nunomaduro/collision": "^7.0",
         "phpunit/phpunit": "^10.5"
     },
     "autoload": {
