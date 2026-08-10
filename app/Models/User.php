@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Laracasts\Presenter\PresentableTrait;
+use App\Support\Presenter\PresentableTrait;
 use Laratrust\Traits\HasRolesAndPermissions;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;

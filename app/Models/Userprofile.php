@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Laracasts\Presenter\PresentableTrait;
+use App\Support\Presenter\PresentableTrait;
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\Common;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

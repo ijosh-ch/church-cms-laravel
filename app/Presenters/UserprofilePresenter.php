@@ -1,7 +1,7 @@
 <?php
 namespace App\Presenters;
 
-use Laracasts\Presenter\Presenter;
+use App\Support\Presenter\Presenter;
 use Carbon\Carbon;
 
 class UserprofilePresenter extends Presenter
