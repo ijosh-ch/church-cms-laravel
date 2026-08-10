@@ -11,33 +11,20 @@
 
 ## Now
 
-1. **Finish the PHP 8.4 switch — needs Administrator.** `composer.json` is pinned to 8.4.24 and
-   everything is verified under it, but bare `php` still resolves to 8.3.33 because `C:\php\8.3`
-   is in the **Machine** PATH, which outranks the User PATH. In an **elevated** PowerShell:
-
-   ```powershell
-   $m = [Environment]::GetEnvironmentVariable('Path','Machine')
-   $p = ($m -split ';') | Where-Object { $_ -and $_ -ne 'C:\php\8.3' }
-   [Environment]::SetEnvironmentVariable('Path', (@('C:\php\8.4') + $p) -join ';', 'Machine')
-   ```
-
-   Then open a new terminal and confirm `php -v` reports 8.4.24. `C:\php\8.3` stays on disk as the
-   rollback path — do **not** delete it until the app has run on 8.4 for a while.
-
-2. **Fix the 8-minute test suite before writing any more tests.** `RefreshDatabase` replays all 93
+1. **Fix the 8-minute test suite before writing any more tests.** `RefreshDatabase` replays all 93
    migrations per test class. `php artisan schema:dump` collapses them into one SQL file but needs
    `mysqldump`, which is not on PATH — it is in `C:\Program Files\MySQL\MySQL Server 8.4\bin`. Add
-   that directory to PATH (same elevated step as item 1) and re-run. Doing item 3 first without
-   this makes every future suite run take hours.
+   that directory to the Machine PATH (elevated) and re-run. Doing item 2 first without this makes
+   every future suite run take hours.
 
-3. **WP 0A item 6 / gate 5 — characterization tests for the Release 1 surface.** Auth, roles and
+2. **WP 0A item 6 / gate 5 — characterization tests for the Release 1 surface.** Auth, roles and
    direct permissions, member profile, member QR / membership card, event attendance session
    open/scan/lock/unlock, group access, exports. **This is the gate that was skipped to reach
    Laravel 13** — the whole 10→13 upgrade currently rests on one import test. Nothing about the
    upgrade should be called "safe" until this exists. Do **not** write tests for CGSL, ministries,
    registration or Worship Night (Release 2, `PRODUCTION_PATH.md`).
 
-4. **Re-verify the route count.** `route:list` = 730 vs `ROUTE_MIGRATION_INVENTORY.md`'s 812 static
+3. **Re-verify the route count.** `route:list` = 730 vs `ROUTE_MIGRATION_INVENTORY.md`'s 812 static
    declarations; 12 are commented out, ~70 unexplained. Almost certainly pre-existing duplicate
    method+URI pairs, but there is **no pre-upgrade baseline to diff against**. Check out `086f33d`
    (pre-upgrade), run `route:list --json`, and diff. Correct the inventory either way — and while
