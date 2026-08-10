@@ -337,7 +337,7 @@ A handoff is bad if the next session has to ask any of these:
 
 Never read these files whole. Read the range.
 
-### `PRD.md` (32,809 tokens total)
+### `PRD.md` (~33,900 tokens total) — **line map re-derived 2026-08-09 after the QR amendments**
 
 | Lines | ~Tokens | Section |
 |---|---:|---|
@@ -345,16 +345,20 @@ Never read these files whole. Read the range.
 | 76–216 | 3,184 | 2. Evidence and Existing-System Inventory |
 | 217–263 | 780 | 3. Product Scope and Personas |
 | 264–952 | 9,582 | 4. Domain Model — **split by subsection; never read whole** |
-| 953–1168 | 6,497 | 5. Functional Requirements (FR-01 … FR-13) |
-| 1169–1308 | 1,130 | 6. Key Workflows |
-| 1309–1481 | 3,009 | 7. Application Architecture |
-| 1482–1513 | 1,007 | 8. Non-Functional Requirements |
-| 1514–1579 | 771 | 9. Migration Plan |
-| 1580–1613 | 882 | 10. Delivery Plan |
-| 1614–1664 | 1,860 | 11. Acceptance Test Matrix |
-| 1665–1690 | 776 | 12. Engineering Rules for the Implementing LLM |
-| 1691–1733 | 1,139 | 13. Decisions and Open Questions |
-| 1734–1758 | 560 | 14. External References |
+| 953–1183 | 7,418 | 5. Functional Requirements (FR-01 … FR-14) |
+| 1184–1323 | 1,130 | 6. Key Workflows |
+| 1324–1496 | 3,009 | 7. Application Architecture |
+| 1497–1528 | 1,007 | 8. Non-Functional Requirements |
+| 1529–1594 | 771 | 9. Migration Plan |
+| 1595–1628 | 882 | 10. Delivery Plan |
+| 1629–1679 | 1,860 | 11. Acceptance Test Matrix |
+| 1680–1705 | 776 | 12. Engineering Rules for the Implementing LLM |
+| 1706–1756 | 1,567 | 13. Decisions and Open Questions |
+| 1757–1781 | 560 | 14. External References |
+
+> **Re-derive this table after every `PRD.md` edit.** A stale line map sends sessions to the wrong
+> range, which costs more than the edit saved. One command:
+> `python3 -c "..."` on `^## ` headings — see `MEMORY.md` 2026-08-09 Session 3g.
 
 ### `build.md` (15,590 tokens total)
 

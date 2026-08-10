@@ -85,6 +85,379 @@
 
 ---
 
+## 2026-08-10 — Session 3h — Readiness check + prompt library
+
+**Versions re-verified today, not carried forward:** Laravel **13** (min PHP 8.3, supports
+8.3–8.5) · PHP **8.4** recommended for production (8.3 loses *active* support 2026-11-23; 8.4 has
+security to Dec 2028) · MySQL **8.4 LTS** (8.0 EOL April 2026; **9.x are Innovation releases, not
+LTS — do not target**). MySQL 8.4 **disables `mysql_native_password` by default** — check the app
+user's auth plugin before upgrading, and dump first, the 8.0→8.4 upgrade is one-way.
+
+**Readiness verdict: versions settled, repository not.** WP 0A ≈ 5 of 15 items. Seven open gates
+recorded in `TODO.md`: nothing committed (13 files incl. `PRD.md`), no `ifgf/main` or `deploy`
+branch, no ifgf package, no CI, 4 test files, **`php artisan test` throws `RequirementsException`**
+(collision/PHPUnit 10), no disposable test DB.
+
+**Created `tools/UPGRADE_PROMPT.md`** — three phases. A: PHP 8.4 installed **side by side** with
+8.3, 8.3 stays first on PATH (Laravel 10.50.2 is not PHP 8.4 clean and `composer.json` pins
+`platform.php = 8.3.33`); MySQL 8.4 LTS. B: close gates 1–7, ending with a recorded
+pass/fail/skip baseline. C: Laravel 10→11→12→13 one major at a time, **stopping if any test that
+passed in B now fails** — and explicitly forbidding "fixing" the test to make it pass.
+`laravel/legacy-factories` must be removed before touching the framework version.
+
+**Created `tools/PROMPTS.md`** — paste-ready prompts P1–P7 covering WP 0C, WP 0D, and Phases
+1A, 1B, 1C.1–1C.2, 1D, 1E.1, in order, at Release 1 scope. **Each prompt carries the findings
+already paid for** so no session rediscovers them: the cascade and squashed-migration facts for
+P1, the phone-normalisation and dead-column facts for P3, the "60% of FR-04 already exists" list
+for P4, the pre-tick-from-last-week idea for P5, the `Lokasi` 1.2% and `Absen-TPE_ZL`-unmaintained
+facts for P6, the QR-reissue comms requirement for P7. Owner questions are embedded where they
+fall — P3 needs Q8/Q15, P6 needs Q1, P7 needs Q6/Q7/Q10/Q11.
+
+**Estimate to production: 73–90 sessions**, of which 20–24 are the upgrade prompt's phases.
+
+---
+
+## 2026-08-09 — Session 3g — PRD amended (first edits to the approved baseline)
+
+**`PRD.md` edited — +27 / −4 lines. Uncommitted; needs owner review before commit.**
+
+| Location | Change |
+|---|---|
+| FR-02.2 | Home branch nullable, required at registration/activation only. **Follow-up preference removed from the required minimum** — legacy never captured it (0% filled). |
+| FR-02.7 | Six sub-items: QR is an **attendance credential only**, ticket-equivalent, never an auth factor. Payload = `qr_token` 32 chars, nothing else. Rotation semantics. **Sequential IDs prohibited** (forgery cost, not secrecy). **Signed/expiring URLs prohibited** (printed cards outlive signatures). Human-readable fallback on the card. |
+| FR-04.1 | Five sub-items: **occurrence context lives on the scanner, never in the member QR.** Usher selects event + branch; persistent on-screen display; occurrence change is audited. **Self-service venue-code check-in explicitly out of scope** for MVP with the replay reasoning. |
+| FR-04.4 | Scan endpoint takes occurrence ref + `qr_token`, never username/email/sequential ID, rate-limited. Response returns minimum identity only. |
+| §13.1 | Six new default decisions, 18–23: Laravel 13 target; home branch nullable; legacy-vs-PRD escalation + authority hierarchy; no blanket import precedence; scanner-side occurrence context; upstream contribution deferred. |
+| §13.2 | Q2, Q3, Q9 marked resolved with pointers to §13.1. Note added pointing at `PRD_OPEN_QUESTIONS.md`. |
+
+**Owner simplification — accepted, and better than my proposal**
+
+I proposed two QRs (member card + occurrence code). The owner simplified: **put the event and
+location tagger on the usher's phone web app; the QR carries member identity only.** Correct — it
+is fewer moving parts, nothing extra to print, and it is already how upstream's `scan()` works
+(`session_id` comes from the leader's open session). **QR-B is now optional convenience, not MVP.**
+`ATTENDANCE_QR_DESIGN.md` annotated accordingly.
+
+Owner also framed the member QR as **"like a ticketing QR"** — a useful mental model that is now
+in FR-02.7.1: it is an admission credential, not an identity or auth credential, so losing one
+exposes no account. That framing settles several downstream questions about how much protection it
+actually needs.
+
+**⚠ Process lesson — `PRD.md` line numbers shifted**
+
+Editing the PRD invalidated `EXECUTION_PLAN.md` Appendix A. Section 5 moved from 953–1168 to
+953–1183; every section after it shifted ~15 lines. **Appendix A has been re-derived.**
+**Re-derive it after every `PRD.md` edit** — a stale line map sends sessions to the wrong range,
+costing more than the edit saved. Regenerate with:
+
+```
+python3 -c "
+lines=open('PRD.md',encoding='utf-8').read().split(chr(10))
+secs=[(i,l[3:].strip()) for i,l in enumerate(lines,1) if l.startswith('## ')]
+secs.append((len(lines)+1,'EOF'))
+for (a,n),(b,_) in zip(secs,secs[1:]):
+    ch=sum(len(x)+1 for x in lines[a-1:b-1]); print(f'| {a}-{b-1} | {ch//4} | {n} |')"
+```
+
+PRD total is now ~33,900 tokens, up from 32,809. Rule T1 unchanged: never read it whole.
+
+---
+
+## 2026-08-09 — Session 3f — Owner decisions + attendance QR design
+
+**Owner decisions recorded**
+
+- **Laravel target = latest stable (13).** Reinforces WP 0B as a hard blocker — Laravel 10 lost
+  security support Feb 2025.
+- **Q3 home branch = nullable**, required at activation, malformed row → import exception.
+  *PRD edit owed:* L402 is correct, amend L973.
+- **FR-05 iCare returns to Release 1.** See correction below.
+- **QR = opaque random token, not member ID.** Owner asked "isn't the QR just the member ID?" —
+  instinct correct (it *is* a lookup key), specific choice wrong. Decisive argument is **forgery
+  cost, not secrecy**: a leaked attendance QR is low harm, but a sequential ID turns the attack
+  from "photograph a specific card" into "count" — ID 47 proves 1–46 exist, so the whole roster
+  could be forged without seeing a single card. Also `build.md` TECHNICAL BASELINE 7, and rotation
+  (FR-02.7) is impossible on a primary key.
+
+**Correction — I deferred FR-05 on a bad inference**
+
+`WORKBOOK_INVENTORY.md` found `Absensi iCare` empty and `PRODUCTION_PATH.md` concluded iCare
+attendance was not practised. **Wrong.** iCare groups meet weekly on weekdays, each with a leader,
+and attendance is taken per member — the *spreadsheet* was never the tool. **Data absence is not
+capability absence. Ask the owner before deferring on that basis.** Both documents corrected;
+revised estimate 73–90 sessions to production (was 68–83).
+
+**Attendance QR design — `ATTENDANCE_QR_DESIGN.md`**
+
+Owner asked for event information (Super Sunday, iCare, Christmas) inside the QR. **Not possible in
+the member card**: member identity is permanent and printed once, event identity is per-occurrence
+and weekly. A card saying "Super Sunday" would need siblings per event type and still could not
+distinguish which Sunday.
+
+**Resolved with two QRs:** QR-A member card carries `qr_token` only ("who"); QR-B occurrence code
+carries `occurrence_token` ("which event, branch, date"). Leader scans QR-B **once** to open the
+occurrence, then QR-A **many times**. This is what upstream already does — `scan()` takes
+`session_id` + member identifier — so **QR-B is a shortcut for choosing `session_id`, not a new
+mechanism.**
+
+- **Rejected member-scans-event-poster self-service.** A static poster QR can be photographed and
+  shared → remote check-in fraud; defending it needs a rotating on-screen code. Also 200 arrivals ×
+  phone logins is slower than one leader scanning. **And the legacy data settles it:** the old flow
+  asked members to pick their location and **98.8% never did**.
+- **iCare needs no QR at all** — ~10 members with a leader present; a tick list pre-filled from
+  last week beats scanning.
+- Four deltas from upstream's `scan()`: `member_username`→`qr_token`, `session_id`→
+  `occurrence_token`, writes via `AttendanceRecorder`, and `avatar_url` off the public disk.
+
+---
+
+## 2026-08-09 — Session 3e — PRD review: QR design + Laravel feasibility
+
+**Done:** `PRD_REVIEW.md` — QR redesign recommendation, per-FR feasibility matrix against the
+baseline, and suggested PRD amendments.
+
+**Learned — carry forward**
+
+- **The PRD understates the baseline for FR-04.** `EventAttendanceSession` (`opened_by`,
+  `locked_at`, `locked_by`) + `EventAttendee` (`scanned_at`, `scanned_by`) + `Api/AttendanceController`
+  (`myEvents`, `openSession`, `scan`, `lock`, `sessionReport`) + `Admin/EventAttendanceController`
+  (13 methods incl. `unlock`, `searchMember`, `markAttendee`, `manageManagers`) already implement
+  **duplicate-scan 409, lock/unlock, manual fallback, and manager assignment** — FR-04.7, .8, .9,
+  .11 and part of .10. Roughly **60% of FR-04 exists**. The Phase 1B estimate in
+  `EXECUTION_PLAN.md` is likely too high.
+- **Upstream's QR encodes `User.name`.** Better than the GAS (no PII) but not opaque, not
+  rotatable, and enumerable. More importantly **`scan()` takes `member_username` as a plain request
+  parameter** — nothing proves a QR was seen. The current QR provides *no* security control, so
+  this is adding one, not hardening one.
+- **Recommended QR design is one indexed column**: `qr_token` `char(32)` unique (`Str::random(32)`),
+  `qr_version`, `qr_rotated_at`. Payload is the token alone. Rotation = regenerate + bump version.
+  **Explicitly reject signed URLs** — a printed card must live for years, so a temporary signature
+  expires and a permanent one cannot be revoked per-member without rotating `APP_KEY` for everyone.
+  **Reject JWT/encrypted payloads** — payload size raises QR density, which hurts scanning in poor
+  entrance lighting, and buys nothing when the server has a database. Sanctum-style
+  hash-plus-encrypted storage is available as later hardening; skip initially.
+- **Three real risks, in order:** (1) **FR-11, not FR-14, is the hard one** — `usergroup_id` in 33
+  files, each an authorization path needing replacement with no window of broader access.
+  (2) **`EventAttendee` is presence-only** — no `status` column, so absent/excused cannot be
+  expressed; after the additive migration, a *missing row* must not be read as absence.
+  (3) **One session per event per date** — `EventAttendanceSession` keys on `attendance_date`,
+  contradicting FR-03.2's multiple same-day occurrences. Confirms WP 0C item 5 is real.
+- **`Api/AttendanceController::scan()` returns `avatar_url` from `Storage::disk('public')`** —
+  contradicts invariant 30 (private storage, signed access). Upstream-owned compatibility fix.
+- **Feasibility verdict: 5 adapt, 3 extend, 1 replace, 6 new. No FR is infeasible**, none requires
+  abandoning the fork.
+- **Graphify is still not a good code index here**, even after `.graphifyignore` (15 MB → 7.3 MB,
+  6,919 nodes). Top files by node count are `package.json`, `_design_reference/*.md`,
+  `composer.json`, **`PRD.md`** — prose and manifests outrank source; `app/Models/User.php` is the
+  first source file at 48 nodes. It was useful for *orientation* only; every finding came from
+  targeted grep into files it named. **Extend `.graphifyignore` to `_ai/`, `_design_reference/`,
+  `_code_reference/` and the root planning `.md` files** — indexing `PRD.md` returns requirement
+  text when you are searching for implementation.
+
+---
+
+## 2026-08-09 — Session 3d — Legacy Google Apps Script behaviour inventory
+
+**Done:** `GAS_INVENTORY.md` from `church-member-management`. Requirements reference is now
+complete — workbook (data) + GAS (behaviour), both rank-1 authority.
+
+**Tool correction — important**
+
+**The file tools (`Read`/`Glob`/`Grep`) reach all four selected folders via their Windows paths;
+only the bash sandbox is limited to `church-cms-laravel`.** An earlier session claimed the GAS repo
+was inaccessible and asked the owner to upload it. That was wrong. When a sibling repo is needed,
+use `Glob`/`Read` on `D:\Users\Ian Joseph\Documents\GitHub\<repo>` directly.
+
+**Learned — carry forward**
+
+- **C1 — the legacy member QR leaks contact data, and cannot be rotated.** `generatePrefilledUrl`
+  (`qr-code.js:42`) builds the QR content as a Google Forms prefilled URL carrying the member's
+  **email, WhatsApp number, full name and iCare group in plaintext**. Photograph the QR, read all
+  four. It is a pure function of the member's own data, so regenerating yields an identical code —
+  no token, no expiry, no revocation. Contradicts `build.md` SECURITY 8, TECHNICAL BASELINE 7, and
+  PRD FR-02. **Escalated to the owner; recommendation is that the PRD wins.** Consequence:
+  **every member QR must be reissued at cutover** and old printed codes stop working — the most
+  visible user-facing change in the migration, needs a comms plan in Phase 1E.
+- **C3 — `cleanPhoneNumber` has a no-op branch.** Leading-zero local numbers are not normalised
+  (`cleaned = cleaned; // Keep as is for now`), so `0912…`, `+886912…` and `886912…` are three
+  keys for one person. Legacy duplicate detection matches on **email OR phone**, so it has been
+  silently missing phone duplicates for years. WP 0C must normalise to E.164 with an explicit
+  default region and **expect duplicates the legacy system never detected**. Email matching is
+  sound (`trim()` + `toLowerCase()`).
+- **`Absen-TPE_ZL` is unmaintained — mystery solved.** `addWeeklyAttendanceColumns` iterates
+  `SPREADSHEET.sheets.ABSEN`, which lists only `Absen-TPE` and `Absen-ZL`. That is exactly why the
+  combined sheet stalled at 2026-04-26 while the per-branch sheets run to 2026-08-09. **Exclude it
+  from import.**
+- **Weekly insert mechanics confirmed:** `insertColumnsAfter(5,2)` → copy `H:I` → `F:G` → merge
+  `F6:G6`. Columns A–E are the identity block; newest week is leftmost; each week is an
+  Onsite/Online pair under a merged date header in row 6.
+- **The birthday Calendar design is better than the PRD assumes** and should be carried forward:
+  per-member series ID stored in the sheet (the only 100%-populated roster column), in-place
+  `setRecurrence()` with delete-and-recreate fallback, detail-only patching when the date is
+  unchanged, name-based cleanup when no ID exists, plus `syncAllBirthdays()` reconciliation. Maps
+  directly onto PRD FR-08's same-calendar adoption and tombstone requirements.
+- **Legacy identity rule:** `addEditUrlSpreadsheet` searches **bottom-up** for a matching email and
+  takes the most recent row lacking an edit URL, falling back to the last row. With 3 duplicate
+  names in the roster, WP 0C must reproduce or deliberately supersede this.
+- **`config.js` holds live access identifiers** — registration and attendance form IDs and entry
+  IDs, birthday Calendar ID, spreadsheet ID, admin email. **Never commit these.** Referenced by
+  name only in `GAS_INVENTORY.md`. Feeds WP 0D's secret inventory.
+
+---
+
+## 2026-08-09 — Session 3c — Legacy workbook inventory (structure only)
+
+**Done:** `WORKBOOK_INVENTORY.md` from `Jemaat & Absensi (2).xlsx`. **No member data recorded** —
+column names, fill rates, distinct counts, categorical distributions only. Workbook not committed,
+not modified.
+
+**Learned — carry forward**
+
+- **Only ~14 of 33 roster columns are alive.** 12 are ≤0.9% filled (2 straggler rows each, residue
+  of an older form version) and 3 are 0%. Do not model the dead ones as fields.
+- **`Lokasi` is missing on 98.8% of attendance scans** — 40 of 3,227 rows. The GAS deliberately
+  leaves location blank for the member to pick at scan time, and members almost never do.
+  **Branch attribution for historical attendance cannot come from the scan log.** This is the
+  single most consequential migration finding so far.
+- **The weekly grid is not derived from the scan log.** 3,227 raw scans cannot populate ~40,000
+  grid cells across two branches, so the grid is substantially manual. The two sources **will**
+  disagree — which the owner's escalate-every-conflict rule (Q2) now covers, and which makes
+  `ifgf_import_conflicts` volume potentially large. WP 0C's dry-run must measure it.
+- **Attendance is a wide grid, not rows.** 46 weeks × 216 members × Onsite/Online per branch.
+  Newest week is **leftmost** (the GAS inserts two columns after column E each week and merges
+  `F6:G6`). The pivot to `AttendanceRecord` rows *is* the migration; column headers in row 6 are
+  the only occurrence identifiers.
+- **`Absensi iCare` contains a header row and no data.** iCare attendance was designed and never
+  collected — PRD FR-05 is **new capability with no history to migrate**, not a port. Similarly
+  **online attendance is effectively unused** (3 rows marked `Ya` out of 3,227).
+- **Q3 answered empirically.** Branch is 99.5% filled, exactly 2 values (Taipei 112, Zhongli 104).
+  The one gap is the single malformed row. Recommendation firmed: **nullable column, required at
+  activation, malformed row → import exception.** A `NOT NULL` would fail on exactly one junk row.
+- **`PRD.md` L973 requires follow-up preference; the source never captured it** (col 32, 0%
+  filled). Either drop it from the required minimum or accept every imported member starts unset.
+- Data defects to normalise: duplicate `LINE ID`/`Line ID` columns (case-differing, one dead),
+  `Tanggal Lahir` with one date stored as text, `Line ID` with 3 numerics among strings, 3
+  duplicate full names, free-text `Profesi`/`Tingkat Pendidikan` (**no MySQL enums** — TECHNICAL
+  BASELINE 6).
+- **`Absen-TPE_ZL` reports 93 weeks but ends 2026-04-26**, four months before the per-branch
+  sheets end. Stale view or different granularity — resolve before trusting it; prefer per-branch.
+- Detailed weekly grids start **2025-09-28**; 2022–2024 exists only as year-summary sheets.
+
+**Privacy note:** the analysis probe printed real names and emails into the working session. None
+were persisted to any file. Future structure probes should mask value columns from the start.
+
+---
+
+## 2026-08-09 — Session 3b — PRD open-question triage + two governing owner decisions
+
+**Done:** `PRD_OPEN_QUESTIONS.md` — all 16 questions in `PRD.md` §13.2 mapped to the work package
+they block, with recommended defaults. Q2 and Q9 resolved; **Q3 is the only remaining blocker**.
+
+**Owner decisions, 2026-08-09 — these govern more than the questions they answered**
+
+- **Authority hierarchy.** The legacy **workbook + Google Apps Script are the authoritative
+  reference for required data and main functions** — they describe the program running today.
+  `PRD.md` is the agreed articulation of that plus everything new. **Upstream ChurchCMS supplies
+  implementation, not requirements.** When upstream behaviour and IFGF requirements disagree,
+  **escalate to the owner** — neither "upstream already does it this way" nor "the PRD says
+  otherwise" settles it alone. This also resolves Q2: every import conflict is escalated, no
+  blanket precedence rule. Consequence: `ifgf_import_conflicts` is a first-class admin workflow
+  needing a review UI, not an exception log.
+- **`upstream/main` is an active feature source, not a frozen base.** The owner wants to keep
+  absorbing functionality upstream builds beyond IFGF's own work. Does not change the current pin
+  at `d12c110`, but raises the value of every practice that keeps syncs cheap: package-owned
+  behaviour, minimal `UPSTREAM.md` entries, `contrib/*` contribution to retire patches, and the
+  CI merge rehearsal — which becomes a **recurring** safety net rather than a one-off gate item.
+
+**Blocker created by the authority decision**
+
+The GAS repo (`church-member-management`) and the workbook are **outside this repository** and not
+readable from a session scoped to `church-cms-laravel`. They now outrank the PRD on requirements,
+and `build.md` forbids inventing behaviour for an unavailable source. **Before Session 6 (WP 0C
+member extraction), either open sessions with both repos in scope, or commit an anonymized extract
+of the GAS logic and workbook column inventory into this repo — structure and logic only, no real
+member data.**
+
+**Learned — carry forward**
+
+- **`PRD.md` contradicts itself on home branch.** L402 models it as optional (`Branch "0..1"`);
+  L973 lists it in the required-field minimum. Q3 exists because of this. Both lines must be
+  reconciled whichever way it resolves, or WP 0C and Phase 1A will read the same document and
+  build different things. **The PRD is otherwise structurally complete** — one incompleteness
+  marker in 1,758 lines, and it is not a gap.
+- **Q14 is mis-scheduled by its own wording.** It reads as a Phase 1E hosting question, but the
+  storage provider and region are needed at **Phase 1A.5**, where profile media first lands. It
+  is the earliest infrastructure decision in the project, and it is inseparable from WP 0D's
+  cross-border privacy review — Taiwanese member images, Indonesian operations, two data
+  protection regimes. Do not pick a bucket region before that review.
+- **Q2 should not be answered yet.** Whether an automatic conflict winner is acceptable depends on
+  conflict volume, which nobody has measured. `build.md` WP 0C items 13–14 already require the
+  all-row reconciliation *before* any member is committed — so build for manual resolution, let
+  the dry-run produce the number, then decide.
+- Answering a §13.2 question is a **PRD edit**, not just a note: move it into §13.1 and fix every
+  section it contradicts. `PRD.md` is the committed baseline (`e394e74`).
+
+---
+
+## 2026-08-09 — Session 3 — Route and migration inventory (WP 0A item 4a)
+
+**Work package:** 0A item 4a · **Branch:** `codex-PRD` · **HEAD:** `a262771`
+**Tool note:** run without PHP (static analysis only). `php artisan route:list` still owes a
+cross-check.
+
+**Done**
+
+- `ROUTE_MIGRATION_INVENTORY.md` — 812 routes across 4 files, 93 migrations, authorization
+  posture per surface, and the WP 0C landmine list with file and line references.
+- Settled the `signedRoute` question left open by Session 2.
+
+**Learned — carry forward**
+
+- **The migration history is not real.** 93 files, **91 creates, 91 drops, ZERO alters**, and 90
+  of them share the timestamp `2024_01_01_*`. This is a squashed/regenerated set, not accumulated
+  history. Consequence for WP 0C: the migrations **do not describe how production reached its
+  current shape**, so migrating an anonymized legacy snapshot may diverge from a fresh-database
+  run. The 0C exit gate requires both to work — budget for that divergence rather than assuming
+  parity. Only 3 migrations are genuinely recent (2026): `group_posts`, `donations`, and
+  `add_online_payment_gateways` (the Stripe work that caused UP-001).
+- **`event_attendees.user_id` is `ON DELETE CASCADE` to `users`** — line 20 of
+  `2024_01_01_000030`. Directly violates PRD invariant 14. **But `users` already has
+  `softDeletes()`**, so the normal delete path never fires the cascade; only `forceDelete()`, raw
+  SQL, or a future GDPR erasure does. That means WP 0C item 4 and WP 0D's erasure design are the
+  same problem and must be solved together, not sequentially. Line 18 is a second exposure:
+  deleting an *event* cascades attendance regardless of user soft deletes.
+- **`userprofiles.user_id` has a foreign key but no unique constraint** — confirms WP 0C item 3,
+  and the item's own wording implies production already contains duplicates.
+- **`role_user` is partially right already**: composite primary `(user_id, role_id, user_type)`
+  exists, but WP 0C item 8 wants unique on `user_id + user_type` (one role per user), and there
+  is **no foreign key on `user_id` at all** — only on `role_id`.
+- **Signed URLs are email-verification only** (`Mail/VerifyEmail.php:62`,
+  `Auth/VerificationController.php:36`). The signed-URL-confusion advisory does **not** touch QR
+  or attendance. Advisory question closed. Separately: membership-card QR is neither signed nor
+  rotatable, which is a Phase 1A design gap, not a security fix.
+- **`console.php` defines no scheduled tasks.** Everything the PRD expects on a schedule —
+  birthday sync, occurrence generation, retention — is new build with no existing counterpart.
+- **Only 11 throttle declarations across 812 routes.** Most paths SECURITY RULE 5 wants
+  rate-limited are currently unthrottled.
+- **`usergroup_id` appears in 33 files** — that is the concrete replacement surface for WP 0C
+  item 9 / INVARIANT 22.
+- Do **not** blanket-replace all 13 cascade migrations. Only `event_attendance_sessions` and
+  `event_attendees` carry pastoral history; the rest are join/versioning/marketing tables where
+  cascade is correct. Blanket replacement is churn against upstream-owned files for no gain.
+
+**Method note**
+
+Route middleware was read from `Route::group` declarations only. Middleware applied in controller
+constructors is **not** captured — `VerificationController` proves that pattern is in use, so
+characterization must check constructors too.
+
+**Not done**
+
+- Item 4b (auth, roles, attendance, cards, exports, media, storage, queues, scheduler).
+- `.graphifyignore` was written and staged by an earlier part of this session but **not committed**.
+
+---
+
 ## 2026-08-09 — Session 2 — Baseline committed, dependency inventory complete
 
 **Work package:** 0A item 3 (dependency inventory), plus finishing item 2 (doc baseline commit) ·
