@@ -970,12 +970,20 @@ Storage provider selection must verify encryption, private buckets, presigned up
 ### FR-02 Registration, member portal, and member QR, MVP
 
 1. Public registration is mobile-first and Indonesian by default.
-2. Required fields are configurable. The initial minimum is full name, birthday, one contact method, home branch, privacy consent, and follow-up preference.
+2. Required fields are configurable. The initial minimum for **self-service registration** is full name, birthday, one contact method, home branch, and privacy consent.
+   1. Home branch is **nullable in the schema** and required at registration and at activation, not on the stored record. Imported and unclaimed records may be branch-neutral. See Section 13.1. A source row missing a branch becomes an import exception with a recorded reason rather than a rejected row or a fabricated value.
+   2. Follow-up preference is **not** part of the required minimum. The legacy registration form defined the field but never captured it, so every imported member begins with it unset; requiring it would force the migration to invent data absent from the authoritative source.
 3. Google sign-in may accelerate account activation but is not required for initial launch.
 4. A visitor created by a leader may remain unclaimed until invited.
 5. Email-only, phone-only, LINE-only, and imported no-password records are valid domain fixtures. In the MVP, only an account with a verified email and established credential, or an approved Google identity, may authenticate. Phone-only and LINE-only records remain unclaimed until a verified login identity is added.
 6. A member can view their own profile, review consent, and display a personal QR. Profile fields are read-only for member and leader; an admin performs edits.
 7. Personal QR encodes an opaque public identifier and QR version. Administrators and members can rotate it.
+   1. The member QR is an **attendance credential only**, conceptually equivalent to an admission ticket. It is never an authentication factor, never grants a session, and never carries authorization. Losing it exposes no account.
+   2. The payload is a single random token — `ifgf_member_profiles.qr_token`, 32 characters, unique index — and nothing else. It must not contain a name, email, phone, iCare group, branch, sequential database key, URL, or any self-describing structure.
+   3. Rotation regenerates the token, increments `qr_version`, and records `qr_rotated_at`. The previous code stops resolving immediately, with no grace period.
+   4. A sequential or otherwise guessable identifier is prohibited. The concern is forgery cost, not secrecy: an enumerable identifier lets an actor produce a valid code for every member without ever seeing a card, whereas a random token requires physically obtaining each one.
+   5. Signed or expiring URLs must not be used for the member QR. The code is printed on a card intended to last years; a temporary signature expires, and a permanent one cannot be revoked for a single member without rotating the application key for everyone.
+   6. Printed cards carry the member's display name and a short human-readable code alongside the QR, so an usher can complete check-in manually when a camera cannot read the code.
 8. Welcome notification is sent only through a verified supported channel and contains an activation link plus QR access instructions.
 9. Registration windows and rate limits are configurable.
 10. The member portal contains only own read-only profile, own QR, and authenticated administrator-published church-information pages. Attendance operations, birthday Calendar, administration, reports, and other member profiles are unavailable to the member role.
@@ -997,9 +1005,16 @@ Storage provider selection must verify encryption, private buckets, presigned up
 ### FR-04 Common attendance engine, MVP
 
 1. Every attendance write goes through `AttendanceRecorder`.
+   1. Occurrence context is established on the **scanner side, never in the member QR**. An usher opens the mobile check-in page, selects the occurrence — event and branch — and that selection is the context for every subsequent scan until it is changed or the occurrence is finalized.
+   2. The member QR therefore answers only "who". The scanner answers "which event, which branch, which date". A static member card cannot carry occurrence context, because member identity is permanent while occurrences recur.
+   3. The selected occurrence is displayed persistently and unambiguously on the usher's screen — event name, branch, and date — so a mis-selected occurrence is visible before scanning begins rather than discovered during reconciliation.
+   4. Changing the selected occurrence is an explicit action and is recorded in the audit trail with actor and timestamp.
+   5. Self-service member check-in, where a member scans a code displayed at the venue, is out of scope for the MVP. A static venue code can be photographed and redistributed, permitting attendance without attendance; defending it requires a rotating displayed code. Any future adoption is a separately approved PRD change with its own replay-protection design.
 2. Attendance status values are present, absent, and excused.
 3. Participation mode values are onsite and online; mode is null for absent records.
 4. Initial capture methods are manual, member_qr, import, zoom_import, and photo_suggestion. Phase 2 adds face_assisted and face_auto without creating another attendance table.
+   1. The `member_qr` scan endpoint accepts an occurrence reference plus a member `qr_token`. It must not accept a username, email, or sequential member identifier, and it is rate-limited.
+   2. The scan response returns only the minimum identity an usher needs to confirm the right person — display name and, where authorized, a small thumbnail retrieved through short-lived signed access. It must never return contact details, birthday, iCare group, or pastoral fields.
 5. Capture methods are application-validated strings so future values do not require schema changes.
 6. Open-audience events store present records only. Closed-roster events create a final snapshot including absent or excused members.
 7. Duplicate scans return the existing record and a clear message rather than creating a duplicate.
@@ -1709,18 +1724,26 @@ Minimum automated coverage includes unit tests for domain services, feature test
 15. Private S3-compatible object storage is the production default for member profile and attendance media. MySQL stores metadata and encrypted biometric templates, not image bytes.
 16. Profile-display, biometric-enrollment, live-recognition, and group-photo-matching consents are distinct and independently revocable.
 17. Automatic recognition is adult-only by default, and QR or leader-assisted attendance remains available without penalty.
+18. The target framework is the newest stable Laravel major at the time Work Package 0B begins, currently Laravel 13. Laravel 10 left security support in February 2025 and is not an acceptable production target. Confirmed 2026-08-09.
+19. Home branch is nullable in the schema, required at self-service registration and at activation. Imported and unclaimed records may be branch-neutral; a source row without a branch becomes an import exception. Resolves the former open question in Section 13.2 and supersedes any conflicting reading of the required-field minimum in FR-02. Confirmed 2026-08-09.
+20. Where the legacy system and this PRD disagree, the decision is escalated to the owner rather than resolved automatically in either direction. The legacy workbook and Google Apps Script are the authoritative reference for required data and main functions; upstream ChurchCMS supplies implementation substrate, not requirements. Confirmed 2026-08-09.
+21. When an imported record conflicts between the historical workbook and the IFGF system export, there is no blanket precedence rule. Every conflict is recorded for owner review before commit. Confirmed 2026-08-09.
+22. Occurrence context for QR attendance is established on the scanner, not in the member QR. See FR-04.1. Confirmed 2026-08-09.
+23. Generic framework, authorization, and data-integrity fixes are retained as maintained downstream patches recorded in `UPSTREAM.md` and are not yet offered upstream. Revisit near the Work Package 0A exit gate. Confirmed 2026-08-08.
 
 ### 13.2 Questions that may change implementation detail
 
+> Resolved questions move to Section 13.1. Tracking, recommended defaults, and the work package each question blocks are maintained in `PRD_OPEN_QUESTIONS.md`.
+
 1. Which account owns the shared Google Calendar, and can it grant the integration identity writer access?
-2. Which source database export is authoritative when an IFGF record conflicts with the workbook?
-3. Is a home branch mandatory for all members, or may a member be branch-neutral?
+2. *(Resolved 2026-08-09 — see 13.1.21. Every workbook/export conflict is escalated for owner review; no blanket precedence rule.)*
+3. *(Resolved 2026-08-09 — see 13.1.19. Home branch is nullable, required at registration and activation.)*
 4. What attendance threshold and coordinator approval define completion for each CGSL stage?
 5. Will Worship Night attendance use Zoom CSV only, or should Zoom API credentials be planned for phase 1?
 6. Which Indonesian provider and data-center region will be selected after latency and operational-owner testing?
 7. Who owns server patching, monitoring, restore drills, and incident response?
 8. Which church-information pages should be published to members at launch?
-9. May generic framework, authorization, attendance, and data-integrity fixes be contributed publicly to ChurchCMS under its MIT contribution process?
+9. *(Resolved 2026-08-08 — see 13.1.23. Not yet; retained as maintained downstream patches in `UPSTREAM.md`.)*
 10. Which Git host account and administrators will own branch protection, production-environment approvals, CI minutes, deployment keys, and emergency rollback access for `deploy`?
 11. Will a push to `deploy` trigger a conventional VPS release workflow or a container deployment? The branch contract is identical, but the immutable artifact and rollback mechanics differ.
 12. For automatic entrance recognition, will the church fund RGB plus infrared or depth-capable hardware if the measured plain-RGB webcam cannot pass presentation-attack and false-match gates?
