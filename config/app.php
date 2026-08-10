@@ -167,6 +167,7 @@ return [
         App\Providers\EventServiceProvider::class,
        // App\Providers\NovaServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        App\Providers\DatabaseSafetyServiceProvider::class,
          //MaddHatter\LaravelFullcalendar\ServiceProvider::class,
         Maatwebsite\Excel\ExcelServiceProvider::class,
         Laratrust\LaratrustServiceProvider::class,
