@@ -95,12 +95,40 @@ plus `build.md` TECHNICAL BASELINE 3) now agree and no document carries a deviat
   test to view rendering and seed data, so an unrelated view change fails an auth test and teaches
   the next session to weaken it. Reasoning is in the class docblock so it is not "tightened" back.
 
+**Suite 1 extended — and one question left deliberately open**
+
+Final state: **5 passed, 1 incomplete**, 7 assertions, 3.5s.
+
+- **UNRESOLVED — a permission held through a ROLE is refused (302); the same permission granted
+  DIRECTLY is accepted.** Both fixtures write the same polymorphic `user_type`. Reproduces in
+  isolation, so it is **not** cross-test cache pollution — that hypothesis was tested with
+  `Cache::flush()` and **rejected**. Two candidates, not yet distinguished: the fixture is missing
+  something `role_user`/`permission_role` needs, or **role-mediated resolution is genuinely
+  broken**, which would matter enormously for FR-11 since the three-role model rides entirely on
+  that path. Left as `markTestIncomplete` with the full reasoning **rather than guessed at** — a
+  characterization baseline that contains a plausible guess is worse than one that contains an
+  admitted gap, because the guess is later cited as evidence.
+- **Scope correction — part of what I listed as "missing from suite 1" is not characterizable.**
+  "Role assignment and replacement" and "the final-admin guard" come from invariants 5 and 9, and
+  `RoleAssignmentService` **does not exist**; neither does the three-role model. Characterization
+  covers what IS. Those are FR-11 behaviours needing ordinary tests written with them. Suite 1's
+  real remainder is the open question above plus authentication. **Check whether a planned test has
+  a subject before budgeting it** — several entries in `TESTING_PLAN.md` Part 1 may be the same
+  mistake.
+- `test_documents_no_constraint_prevents_a_user_holding_multiple_roles` passes: **nothing today
+  stops a user holding several roles.** Not a defect — the absence of a rule the system never
+  claimed. Recorded because FR-11 must migrate whatever multi-role data already exists.
+- **`markTestIncomplete` is the right tool for an unresolved characterization question.** It is
+  visible in every run, carries the reasoning at the point of failure, and does not turn the suite
+  red or silently pass.
+
 **Not done — read before assuming progress**
 
-- **Suite 1 is started, not finished.** Still missing: role assignment and replacement, the
-  final-admin guard, role-mediated (vs direct) grants, and authentication itself. Suites 2–7 are
-  untouched. 3 test files against a 60–90 test target remains the largest open risk and the reason
-  WP 0A cannot close.
+- **Suite 1 is not finished**; suites 2–7 are untouched. **3 test files, 11 tests (1 incomplete)**
+  against a 60–90 target remains the largest open risk and the reason WP 0A cannot close.
+- **This session ran ~40k past the `CLAUDE.md` 120k handoff line**, at owner direction. The last
+  stretch produced the open question above. Treat the newest assertions as provisional and review
+  `RolePermissionCharacterizationTest` from a fresh session before building on it.
 - Steps 3–7 (package scaffold, provider smoke tests, `ifgf/main` merge, upstream merge rehearsal,
   exit-gate review) untouched.
 - Nothing pushed. The branch is now 30 ahead / 8 behind `upstream/main`.

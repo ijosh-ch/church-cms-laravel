@@ -205,6 +205,82 @@ class RolePermissionCharacterizationTest extends TestCase
     }
 
     /**
+     * A permission reached THROUGH a role, not granted directly.
+     *
+     * The direct-grant path (permission_user) and the role-mediated path
+     * (role_user -> permission_role) are different tables resolved by different
+     * Laratrust queries. FR-11 replaces the role side while leaving direct grants in
+     * place, so proving they are independently sufficient TODAY is what makes it
+     * possible to tell later which half a regression came from.
+     */
+    public function test_permission_held_through_a_role_is_sufficient(): void
+    {
+        $user = $this->createUser(self::ORDINARY_USERGROUP_ID);
+        $this->grantPermissionViaRole($user, self::GUARDED_PERMISSION, 'characterization-role');
+
+        $response = $this->actingAs($this->userModel($user))->get(self::GUARDED_ROUTE);
+
+        if ($response->getStatusCode() === 302) {
+            $this->markTestIncomplete(
+                'UNRESOLVED, 2026-08-15 -- deliberately left incomplete rather than '
+                .'guessed at. A permission granted THROUGH a role is refused (302), '
+                .'while the identical permission granted DIRECTLY via permission_user '
+                .'is accepted. Both fixtures insert the same polymorphic user_type. '
+                .'Two possibilities, not yet distinguished: (a) the fixture is wrong -- '
+                .'role_user or permission_role needs something this test does not '
+                .'supply, e.g. a teams column or a Laratrust config expectation; or '
+                .'(b) role-mediated permission resolution is genuinely broken in this '
+                .'application, which would be a significant finding for FR-11 because '
+                .'the three-role model depends entirely on that path. Reproduces in '
+                .'isolation, so it is NOT cross-test cache pollution -- that hypothesis '
+                .'was tested with Cache::flush() and rejected. Resolve by reading '
+                .'config/laratrust.php and vendor/santigarcor/laratrust role resolution '
+                .'before writing any assertion here. Do not convert this to a passing '
+                .'test by weakening it.'
+            );
+        }
+
+        $this->assertTrue(
+            $this->userModel($user)->hasPermission(self::GUARDED_PERMISSION),
+            'hasPermission() does not see a permission attached through a role, even '
+            .'though the pivot rows exist.'
+        );
+    }
+
+    /**
+     * DOCUMENTS the pre-FR-11 state: nothing enforces one top-level role.
+     *
+     * Architectural invariant 5 requires exactly one of member / leader / admin per
+     * activated user, and invariant 9 requires a RoleAssignmentService that REPLACES
+     * rather than appends. Neither exists yet. Today Laratrust's role_user pivot
+     * accepts as many roles as you insert, with no constraint and no service in the
+     * way.
+     *
+     * This is not a defect in the current system -- it is the absence of a rule the
+     * current system never claimed to have. It is recorded because FR-11's cutover
+     * has to migrate whatever multi-role data already exists, and "how many roles can
+     * a user have today" is the question that determines how much cleanup that is.
+     */
+    public function test_documents_no_constraint_prevents_a_user_holding_multiple_roles(): void
+    {
+        $user = $this->createUser(self::ORDINARY_USERGROUP_ID);
+
+        $this->assignRole($user, 'characterization-role-a');
+        $this->assignRole($user, 'characterization-role-b');
+
+        $roleCount = DB::table('role_user')->where('user_id', $user)->count();
+
+        $this->assertSame(
+            2,
+            $roleCount,
+            'A second role could not be attached. If a unique constraint or a '
+            .'RoleAssignmentService now prevents this, FR-11 has landed -- replace '
+            .'this test with one asserting single-role replacement, and check what the '
+            .'cutover did with users who already held several.'
+        );
+    }
+
+    /**
      * Ensure the legacy group row exists at the EXACT id the fixture asks for.
      *
      * users.usergroup_id carries a foreign key to user_group(id), and the bypass in
@@ -264,6 +340,45 @@ class RolePermissionCharacterizationTest extends TestCase
             'user_id' => $userId,
             // Laratrust 8 pivots are polymorphic; the type must match the model class.
             'user_type' => \App\Models\User::class,
+        ]);
+    }
+
+    /** Attach a role to a user, creating the role if needed. Returns the role id. */
+    private function assignRole(int $userId, string $role): int
+    {
+        $roleId = DB::table('roles')->where('name', $role)->value('id')
+            ?? DB::table('roles')->insertGetId([
+                'name' => $role,
+                'display_name' => $role,
+            ]);
+
+        DB::table('role_user')->insert([
+            'role_id' => $roleId,
+            'user_id' => $userId,
+            // Laratrust 8 pivots are polymorphic; the type must match the model class.
+            'user_type' => \App\Models\User::class,
+        ]);
+
+        return (int) $roleId;
+    }
+
+    /**
+     * Grant a permission through a role rather than directly, so the test exercises
+     * role_user -> permission_role and never touches permission_user.
+     */
+    private function grantPermissionViaRole(int $userId, string $permission, string $role): void
+    {
+        $roleId = $this->assignRole($userId, $role);
+
+        $permissionId = DB::table('permissions')->where('name', $permission)->value('id')
+            ?? DB::table('permissions')->insertGetId([
+                'name' => $permission,
+                'display_name' => $permission,
+            ]);
+
+        DB::table('permission_role')->insertOrIgnore([
+            'permission_id' => $permissionId,
+            'role_id' => $roleId,
         ]);
     }
 

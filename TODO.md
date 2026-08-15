@@ -25,11 +25,25 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 1. **Step 2 — FINISH characterization suite 1: roles, permissions and authentication.** WP 0A item
    6, gate 5. **Started 2026-08-15**, not finished.
 
-   ✅ **Done:** `tests/Feature/Auth/RolePermissionCharacterizationTest.php` — 4 tests, 6 assertions,
-   6.6s. Covers the permission-middleware surface and records **SEC-001**.
+   ✅ **Done:** `tests/Feature/Auth/RolePermissionCharacterizationTest.php` — **5 passed,
+   1 incomplete**, 7 assertions, 3.5s. Covers the permission middleware, direct grants, the denial
+   paths, and the absence of any single-role constraint. Records **SEC-001**.
 
-   ❌ **Still missing from suite 1:** role assignment and replacement, the final-admin guard,
-   role-mediated (as opposed to direct) grants, and authentication itself. `TESTING_PLAN.md` Part 1.
+   🔴 **THE LITERAL NEXT ACTION — resolve the incomplete test.** A permission granted **through a
+   role** is refused (302) while the identical permission granted **directly** is accepted.
+   Reproduces in isolation, so it is **not** cross-test cache pollution (that was tested with
+   `Cache::flush()` and rejected). Either the fixture is wrong — `role_user` / `permission_role`
+   needs something it does not supply — **or role-mediated permission resolution is genuinely
+   broken**, which would be a major FR-11 finding because the three-role model depends entirely on
+   that path. Read `config/laratrust.php` and Laratrust's role resolution **before** writing any
+   assertion. **Do not make it pass by weakening it.**
+
+   ⚠ **Scope correction, 2026-08-15.** An earlier note listed "role assignment and replacement" and
+   "the final-admin guard" as missing from suite 1. **They are not characterizable** — invariant 9's
+   `RoleAssignmentService` does not exist, and neither does the three-role model. Characterization
+   covers what IS; those are FR-11 behaviours and belong to that work, with ordinary tests written
+   alongside them. **Suite 1's real remaining scope is the incomplete test above plus
+   authentication itself** (login, logout, session, password reset). That is smaller than stated.
 
    **Read the existing file's class docblock before adding to it** — it carries three measured
    behaviours that are counter-intuitive and were each hit as a failure first: denial for an

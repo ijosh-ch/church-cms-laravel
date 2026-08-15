@@ -66,9 +66,13 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  `RolePermissionCharacterizationTest` — **4 passed**, 6 assertions, 6.6s.
+  `RolePermissionCharacterizationTest` — **5 passed, 1 incomplete**, 7 assertions, 3.5s.
   `MemberImportCharacterizationTest` **not rerun** since Session 2b.
-  **Coverage: 3 test files, 10 tests** against a 60–90 target.
+  **Coverage: 3 test files, 11 tests (1 incomplete)** against a 60–90 target.
+- 🔴 **Open question blocking suite 1:** a permission held **through a role** is refused while the
+  same permission granted **directly** is accepted. Not cache pollution (tested and rejected).
+  Either the fixture is wrong or role-mediated resolution is broken — the latter would be a major
+  FR-11 finding. Left as `markTestIncomplete` rather than guessed at. **This is the next action.**
 
 ## SEC-001 — the legacy authorization bypass is ONE LINE
 
