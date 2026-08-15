@@ -66,11 +66,34 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  `tests/Feature/Auth` — **13 passed**, 28 assertions, 8.7s.
-  `tests/Feature/Attendance` — **10 passed**, 25 assertions, 2.1s.
-  `MemberImportCharacterizationTest` **not rerun** since Session 2b.
-  **Coverage: 5 test files, 24 tests** (23 verified today) against a 60–90 target.
-  **Suite 1 COMPLETE. Suite 2 started** (semantics done, HTTP flow owed). Suites 3–7 untouched.
+  **Full `tests/Feature` suite: 30 passed, 77 assertions.** Every test verified today, including
+  `MemberImportCharacterizationTest`, which had not been rerun since Session 2b.
+  **Coverage: 6 test files, 30 tests** against a 60–90 target.
+  **Suites 1 and 2 COMPLETE. Suites 3–7 untouched.**
+
+## SEC-002 — attendance has NO per-leader scope
+
+An `event_managers` table **exists** (`id, event_id, user_id`) and `EventAttendanceController`
+manages it via `manageManagers`/`storeManager`/`removeManager`. But **`openSession`, `markAttendee`,
+`lock` and `unlock` never consult it.** Their only guards are the permission middleware and
+`abort_unless($session->church_id === Auth::user()->church_id, 403)`.
+
+So **any user holding `create-attendance` can record attendance for any event in their church**,
+including events they were never assigned to. Assigning event managers today is organisational
+bookkeeping, **not authorization**. PRD invariant 7 requires leader access limited to assigned
+scope — that control **does not exist yet**; FR-11 must build it, not adjust it.
+
+This is an **absence** of a control, not a broken one, which is why reading the attendance code
+never reveals it. Pinned by `test_documents_defect_unassigned_leader_can_record_attendance`, which
+asserts the current (wrong) 200. **Replace it with the denial when FR-11 lands; do not delete it.**
+
+Church isolation **does** work (403 cross-church) and is asserted separately, so a refactor cannot
+remove the one scope control that exists while the suite stays green.
+
+Also recorded: **`unlock` records no reason and there is nowhere to put one** — no
+`unlock_reason`/`reopen_reason`/`unlocked_by` column exists, and the endpoint takes no input. FR-04
+requires a mandatory reopen reason. Reopening attendance is exactly what a pastoral audit trail is
+for, and today it leaves none.
 
 ## Attendance semantics — pinned before WP 0C, which is the whole point
 

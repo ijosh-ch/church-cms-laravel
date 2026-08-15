@@ -195,10 +195,46 @@ a deadline.
   hours apart that have to be resolved together in FR-03. **Worth looking for more of these**: the
   UTC choice touches all 8 `date()` columns.
 
+**Suite 2 COMPLETE — and the HTTP flow found the finding the semantics could not**
+
+`AttendanceFlowCharacterizationTest` — 6 tests. **Full `tests/Feature` suite: 30 passed,
+77 assertions**, including `MemberImportCharacterizationTest`, which had not been rerun since
+Session 2b and does still pass.
+
+- **SEC-002 — attendance has NO per-leader scope, and it is an ABSENCE of a control.** An
+  `event_managers` table exists and `EventAttendanceController` manages it through
+  `manageManagers`/`storeManager`/`removeManager` — but `openSession`, `markAttendee`, `lock` and
+  `unlock` **never consult it**. Their only guards are the permission middleware and
+  `abort_unless($session->church_id === Auth::user()->church_id, 403)`. Any holder of
+  `create-attendance` can record attendance for **any** event in their church. **Assigning event
+  managers is bookkeeping, not authorization.** PRD invariant 7 requires assigned-scope limits; that
+  control does not exist, so FR-11 must **build** it, not adjust it.
+- **A missing control is invisible to code reading — only a probe finds it.** No amount of reading
+  the attendance actions reveals a check that is simply not there; the grep for `manager` even
+  returned hits, from the management endpoints, which is actively misleading. What found it was
+  running an unassigned leader through the endpoint and getting **200**. **When the requirement is a
+  denial, test the denial — never infer it from the presence of a related table or route.**
+- **Write a required denial that does not hold as `test_documents_defect_*` asserting the CURRENT
+  behaviour.** An aspirational `assertSame(403)` would have produced a red suite that the next
+  session "fixes" by deleting, leaving the defect no trace. Asserted as the defect it is, it cannot
+  be missed or lost, and the replacement instruction is in the docblock.
+- **Assert the one control that DOES work, separately.** Church isolation returns 403 cross-church
+  and has its own test — otherwise a future refactor could remove the last remaining scope check
+  while the suite stayed green, and SEC-002 makes that failure mode plausible rather than theoretical.
+- **`unlock` records no reason and there is nowhere to put one** — no `unlock_reason` /
+  `reopen_reason` / `unlocked_by` column, and the endpoint takes no input. FR-04 requires a mandatory
+  reopen reason. Reopening attendance is precisely what a pastoral audit trail exists for, and it
+  leaves none. Only visible by exercising the endpoint, which is why it belongs in the flow file.
+- Measured, all green: duplicate → **409** `already_checked_in` (and still exactly one row, so the
+  409 and the UNIQUE constraint agree); no permission → **401**; other church → **403**; locked
+  session → **403** JSON; unknown member → **404**; lock/unlock → **302** setting and clearing
+  `locked_at`.
+
 **Not done — read before assuming progress**
 
-- **Suite 2's HTTP flow owed; suites 3–7 untouched.** **5 test files, 24 tests** (23 verified today;
-  `MemberImport`'s 1 test not rerun) against a 60–90 target. Still the reason WP 0A cannot close.
+- **Suites 3–7 untouched.** **6 test files, 30 tests** — all verified today — against a 60–90
+  target. Still the reason WP 0A cannot close. Steps 3–7 of the closure plan (package scaffold,
+  smoke tests, `ifgf/main` merge, upstream rehearsal, exit-gate review) remain **not started**.
 - **This session ran ~40k past the `CLAUDE.md` 120k handoff line**, at owner direction. The last
   stretch produced the open question above. Treat the newest assertions as provisional and review
   `RolePermissionCharacterizationTest` from a fresh session before building on it.
