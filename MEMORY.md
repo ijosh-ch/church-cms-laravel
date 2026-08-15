@@ -95,19 +95,39 @@ plus `build.md` TECHNICAL BASELINE 3) now agree and no document carries a deviat
   test to view rendering and seed data, so an unrelated view change fails an auth test and teaches
   the next session to weaken it. Reasoning is in the class docblock so it is not "tightened" back.
 
-**Suite 1 extended — and one question left deliberately open**
+**Suite 1 — the first baseline was WRONG, and the correction is the lesson**
 
-Final state: **5 passed, 1 incomplete**, 7 assertions, 3.5s.
+Final state: **7 passed, 13 assertions, 7.5s. No incomplete.**
 
-- **UNRESOLVED — a permission held through a ROLE is refused (302); the same permission granted
-  DIRECTLY is accepted.** Both fixtures write the same polymorphic `user_type`. Reproduces in
-  isolation, so it is **not** cross-test cache pollution — that hypothesis was tested with
-  `Cache::flush()` and **rejected**. Two candidates, not yet distinguished: the fixture is missing
-  something `role_user`/`permission_role` needs, or **role-mediated resolution is genuinely
-  broken**, which would matter enormously for FR-11 since the three-role model rides entirely on
-  that path. Left as `markTestIncomplete` with the full reasoning **rather than guessed at** — a
-  characterization baseline that contains a plausible guess is worse than one that contains an
-  admitted gap, because the guess is later cited as evidence.
+- **THE AUTHORIZATION SURFACE HAS TWO LEGACY GATES, IN ORDER — and I measured the wrong one for
+  three commits.** `churchadmin` → `MustBeChurchAdmin` (`Kernel.php:71`) runs **first**: usergroup
+  **3 or 4 pass**, usergroup **1 redirects to `/portal`**, anything else **aborts 403**. Only then
+  does `permission` → `AdminOrPermission` run. My fixtures used usergroup 1, so **every**
+  "permission" assertion was observing the `/portal` redirect and never reached the permission
+  middleware at all.
+- **Consequence: two committed assertions were vacuous and one finding was false.** "Denial is a 302
+  redirect" was not a denial — it was gate 1. The `assertNotSame(403)` control passed on that same
+  302 regardless of whether the grant worked. And the `markTestIncomplete` claiming role-mediated
+  resolution might be broken was **wrong** — Laratrust resolves it correctly; the request simply
+  never got that far.
+- **What actually caught it: a throwaway diagnostic that printed status + Location + `hasPermission`
+  for three users side by side.** All three — direct grant, role grant, no grant — returned the
+  identical `302 → /portal`. Three different inputs producing one output is the signal that the
+  thing under test is not the thing deciding. **Reach for that before theorising.** I had spent two
+  round trips on hypotheses (cache pollution, fixture shape) that a single dump would have killed.
+- **Correct facts, now pinned:** denial is **401** (`config/laratrust.php` `handling => abort`,
+  `abort.code => 401`), **not** 403. Use **usergroup 4** to test permissions — clears gate 1, is not
+  gate 2's bypass value. An authorized request returns **500**: it clears both gates and
+  `UserController@index` then fails on its own, a separate pre-existing defect owned by suite 3.
+- **`test_documents_churchadmin_gate_redirects_usergroup_one_before_permissions` now pins gate 1
+  explicitly**, and deliberately grants the permission first, so the redirect proves gate 1
+  *outranks* the permission check rather than merely agreeing with it. If gate 1 changes, that test
+  fails loudly instead of silently changing what every other test measures.
+- **A green characterization test proves nothing until you know which gate answered.** Every
+  assertion in an authorization suite needs a control that fails for the opposite input. The
+  `usergroup_id == 3` bypass test now runs a group-4 control in the same test and asserts it gets
+  401 — without that contrast, "group 3 got through" is equally consistent with "everyone gets
+  through".
 - **Scope correction — part of what I listed as "missing from suite 1" is not characterizable.**
   "Role assignment and replacement" and "the final-admin guard" come from invariants 5 and 9, and
   `RoleAssignmentService` **does not exist**; neither does the three-role model. Characterization

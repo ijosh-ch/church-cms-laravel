@@ -66,13 +66,28 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  `RolePermissionCharacterizationTest` — **5 passed, 1 incomplete**, 7 assertions, 3.5s.
+  `RolePermissionCharacterizationTest` — **7 passed**, 13 assertions, 7.5s.
   `MemberImportCharacterizationTest` **not rerun** since Session 2b.
-  **Coverage: 3 test files, 11 tests (1 incomplete)** against a 60–90 target.
-- 🔴 **Open question blocking suite 1:** a permission held **through a role** is refused while the
-  same permission granted **directly** is accepted. Not cache pollution (tested and rejected).
-  Either the fixture is wrong or role-mediated resolution is broken — the latter would be a major
-  FR-11 finding. Left as `markTestIncomplete` rather than guessed at. **This is the next action.**
+  **Coverage: 3 test files, 13 tests** against a 60–90 target.
+- ✅ The earlier "role-mediated resolution may be broken" question is **RESOLVED — it is not
+  broken.** The fixture used usergroup 1, so the first gate redirected the request before the
+  permission middleware ran. Cause was the two-gate ordering below.
+
+## The authorization surface has TWO legacy gates, in order — read before writing any auth test
+
+1. **`churchadmin` → `App\Http\Middleware\MustBeChurchAdmin`** (`Kernel.php:71`). usergroup **3 or
+   4 pass**; usergroup **1 is redirected to `/portal`**; anything else **aborts 403**. Runs **first**.
+2. **`permission` → `App\Http\Middleware\AdminOrPermission`** (`Kernel.php:74`) — SEC-001 below.
+
+**A fixture in usergroup 1 never reaches gate 2.** Use **usergroup 4** to test permissions: it
+clears gate 1 and is not gate 2's bypass value. **Denial is `401`**, not 403 — `config/laratrust.php`
+sets `handling => abort`, `abort.code => 401`. An authorized request currently returns **500**: it
+clears both gates and then `UserController@index` itself fails, a separate pre-existing defect owned
+by suite 3.
+
+This cost a wrong baseline once. The first version of the roles test used usergroup 1, so every
+"permission" assertion was actually observing the `/portal` redirect, and one test was left
+incomplete on a false suspicion that Laratrust role resolution was broken.
 
 ## SEC-001 — the legacy authorization bypass is ONE LINE
 

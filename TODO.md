@@ -25,18 +25,21 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 1. **Step 2 — FINISH characterization suite 1: roles, permissions and authentication.** WP 0A item
    6, gate 5. **Started 2026-08-15**, not finished.
 
-   ✅ **Done:** `tests/Feature/Auth/RolePermissionCharacterizationTest.php` — **5 passed,
-   1 incomplete**, 7 assertions, 3.5s. Covers the permission middleware, direct grants, the denial
-   paths, and the absence of any single-role constraint. Records **SEC-001**.
+   ✅ **Done:** `tests/Feature/Auth/RolePermissionCharacterizationTest.php` — **7 passed**,
+   13 assertions, 7.5s. Covers both legacy gates, direct grants, role-mediated grants, the denial
+   path, and the absence of any single-role constraint. Records **SEC-001**.
 
-   🔴 **THE LITERAL NEXT ACTION — resolve the incomplete test.** A permission granted **through a
-   role** is refused (302) while the identical permission granted **directly** is accepted.
-   Reproduces in isolation, so it is **not** cross-test cache pollution (that was tested with
-   `Cache::flush()` and rejected). Either the fixture is wrong — `role_user` / `permission_role`
-   needs something it does not supply — **or role-mediated permission resolution is genuinely
-   broken**, which would be a major FR-11 finding because the three-role model depends entirely on
-   that path. Read `config/laratrust.php` and Laratrust's role resolution **before** writing any
-   assertion. **Do not make it pass by weakening it.**
+   ⚠ **READ THE CLASS DOCBLOCK BEFORE ADDING ANY AUTH TEST.** The surface has **two** legacy gates
+   in order: `churchadmin` → `MustBeChurchAdmin` (usergroup 3/4 pass, 1 → `/portal`, else 403) runs
+   **first**, then `permission` → `AdminOrPermission`. **Use usergroup 4** — it clears gate 1 and is
+   not gate 2's bypass value. **Denial is 401**, not 403. An authorized request returns **500**
+   (controller defect, suite 3's problem). The first version of this file used usergroup 1 and
+   measured the `/portal` redirect for three commits; the "role resolution may be broken" finding
+   was a false alarm from that same mistake.
+
+   🔴 **THE LITERAL NEXT ACTION — authentication itself.** Login, logout, session, password reset.
+   Generate with `php artisan make:test Auth/AuthenticationCharacterizationTest`. That completes
+   suite 1.
 
    ⚠ **Scope correction, 2026-08-15.** An earlier note listed "role assignment and replacement" and
    "the final-admin guard" as missing from suite 1. **They are not characterizable** — invariant 9's

@@ -29,13 +29,34 @@ use Tests\TestCase;
  * table are retired; FR-11 owns the cutover. This file is the baseline that cutover
  * will be measured against.
  *
- * WHY "not 403" AND NOT "200" FOR THE ALLOWED CASES. What this suite characterizes
- * is the AUTHORIZATION DECISION, not view rendering. Asserting 200 would couple
- * these tests to whatever UserController@index renders and to seed data it may
- * expect, so an unrelated view change would fail an authorization test and teach
- * the next session to weaken it. Asserting "the request was not refused by the
- * permission middleware" isolates exactly the decision under test. Suite 3 (member
- * profile) owns whether the page renders.
+ * THERE ARE TWO LEGACY GATES, IN ORDER. This is the single most important thing to
+ * know before adding a test here, and getting it wrong invalidated the first version
+ * of this file:
+ *
+ *   1. 'churchadmin' -> App\Http\Middleware\MustBeChurchAdmin (Kernel.php:71).
+ *      usergroup 3 or 4 pass; usergroup 1 is REDIRECTED to /portal; anything else
+ *      aborts 403. This runs FIRST.
+ *   2. 'permission'  -> App\Http\Middleware\AdminOrPermission (Kernel.php:74), which
+ *      bypasses everything for usergroup 3 and otherwise defers to Laratrust.
+ *
+ * A fixture in usergroup 1 never reaches gate 2 at all. The first version of this
+ * file used group 1 and every "permission" assertion was in fact observing the
+ * /portal redirect -- numbers that looked like authorization behaviour and were not.
+ * One test was even left markTestIncomplete on a false suspicion that role-mediated
+ * resolution was broken; it is not, the request simply never got that far.
+ * USE GROUP 4 to test permissions: it clears gate 1 and is not gate 2's bypass value.
+ *
+ * DENIAL IS 401, NOT 403. config/laratrust.php sets middleware.handling = 'abort'
+ * with handlers.abort.code = 401. Assertions here are written against 401; a test
+ * asserting 403 asserts what SHOULD be against a system that refuses correctly.
+ *
+ * WHY "not 401" AND NOT "200" FOR THE ALLOWED CASES. What this suite characterizes
+ * is the AUTHORIZATION DECISION, not view rendering. An authorized request currently
+ * returns 500 -- it clears both gates and then UserController@index itself fails.
+ * That is a real pre-existing defect but it is not this suite's subject; suite 3
+ * (member profile) owns whether the page renders. Asserting "not refused by the
+ * permission middleware" keeps these tests measuring authorization only, so fixing
+ * the controller does not churn them.
  *
  * SECURITY FINDING SEC-001 — usergroup_id == 3 bypasses all granular permissions.
  * Severity: high. Any account whose legacy usergroup_id is 3 reaches every
@@ -56,8 +77,33 @@ class RolePermissionCharacterizationTest extends TestCase
     /** The legacy group id that AdminOrPermission treats as an unconditional bypass. */
     private const CHURCH_ADMIN_USERGROUP_ID = 3;
 
-    /** An ordinary legacy group id — anything that is not the bypass value. */
-    private const ORDINARY_USERGROUP_ID = 1;
+    /**
+     * The group used to test the permission middleware in isolation.
+     *
+     * THERE ARE TWO LEGACY GATES, NOT ONE, and they run in order. `churchadmin`
+     * (App\Http\Middleware\MustBeChurchAdmin, Kernel.php:71) runs FIRST: usergroup
+     * 3 OR 4 pass, usergroup 1 is redirected to /portal, anything else aborts 403.
+     * Only then does `permission` (AdminOrPermission) run.
+     *
+     * So group 4 is the ONLY value that clears the first gate while still being
+     * subject to the second: it is not the AdminOrPermission bypass value (3), so
+     * the permission check actually decides the outcome. Group 1 cannot be used --
+     * every request from it is redirected by the first gate before the permission
+     * middleware is reached, which makes any assertion about permissions vacuous.
+     */
+    private const PERMISSION_TESTABLE_USERGROUP_ID = 4;
+
+    /** Redirected to /portal by the FIRST gate; never reaches the permission check. */
+    private const PORTAL_REDIRECTED_USERGROUP_ID = 1;
+
+    /**
+     * The status a real permission refusal produces.
+     *
+     * config/laratrust.php sets middleware.handling = 'abort' with handlers.abort.code
+     * = 401 -- not the Laravel-conventional 403, and not a redirect. Anything that is
+     * NOT 401 means the permission middleware let the request through.
+     */
+    private const PERMISSION_DENIED_STATUS = 401;
 
     /** A real permission guarding a real route: routes/web.php:182. */
     private const GUARDED_PERMISSION = 'read-members';
@@ -73,18 +119,30 @@ class RolePermissionCharacterizationTest extends TestCase
      */
     public function test_user_with_the_required_permission_is_not_refused(): void
     {
-        $user = $this->createUser(self::ORDINARY_USERGROUP_ID);
+        $user = $this->createUser(self::PERMISSION_TESTABLE_USERGROUP_ID);
         $this->grantDirectPermission($user, self::GUARDED_PERMISSION);
 
         $response = $this->actingAs($this->userModel($user))->get(self::GUARDED_ROUTE);
 
         $this->assertNotSame(
-            403,
+            self::PERMISSION_DENIED_STATUS,
             $response->getStatusCode(),
             'A user holding "'.self::GUARDED_PERMISSION.'" was refused by the permission '
             .'middleware. Either the direct grant is no longer read through '
             .'permission_user, or the route\'s required permission changed. Fix this '
             .'before trusting any denial assertion in this file.'
+        );
+
+        // MEASURED 2026-08-15: this is currently 500. The request CLEARS both gates and
+        // then the controller itself fails. That is a real pre-existing defect on the
+        // member-list surface, but it is NOT this suite's subject -- suite 3 owns
+        // whether the page renders. Asserting "not 401" keeps this test measuring the
+        // authorization decision only, so a controller fix does not churn it.
+        $this->assertContains(
+            $response->getStatusCode(),
+            [200, 500],
+            'Authorized request returned '.$response->getStatusCode().', which is '
+            .'neither the expected render nor the known controller failure.'
         );
     }
 
@@ -98,36 +156,64 @@ class RolePermissionCharacterizationTest extends TestCase
      */
     public function test_user_without_the_required_permission_is_denied(): void
     {
-        $user = $this->createUser(self::ORDINARY_USERGROUP_ID);
+        $user = $this->createUser(self::PERMISSION_TESTABLE_USERGROUP_ID);
 
         $response = $this->actingAs($this->userModel($user))->get(self::GUARDED_ROUTE);
 
-        // MEASURED 2026-08-15: the denial is a 302 redirect, NOT a 403. Laratrust's
-        // configured handling redirects an authenticated-but-unauthorized user rather
-        // than aborting. Note the asymmetry with the guest case, which returns 401 --
-        // the two denial paths differ, and both are recorded rather than normalized.
-        //
-        // A redirect IS a denial for build.md SECURITY 11 purposes: the request does
-        // not reach the controller. Asserting 403 here would have been asserting what
-        // SHOULD be, and would have failed against a system that is in fact refusing
-        // correctly. That is exactly the trap a characterization pass exists to avoid.
+        // MEASURED 2026-08-15: 401, matching config/laratrust.php's abort handler.
+        // NOT 403, and NOT a redirect. Asserting 403 here would assert what SHOULD be
+        // against a system that refuses correctly.
+        $this->assertSame(
+            self::PERMISSION_DENIED_STATUS,
+            $response->getStatusCode(),
+            'A user with no roles and no direct permissions did not receive 401 at '
+            .self::GUARDED_ROUTE.'. If this is 302, the user is being caught by the '
+            .'FIRST gate (MustBeChurchAdmin -> /portal) instead of the permission '
+            .'middleware, and the test is no longer measuring what it claims -- check '
+            .'the fixture usergroup. If it is 200 or 500, the request reached the '
+            .'controller and this is an authorization failure to stop for.'
+        );
+    }
+
+    /**
+     * DOCUMENTS the first gate, so the second one can never be measured by accident.
+     *
+     * This is the trap that invalidated the first version of this file: every
+     * assertion about permissions was actually observing MustBeChurchAdmin
+     * redirecting usergroup 1 to /portal, before the permission middleware ran. The
+     * numbers looked like authorization behaviour and were not.
+     *
+     * Pinning the first gate explicitly means that if it changes, THIS test fails
+     * loudly rather than silently altering what every other test in the file measures.
+     */
+    public function test_documents_churchadmin_gate_redirects_usergroup_one_before_permissions(): void
+    {
+        $user = $this->createUser(self::PORTAL_REDIRECTED_USERGROUP_ID);
+        // Deliberately grant the permission: the point is that it does not matter,
+        // because the first gate answers before the permission check is reached.
+        $this->grantDirectPermission($user, self::GUARDED_PERMISSION);
+
+        $response = $this->actingAs($this->userModel($user))->get(self::GUARDED_ROUTE);
+
         $this->assertSame(
             302,
             $response->getStatusCode(),
-            'Denial handling for an authenticated user without the permission changed '
-            .'from 302. A 403 would be fine and arguably better -- re-baseline this '
-            .'deliberately. A 200 means the user REACHED '.self::GUARDED_ROUTE.' and is '
-            .'an authorization failure to stop for.'
+            'usergroup 1 is no longer redirected by MustBeChurchAdmin. Every other '
+            .'test in this file chose its fixture usergroup on the assumption that it '
+            .'is -- re-read them before re-baselining this.'
         );
 
-        // The redirect must lead away from the guarded route, not loop back into it.
-        // Without this, a redirect chain that eventually serves the page would still
-        // satisfy the status assertion above.
-        $this->assertNotSame(
-            self::GUARDED_ROUTE,
+        $this->assertSame(
+            '/portal',
             parse_url((string) $response->headers->get('Location'), PHP_URL_PATH),
-            'The unauthorized user was redirected back to the guarded route itself. '
-            .'Check whether the redirect chain ultimately serves the page.'
+            'The first gate redirects somewhere other than /portal now.'
+        );
+
+        $this->assertTrue(
+            $this->userModel($user)->hasPermission(self::GUARDED_PERMISSION),
+            'Fixture error: this user must HOLD the permission, so that the redirect '
+            .'proves the first gate outranks the permission check rather than merely '
+            .'agreeing with it.'
         );
     }
 
@@ -145,12 +231,25 @@ class RolePermissionCharacterizationTest extends TestCase
      */
     public function test_documents_defect_usergroup_id_three_bypasses_all_permission_checks(): void
     {
+        // The control: an identical user in group 4 -- which also clears the FIRST
+        // gate -- is refused 401. Without this contrast, "group 3 got through" could
+        // just as easily mean the permission middleware admits everyone.
+        $control = $this->createUser(self::PERMISSION_TESTABLE_USERGROUP_ID);
+        $controlResponse = $this->actingAs($this->userModel($control))->get(self::GUARDED_ROUTE);
+
+        $this->assertSame(
+            self::PERMISSION_DENIED_STATUS,
+            $controlResponse->getStatusCode(),
+            'The control user (group 4, no permission) was not refused, so this test '
+            .'cannot prove anything about group 3.'
+        );
+
         $user = $this->createUser(self::CHURCH_ADMIN_USERGROUP_ID);
 
         $response = $this->actingAs($this->userModel($user))->get(self::GUARDED_ROUTE);
 
         $this->assertNotSame(
-            403,
+            self::PERMISSION_DENIED_STATUS,
             $response->getStatusCode(),
             'usergroup_id == 3 no longer bypasses the permission middleware. If FR-11 '
             .'has landed this is EXPECTED and this test should be replaced by its '
@@ -215,35 +314,28 @@ class RolePermissionCharacterizationTest extends TestCase
      */
     public function test_permission_held_through_a_role_is_sufficient(): void
     {
-        $user = $this->createUser(self::ORDINARY_USERGROUP_ID);
+        $user = $this->createUser(self::PERMISSION_TESTABLE_USERGROUP_ID);
         $this->grantPermissionViaRole($user, self::GUARDED_PERMISSION, 'characterization-role');
 
         $response = $this->actingAs($this->userModel($user))->get(self::GUARDED_ROUTE);
 
-        if ($response->getStatusCode() === 302) {
-            $this->markTestIncomplete(
-                'UNRESOLVED, 2026-08-15 -- deliberately left incomplete rather than '
-                .'guessed at. A permission granted THROUGH a role is refused (302), '
-                .'while the identical permission granted DIRECTLY via permission_user '
-                .'is accepted. Both fixtures insert the same polymorphic user_type. '
-                .'Two possibilities, not yet distinguished: (a) the fixture is wrong -- '
-                .'role_user or permission_role needs something this test does not '
-                .'supply, e.g. a teams column or a Laratrust config expectation; or '
-                .'(b) role-mediated permission resolution is genuinely broken in this '
-                .'application, which would be a significant finding for FR-11 because '
-                .'the three-role model depends entirely on that path. Reproduces in '
-                .'isolation, so it is NOT cross-test cache pollution -- that hypothesis '
-                .'was tested with Cache::flush() and rejected. Resolve by reading '
-                .'config/laratrust.php and vendor/santigarcor/laratrust role resolution '
-                .'before writing any assertion here. Do not convert this to a passing '
-                .'test by weakening it.'
-            );
-        }
+        // RESOLVED 2026-08-15. An earlier version of this test was left incomplete on
+        // the suspicion that role-mediated resolution was broken. It is NOT. The
+        // earlier fixture used usergroup 1, so MustBeChurchAdmin redirected the request
+        // to /portal before the permission middleware ran -- the role path was never
+        // exercised at all. Laratrust resolves role-mediated permissions correctly.
+        $this->assertNotSame(
+            self::PERMISSION_DENIED_STATUS,
+            $response->getStatusCode(),
+            'A permission held through a role was refused while the same permission '
+            .'granted directly is accepted. The role-mediated resolution path '
+            .'(role_user -> permission_role) is broken independently of direct grants.'
+        );
 
         $this->assertTrue(
             $this->userModel($user)->hasPermission(self::GUARDED_PERMISSION),
             'hasPermission() does not see a permission attached through a role, even '
-            .'though the pivot rows exist.'
+            .'though the pivot rows exist. Laratrust role resolution is not working.'
         );
     }
 
@@ -263,7 +355,7 @@ class RolePermissionCharacterizationTest extends TestCase
      */
     public function test_documents_no_constraint_prevents_a_user_holding_multiple_roles(): void
     {
-        $user = $this->createUser(self::ORDINARY_USERGROUP_ID);
+        $user = $this->createUser(self::PERMISSION_TESTABLE_USERGROUP_ID);
 
         $this->assignRole($user, 'characterization-role-a');
         $this->assignRole($user, 'characterization-role-b');
