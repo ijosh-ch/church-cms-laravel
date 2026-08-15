@@ -52,6 +52,26 @@ return [
             'prefix' => '',
             'strict' => true,
             'engine' => null,
+
+            /*
+             * Pin the MySQL SESSION timezone to match config/app.php's UTC.
+             *
+             * Without this the connection inherits the *server* default, which differs
+             * between this dev machine (SYSTEM = Taipei Standard Time) and a typical
+             * Linux VPS or CI runner (UTC). The 23 timestamp() columns convert on
+             * write/read using the session timezone; the 10 dateTime() columns store
+             * the literal string and never convert. If PHP and MySQL disagree, only
+             * half the columns shift — the hardest class of timezone bug to spot.
+             * The pin is required regardless of WHICH zone is chosen; it removes the
+             * dependency on the host clock entirely.
+             *
+             * A fixed offset, NOT a named zone: named zones need MySQL's timezone
+             * tables loaded (mysql_tzinfo_to_sql), which a default install lacks, and
+             * fail or silently fall back when they are empty.
+             *
+             * See UPSTREAM.md UP-009.
+             */
+            'timezone' => '+00:00',
         ],
 
         'pgsql' => [

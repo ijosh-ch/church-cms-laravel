@@ -17,8 +17,8 @@
 | Reviewed `upstream/main` SHA | `d12c110967fadbaa97fb2a108b71dd820a42e7ad` |
 | Upstream commit date | 2026-08-07 — "Added privacy policy page" |
 | Fork HEAD at time of writing | `d8cfe08b617351ed18945ab4b1c56a396d6d8a46` |
-| Fork HEAD 2026-08-10 | `87742dc` on `contrib/laravel-supported-platform` — 17 commits ahead of `f2ad3bb`, **local only, nothing pushed** |
-| Divergence | 1 ahead, 8 behind (at pin time); the supported-platform series has since widened it — see UP-007 |
+| Fork HEAD 2026-08-11 | `9120af9` on `contrib/laravel-supported-platform`, **local only, nothing pushed for this branch** |
+| Divergence | 26 ahead, 8 behind `upstream/main` after fetch on 2026-08-11; see UP-007 |
 | Last merge rehearsal | **never run** — required by `build.md` WP 0A exit gate and WP 0B item 12 |
 | **Pin status** | **Frozen, owner-approved 2026-08-09.** Do not merge the 8 outstanding `upstream/main` commits until the WP 0A exit gate passes. |
 
@@ -619,6 +619,157 @@ project's 27-extension list, so `/` failed identically before the upgrade. `gd` 
 Separately, `app/Models/FeedbackMessage.php` points `$presenter` at a non-existent
 `App\Presenters\UserPresenter`; that model's `present()` has always thrown. Both are in `TODO.md`,
 neither is a regression from this entry.
+
+---
+
+### UP-008 — reserved
+
+Reserved for the QR renderer change (`format('png')` → `format('svg')`, 8 Blade call sites),
+`TODO.md` Now item 2, owner decision 2026-08-10 #1. **Not yet landed** — the number is held so the
+two entries do not collide. UP-009 below was written first because the timezone fix had to land
+before any attendance data is written.
+
+---
+
+### UP-009 — Application timezone: `Asia/Kolkata` → `UTC`, and pin the MySQL session offset
+
+| Field | Value |
+|---|---|
+| **Status** | **approved 2026-08-15.** `REVIEW.md` question 1 is answered: **`PRD.md` wins — UTC at rest.** An earlier draft of this entry proposed `Asia/Taipei` at rest as a deviation from `build.md` TECHNICAL BASELINE 3; that proposal was **rejected** and is retained below under "Alternatives considered" so the reasoning is not lost. `build.md` L118 now restates UTC as normative rather than pointing here for a deviation. |
+| **Files** | `.env.example` (upstream-owned), `config/database.php` (upstream-owned), `build.md` (project doc, one cross-reference line). Plus the two gitignored environment files `.env` and `.env.testing`, which are not upstream-owned but carry the same variable and must not be left behind. |
+| **New files** | `tests/Feature/Attendance/TimezoneCharacterizationTest.php` (IFGF-neutral) |
+| **Commits** | *(pending; nothing from this entry is staged)* |
+| **Work package** | Pre-WP-0C blocker. Recorded in `TESTING_PLAN.md` § "Timezone defect". |
+| **Disposition** | `carry`. Upstream ChurchCMS is an Indian project and `Asia/Kolkata` is the correct default *for upstream*. The value is deployment-specific, so this never goes upstream. The `config/database.php` `'timezone'` key is arguably a generic fix — pinning the session offset is correct for any deployment — and `'+00:00'` is additionally the value upstream would want, so this key alone is a **candidate for contribution** once WP 0A's merge rehearsal passes. |
+| **Conflict risk** | **Low–moderate.** `.env.example` is a file upstream edits often, but the conflict is a one-line value and always resolves in this fork's favour. `config/database.php` has been untouched by upstream across the pinned baseline; the added key sits at the end of the `mysql` array where an upstream insertion is unlikely to land. |
+
+**Problem**
+
+`php artisan about` reported `Timezone .................. Asia/Kolkata`. `.env` was created from
+upstream's `.env.example`, which carries **two competing variables**:
+
+| File | Line (pre-change) | Value | Effect |
+|---|---|---|---|
+| `.env.example` | 62 | `TIMEZONE=Asia/Kolkata` | **This one wins** |
+| `.env.example` | 92 | `APP_TIMEZONE=UTC` | **Dead — never read by anything** |
+| `config/app.php` | 71 | `'timezone' => env('TIMEZONE','UTC')` | Reads `TIMEZONE`, ignores `APP_TIMEZONE` |
+
+Taipei is UTC+8, Kolkata is UTC+5:30, so **everything the application wrote was 2.5 hours behind
+Taipei wall-clock**. `now()`, `scanned_at`, `locked_at`, `created_at` and `attendance_date` were all
+in the wrong zone, and `attendance_date` could land on the **wrong calendar day** near midnight,
+silently misfiling a service. The legacy Apps Script manifest already uses `Asia/Taipei`, so every
+imported legacy timestamp would have been shifted on the way in.
+
+**Both halves are required — the second one is the silent-corruption half**
+
+`config/database.php` set **no** connection timezone, so the connection inherited the *server*
+default. The schema mixes column types:
+
+| Type | Count | MySQL behaviour |
+|---|---:|---|
+| `timestamp()` — incl. `event_attendees.scanned_at`, `event_attendance_sessions.locked_at` | 23 | **Converts** to/from UTC using the *session* timezone |
+| `dateTime()` | 10 | Stores the literal string, **no conversion** |
+| `date()` — incl. `event_attendance_sessions.attendance_date` | 8 | Date only; the day it lands on follows the PHP timezone |
+
+If PHP and MySQL disagree the `timestamp` columns shift and the `dateTime` columns do not, so half
+the data looks correct. Setting only `TIMEZONE=` would have produced exactly that.
+
+This matters more in production than it looks locally. On this dev machine `@@global.time_zone` is
+`SYSTEM` resolving to *Taipei Standard Time*, i.e. already `+08:00` — so the round-trip assertion
+would pass here with or without the pin. A Linux VPS or CI runner defaults to UTC, where it would
+not. The pin removes the dependency on the host clock entirely; the `@@session.time_zone`
+assertion in the characterization test is what actually catches its absence.
+
+**A fixed offset, not a named zone**
+
+`'timezone' => '+00:00'`, **not** `'UTC'`. Named zones require MySQL's `mysql.time_zone*` tables to
+be populated (`mysql_tzinfo_to_sql`), which a default install does not do; a named zone against an
+unpopulated table fails or silently falls back. `+00:00` is exact by definition and cannot drift.
+
+The pin is required **regardless of which zone is chosen**. Its job is to remove the dependency on
+the host clock: `@@global.time_zone` is `SYSTEM` on this dev machine (resolving to Taipei) and UTC
+on a typical Linux VPS or CI runner. Choosing UTC makes the two agree on most hosts *by luck*, which
+is exactly the condition under which a missing pin goes unnoticed until it is deployed somewhere
+else. Assert it, do not rely on it.
+
+**Reconciled with `build.md` and `PRD.md` — no deviation remains**
+
+TECHNICAL BASELINE 3 specifies **UTC storage**, and so do four `PRD.md` lines:
+
+| `PRD.md` | Requirement |
+|---|---|
+| L859 | `ifgf_event_occurrences` keyed on event plus **UTC `starts_at`** |
+| L877 | Occurrence identity is event plus **exact UTC `starts_at`** |
+| L909 | "Production uses MySQL 8.4 LTS with `utf8mb4` and **UTC timestamps**. … User-facing times render in the branch timezone, default `Asia/Taipei`." |
+| L1502 | NFR-02 — all production tables use InnoDB, `utf8mb4`, foreign keys, and **UTC timestamps** |
+
+An earlier draft of this entry proposed storing `Asia/Taipei` instead, as an approved deviation.
+**The owner rejected that on 2026-08-15** and affirmed the PRD: L909 — UTC at rest, branch timezone
+at display — is the contract. All five normative statements now agree, and no document carries a
+deviation pointer. The rejected proposal is preserved in "Alternatives considered" below because its
+reasoning is still the right reasoning to weigh if the revisit condition ever fires.
+
+**Known consequence — accepted, and characterized rather than left implicit**
+
+L909's display-layer conversion is not free, and one case is sharp enough to name here.
+`event_attendance_sessions.attendance_date` is a `date()` column: date-only, no timezone, no
+conversion. Under UTC at rest, a service held between **00:00 and 08:00 Taipei** falls on the
+**previous UTC calendar day** — an 06:00 morning prayer meeting on Sunday files under Saturday.
+Services from 08:00 Taipei onward are unaffected, which covers every regular Sunday service.
+
+This is not a defect to fix later; it is the direct, intended cost of the chosen contract. The rule
+that follows: **any code deriving a calendar day from an instant must convert to the branch timezone
+first.** The 8 `date()` columns are where that rule gets broken. A test in
+`TimezoneCharacterizationTest` asserts the shift explicitly, so a future migration cannot change what
+a stored `attendance_date` means without turning that test red.
+
+**Revisit condition**
+
+**Every branch leaves UTC+8, or the day-boundary cost of the `date()` columns proves higher than the
+portability it buys.** UTC at rest is the conservative, portable choice and the one the PRD requires;
+reopening it needs a written owner decision, an amendment to the four PRD lines above, and — once any
+attendance data exists — a data migration, not a configuration change.
+
+**Alternatives considered**
+
+| Option | Rejected because |
+|---|---|
+| **`Asia/Taipei` at rest** (`TIMEZONE=Asia/Taipei`, connection `+08:00`) — proposed 2026-08-10, **rejected 2026-08-15** | The strongest argument against UTC here: Taiwan has no daylight saving, so UTC's principal benefit (unambiguous instants across DST transitions) buys nothing; both branches are in UTC+8, so there is no multi-zone display problem to solve; and the legacy Apps Script manifest already uses `Asia/Taipei`, so imported timestamps would map 1:1 with no conversion step — and a conversion step that does not exist cannot be got wrong. It also removes the `date()`-column day-boundary problem entirely rather than pushing it to 8 call sites. **Rejected because `PRD.md` requires UTC at four normative lines and `build.md` TECHNICAL BASELINE 3 at a fifth**, and a deviation carried across five documents is a standing cost paid every session. UTC is also the choice that does not have to be revisited if a branch outside UTC+8 is ever added. Reopening this needs the revisit condition above. |
+| `'timezone' => 'UTC'` (named) on the MySQL connection | Requires `mysql.time_zone*` to be populated, which a default install lacks. Buys nothing over `+00:00`, and fails or silently falls back on hosts where the tables are empty. |
+| No connection pin at all, relying on the host defaulting to UTC | Works by luck on a Linux VPS and fails on this dev machine, where `@@global.time_zone` is `SYSTEM` = Taipei. The failure is silent and half-visible: `timestamp` columns shift, `dateTime` columns do not. The pin costs one line and removes the host clock from the contract. |
+| Set `APP_TIMEZONE=UTC` and change `config/app.php` to read it | Edits upstream-owned `config/app.php` for no gain, and would make the fork's variable name diverge from upstream's — a worse merge conflict than the value change. `config/app.php:71` is left exactly as upstream wrote it. |
+| Leave `APP_TIMEZONE=UTC` in place, just fix `TIMEZONE` | A dead variable that reads as authoritative is a trap for the next person who "fixes" the timezone by editing the wrong line. It is replaced with a comment saying it is not read. |
+| Fix `.env` only and leave `.env.example` alone to reduce conflict surface | Every fresh checkout would reintroduce the defect. `.env.example` is the file a new developer copies. |
+
+**Data migration — not required, verified not required**
+
+Checked before changing anything, 2026-08-11:
+
+- `churchcms_test_disposable` — the only application database that exists — has **0 rows** in
+  `users`, `userprofiles`, `events`, `event_attendees` and `event_attendance_sessions`. Only
+  `migrations` (93 rows) is populated.
+- The `churchcms` database named in `.env` **does not exist on disk** (`D:/MySQL/data/` holds only
+  `churchcms_test_disposable`, `customer_service`, and the system schemas).
+
+So no timestamp has ever been persisted under `Asia/Kolkata`, and this is a configuration change
+only. **This is exactly the window in which it is a configuration change** — `TESTING_PLAN.md`
+marks the fix as due *before WP 0C*, because once attendance is imported or written, wrong-zone
+timestamps are wrong at rest and need a data migration instead.
+
+**Regression tests required before this entry is closed**
+
+- [x] `tests/Feature/Attendance/TimezoneCharacterizationTest.php` — `config('app.timezone')` and
+      `date_default_timezone_get()` are both `UTC`
+- [x] Same test — live `SELECT @@session.time_zone` returns `+00:00`, asserted against the
+      connection rather than against config, so config and reality disagreeing is caught
+- [x] Same test — **round-trip**: one Carbon instant written to a `timestamp` column and a
+      `dateTime` column in the same request reads back as the same wall-clock from both
+- [x] Same test — **documents the accepted consequence**: an 06:00 `Asia/Taipei` service resolves to
+      the previous UTC calendar day. Named `test_documents_*` so a green run never reads as
+      endorsement of the shift, only as proof it has not changed
+- [x] `php artisan about --only=environment` reports `UTC`
+- [ ] Attendance characterization suite 4 (WP 0A item 6 / gate 5) — these assertions live on the
+      attendance surface but the surface itself is still uncharacterized
 
 ---
 
