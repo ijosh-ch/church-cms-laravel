@@ -22,16 +22,13 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. **Settle MEM-001 — is the member admin UI break an upgrade regression?** One check, and it
-   changes what WP 0A's exit gate can honestly claim. `GET /admin/members`, `/member/add` and
-   `/member/edit/{name}` all return **500** with `htmlspecialchars(): Argument #1 must be of type
-   string, Illuminate\Routing\UrlGenerator given`. **Check out `086f33d` (pre-upgrade), hit the same
-   route, compare.** Same technique the route-count item needs, so do both in one pass.
-   If it IS a regression, WP 0B's exit gate ("all characterization and regression tests pass") was
-   never actually met and the exit-gate review must say so.
-
-2. **Step 2 — continue characterization.** WP 0A item 6, gate 5. **36 tests, 97 assertions**, whole
+1. **Step 2 — continue characterization.** WP 0A item 6, gate 5. **37 tests, 92 assertions**, whole
    `tests/Feature` suite green.
+
+   ⚠ **Any test that renders an admin view must seed `settings.*` config first.** Copy
+   `MemberProfileCharacterizationTest::seedRuntimeSettings()`. Without it every admin page 500s on
+   `htmlspecialchars(): ... UrlGenerator given`, which looks exactly like an application bug and is
+   not — see `CONTEXT.md`. This already produced one withdrawn finding (MEM-001).
 
    ⚠ **Corrected scope:** `TESTING_PLAN.md` Part 1 lists **eleven** suites (its "seven" heading is
    stale) and targets **80–120 tests**, not the 60–90 quoted in earlier notes.

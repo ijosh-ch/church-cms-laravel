@@ -66,8 +66,8 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  **Full `tests/Feature` suite: 36 passed, 97 assertions.** Every test verified today.
-  **Coverage: 7 test files, 36 tests.**
+  **Full `tests/Feature` suite: 37 passed, 92 assertions.** Every test verified today.
+  **Coverage: 7 test files, 37 tests.**
 
   ⚠ **Corrected target.** `TESTING_PLAN.md` Part 1 lists **eleven** suites (its "seven" heading is
   stale) and targets **80–120 tests**, not the 60–90 quoted in earlier notes.
@@ -76,27 +76,32 @@ Registering it permanently needs elevation and is an open owner question.
   11 Private media.** Suite 1 still owes password reset, email verification, session lifetime and
   throttling; suite 4 owes `searchMember` and `removeAttendee`.
 
-## 🔴 MEM-001 — the member admin UI is BROKEN on Laravel 13
+## ⚠ Admin view tests need `settings.*` config — read before writing one
 
-**The first concrete evidence of an actual 10 → 13 upgrade regression**, and exactly what WP 0B
-item 6 would have caught had it not been skipped by owner directive (`MEMORY.md` 2026-08-10).
+**Not a defect. A fixture requirement, and it will bite every remaining suite that renders an admin
+page.** `AppServiceProvider::boot()` populates `settings.*` from the `church_details` table for
+`Church::first()`. A disposable test DB has no such rows, so `config('settings.favicon')` is NULL,
+and `resources/views/layouts/admin/layout.blade.php` line 6 does `{{ url(\Config::get('settings.favicon')) }}`.
+**`url(null)` returns the UrlGenerator instance** — documented Laravel behaviour, not a version
+change — which Blade's `e()` rejects:
 
 ```
-GET /admin/members            500  ViewException: htmlspecialchars(): Argument #1
-GET /admin/member/add         500  ($string) must be of type string,
-GET /admin/member/edit/{name} 500  Illuminate\Routing\UrlGenerator given
-GET /admin/member/show/{name} 500  imagick missing (SEPARATE cause, UP-008 owns it)
-GET /admin/members/find       200  (JSON)
+htmlspecialchars(): Argument #1 ($string) must be of type string,
+Illuminate\Routing\UrlGenerator given
 ```
 
-**NOT PROVEN a regression** — a type error reaching Blade's `e()` is the *shape* of a framework
-behaviour change, but there is no pre-upgrade baseline to diff, the same gap as the 730-vs-812 route
-count. **To settle it: check out `086f33d`, hit the same route, compare.** Do not record it as a
-regression until then.
+Every admin page on this layout 500s without it. `MemberProfileCharacterizationTest::seedRuntimeSettings()`
+is the pattern: set the config directly, because the provider runs at **boot**, before a test's
+fixture rows exist.
 
-Render behaviour for suite 3 cannot be characterized while the views throw. What is pinned instead:
-the authorization decisions (a 500 proves the request cleared both gates *and* the permission
-middleware; 401 proves it did not), the data-layer invariants, and the two failures themselves.
+**~~MEM-001~~ — WITHDRAWN 2026-08-15.** This was briefly recorded as "the member admin UI is broken
+on Laravel 13", a suspected upgrade regression. **It was wrong.** With settings seeded, `/admin/members`,
+`/admin/member/add` and `/admin/member/edit/{name}` all return **200**. The lesson, which cost a
+commit: **a 500 in a test environment is a fixture question until proven otherwise — read the actual
+failing line before attributing a failure to the framework.**
+
+`GET /admin/member/show/{name}` **does** still 500, on missing **imagick**. That one is real,
+survives the fixture, and is already owned by UP-008.
 
 ## WP 0C item 3 confirmed with data — `userprofiles` allows duplicate rows per user
 
