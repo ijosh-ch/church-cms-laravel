@@ -22,8 +22,21 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. **Step 2 — FINISH characterization suite 1: roles, permissions and authentication.** WP 0A item
-   6, gate 5. **Started 2026-08-15**, not finished.
+1. **Step 2 — characterization suite 2: ATTENDANCE** (open / scan / lock / unlock). WP 0A item 6,
+   gate 5. **Suite 1 is done; this is the literal next action.** The ~60% of FR-04 that Phase 1B
+   extends. **Write this assertion first, before the `status` column exists:** a **MISSING**
+   `EventAttendee` row is **NOT** absence — it is "not recorded". `EventAttendee` is presence-only
+   today, and the WP 0C migration must not be able to quietly change what "no row" means.
+   `TimezoneCharacterizationTest` already lives in that directory and is green.
+
+   **Diagnostic before assertions.** Print status, `Location` and the relevant state for several
+   inputs side by side before writing a single expectation. Suite 1 had to be re-baselined once
+   because assertions were written from what the code appeared to say; three inputs producing one
+   identical output is what exposed it.
+
+## Done this session — suite 1 (kept briefly for the next session's context)
+
+**Suite 1: COMPLETE.** WP 0A item 6, gate 5. **13 tests, 28 assertions, 8.7s.**
 
    ✅ **Done:** `tests/Feature/Auth/RolePermissionCharacterizationTest.php` — **7 passed**,
    13 assertions, 7.5s. Covers both legacy gates, direct grants, role-mediated grants, the denial
@@ -37,9 +50,15 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
    measured the `/portal` redirect for three commits; the "role resolution may be broken" finding
    was a false alarm from that same mistake.
 
-   🔴 **THE LITERAL NEXT ACTION — authentication itself.** Login, logout, session, password reset.
-   Generate with `php artisan make:test Auth/AuthenticationCharacterizationTest`. That completes
-   suite 1.
+   ✅ **`tests/Feature/Auth/AuthenticationCharacterizationTest.php`** — 6 tests. Login, logout,
+   invalid credentials, and two documented defects. **Suite 1 is COMPLETE** — 13 tests,
+   28 assertions, 8.7s across both files.
+
+   **New finding — AUTH-001:** `routes/web.php` calls `Auth::routes()` **twice** (L68 with
+   `'register' => false`, L71 bare), so registration is **live** despite being explicitly disabled.
+   `GET /register` returns 200. Check what `RegisterController` does on an unauthenticated POST
+   **before any public deployment**. Do not fix by deleting L71 in a characterization pass — it is
+   upstream-owned, needs an `UPSTREAM.md` entry, and other routes may exist only because of it.
 
    ⚠ **Scope correction, 2026-08-15.** An earlier note listed "role assignment and replacement" and
    "the final-admin guard" as missing from suite 1. **They are not characterizable** — invariant 9's

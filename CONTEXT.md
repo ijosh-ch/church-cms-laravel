@@ -66,9 +66,24 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  `RolePermissionCharacterizationTest` — **7 passed**, 13 assertions, 7.5s.
+  `tests/Feature/Auth` (both files) — **13 passed**, 28 assertions, 8.7s.
   `MemberImportCharacterizationTest` **not rerun** since Session 2b.
-  **Coverage: 3 test files, 13 tests** against a 60–90 target.
+  **Coverage: 4 test files, 20 tests** (19 verified today) against a 60–90 target.
+  **Suite 1 is COMPLETE.** Suites 2–7 untouched.
+
+## AUTH-001 — registration is live although explicitly disabled
+
+`routes/web.php:68` passes `['register' => false]` to `Auth::routes()`. `routes/web.php:71` then
+calls `Auth::routes()` **again with no arguments**, re-registering the default set and reopening
+registration. `GET /register` returns **200**. This is the public account-creation surface of a
+church member database; whether it is exploitable depends on what `RegisterController` does with
+`usergroup_id`/`church_id` on an unauthenticated POST — **not yet characterized, check before any
+public deployment.** The duplicate `Auth::routes()` call is also a plausible contributor to the
+unexplained route-count gap (730 vs 812). Pinned by
+`test_documents_defect_register_route_is_reachable_despite_being_disabled`.
+
+Also recorded: `['verify' => true]` is configured and the `email_verified_at` column exists, but
+**nothing blocks an unverified account from logging in.** Relevant to FR-02's activation flow.
 - ✅ The earlier "role-mediated resolution may be broken" question is **RESOLVED — it is not
   broken.** The fixture used usergroup 1, so the first gate redirected the request before the
   permission middleware ran. Cause was the two-gate ordering below.

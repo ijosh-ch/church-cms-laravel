@@ -142,10 +142,36 @@ Final state: **7 passed, 13 assertions, 7.5s. No incomplete.**
   visible in every run, carries the reasoning at the point of failure, and does not turn the suite
   red or silently pass.
 
+**Suite 1 COMPLETE — authentication added**
+
+`AuthenticationCharacterizationTest` — 6 tests. Suite 1 total: **13 tests, 28 assertions, 8.7s.**
+
+- **AUTH-001 — registration is LIVE although explicitly disabled.** `routes/web.php` calls
+  `Auth::routes()` **twice**: L68 with `['verify' => true, 'register' => false]`, then L71 **bare**,
+  which re-registers the full default set and reopens what L68 closed. `GET /register` returns
+  **200**. This is the public account-creation surface of a church member database. Whether it is
+  exploitable depends on what `RegisterController` does with `usergroup_id`/`church_id` on an
+  unauthenticated POST — **not characterized, check before any public deployment.** The duplicate
+  call is also a plausible contributor to the unexplained **730 vs 812** route-count gap; check it
+  when that item is picked up.
+- **Email verification is configured but not load bearing.** `['verify' => true]` registers the
+  routes and `users.email_verified_at` exists, but an account with a NULL value logs in normally.
+  Matters to FR-02's activation flow, which cannot assume verification means anything today.
+- **Post-login landing is `/member/home`, not `/home` — and `/home` does not exist** (a guest
+  requesting it gets 404, not a redirect). Conventional Laravel assumptions do not hold here.
+- **Invalid login redirects to `/`, valid login redirects to `/member/home`.** Both are 302, so
+  **status alone cannot distinguish success from failure** — `Auth::check()` is the only thing that
+  separates them, and it is asserted first in both tests. Same class of mistake as the gate mix-up:
+  a redirect is not self-describing.
+- **The diagnostic-first order worked.** Every value in this file was measured before any assertion
+  was written, and nothing needed re-baselining. That is the direct counterexample to the
+  RolePermission file, which was written the other way round and had to be corrected. **Make it the
+  standing method for suites 2–7.**
+
 **Not done — read before assuming progress**
 
-- **Suite 1 is not finished**; suites 2–7 are untouched. **3 test files, 11 tests (1 incomplete)**
-  against a 60–90 target remains the largest open risk and the reason WP 0A cannot close.
+- **Suites 2–7 untouched.** **4 test files, 20 tests** (19 verified today; `MemberImport`'s 1 test
+  not rerun) against a 60–90 target. Still the reason WP 0A cannot close.
 - **This session ran ~40k past the `CLAUDE.md` 120k handoff line**, at owner direction. The last
   stretch produced the open question above. Treat the newest assertions as provisional and review
   `RolePermissionCharacterizationTest` from a fresh session before building on it.
