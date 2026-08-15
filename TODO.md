@@ -121,18 +121,27 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
    test in each suite.
 
 5. ✅ ~~**Step 4 — provider smoke tests**~~ — **DONE 2026-08-15.** 11 tests in
-   `tests/Feature/Package/PackageProviderSmokeTest.php`.
-   ⚠ **CI does not run either new suite yet** — neither the package's own phpunit config nor the
-   smoke tests are in `.github/workflows/ci.yml`. Add both; a seam whose alarm never runs in CI is
-   not actually guarded. Small, do it before Step 5.
+   `tests/Feature/Package/PackageProviderSmokeTest.php`. CI now runs the package suite too.
 
-6. **Step 5 — merge `contrib/laravel-supported-platform` into `ifgf/main`.** **Only after step 2
+6. ✅ ~~**Step 6 — upstream merge rehearsal**~~ — **RUN 2026-08-15 against `800c29f`. MERGE IS
+   CLEAN.** Automated as the `merge-rehearsal` job in `.github/workflows/ci.yml`, read-only by
+   construction. See `UPSTREAM.md` baseline table for the result.
+
+   🔴 **Follow-up it produced — do before UP-008.** Upstream **deletes** the `format('png')` QR call
+   from `resources/views/member/idcard/idcard.blade.php`. **UP-008 is 7 call sites, not 8, and that
+   file must NOT be hand-edited** — take upstream's version or the change conflicts with a 179-line
+   upstream rewrite. **Re-derive the remaining call sites**; the list in "Next" below is stale.
+   Also decide what happens to
+   `MemberProfileCharacterizationTest::test_documents_defect_member_show_fails_on_missing_imagick`,
+   which correctly goes red against the merged tree because upstream fixed that defect.
+
+7. **Step 5 — merge `contrib/laravel-supported-platform` into `ifgf/main`.** **Only after step 2
    passes** — it does not yet; 4 of 11 suites are done or partial. The one hard-to-undo action in
-   the plan. Re-run both suites after merging.
+   the plan. Re-run both suites after merging. The rehearsal has now proven the upstream side is
+   clean, but that is a *different* merge from this one.
 
-7. **Step 6 — upstream merge rehearsal, read-only.** WP 0A item 13. No push, no mutation of
-   protected branches. Recurring infrastructure, not a one-off — the owner wants upstream's later
-   features. `laracasts/presenter`'s removal is the likeliest conflict (UP-007).
+8. **Last CI gap — the frontend build.** WP 0A item 7 requires it and `.github/workflows/ci.yml` has
+   no `npm ci` / `npm run production` step. Known to build locally (exit 0, 290s).
 
 8. **Step 7 — WP 0A exit-gate review.** Report each `build.md` L226–228 criterion met / not met.
    **Do not mark the gate passed if any criterion fails.** Then STOP — WP 0C needs its own approval

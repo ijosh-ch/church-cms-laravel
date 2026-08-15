@@ -19,7 +19,7 @@
 | Fork HEAD at time of writing | `d8cfe08b617351ed18945ab4b1c56a396d6d8a46` |
 | Fork HEAD 2026-08-11 | `9120af9` on `contrib/laravel-supported-platform`, **local only, nothing pushed for this branch** |
 | Divergence | 26 ahead, 8 behind `upstream/main` after fetch on 2026-08-11; see UP-007 |
-| Last merge rehearsal | **never run** — required by `build.md` WP 0A exit gate and WP 0B item 12 |
+| Last merge rehearsal | **2026-08-15 against `800c29f` — MERGE IS CLEAN, no conflicts.** Characterization suite on the merged tree: **47 of 48 pass**; the one failure is `test_documents_defect_member_show_fails_on_missing_imagick`, which is a documenting test correctly going red because upstream FIXED that defect (see UP-008). Package suite: 3/3. `composer validate --strict`: clean. Now automated as the `merge-rehearsal` job in `.github/workflows/ci.yml`. |
 | **Pin status** | **Frozen, owner-approved 2026-08-09.** Do not merge the 8 outstanding `upstream/main` commits until the WP 0A exit gate passes. |
 
 ### Pin decision — 2026-08-09 (Session 2b, `TODO.md` Now item 3)
@@ -622,12 +622,23 @@ neither is a regression from this entry.
 
 ---
 
-### UP-008 — reserved
+### UP-008 — reserved — **SCOPE REDUCED by the 2026-08-15 merge rehearsal: 8 call sites → 7**
 
-Reserved for the QR renderer change (`format('png')` → `format('svg')`, 8 Blade call sites),
-`TODO.md` Now item 2, owner decision 2026-08-10 #1. **Not yet landed** — the number is held so the
-two entries do not collide. UP-009 below was written first because the timezone fix had to land
-before any attendance data is written.
+Reserved for the QR renderer change (`format('png')` → `format('svg')`),
+`TODO.md` Now item 2, owner decision 2026-08-10 #1. **Not yet landed.**
+
+⚠ **`resources/views/member/idcard/idcard.blade.php` (L41) is NO LONGER ONE OF THEM.** The merge
+rehearsal proved that upstream `800c29f` **rewrites that file (179 lines) and deletes the
+`format('png')` QR call outright.** Two consequences:
+
+1. **Do not edit that file for UP-008.** Hand-editing it now would create a conflict with an upstream
+   rewrite that already removes the problem. Take upstream's version.
+2. The rehearsal's characterization run proves the effect: with upstream merged,
+   `GET /admin/member/show/{name}` returns **200 instead of 500** — the missing-`imagick` failure is
+   gone on that path. `MemberProfileCharacterizationTest::test_documents_defect_member_show_fails_on_missing_imagick`
+   correctly goes RED against the merged tree, which is a documenting test doing its job.
+
+**Re-derive the remaining call sites before starting UP-008** — the list in `TODO.md` predates this.
 
 ---
 

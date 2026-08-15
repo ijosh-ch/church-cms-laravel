@@ -220,7 +220,27 @@ permission.
   Three Laravel majors were crossed without a behavioural baseline. **The largest open risk, and the
   reason WP 0A cannot close.** Seven suites are specified in `TESTING_PLAN.md` Part 1.
 - **0 `ifgf_` tables. 0 of 14 FRs complete.** The package seam now exists but is empty by design.
-- Merge rehearsal **never run** (item 13) — the last WP 0A gate with no evidence at all behind it.
+
+## ✅ Merge rehearsal RUN for the first time — 2026-08-15, and the merge is CLEAN
+
+Against `upstream/main` = **`800c29f`** (40 ahead / 9 behind). **No conflicts** —
+`git merge-tree --write-tree` exits 0 with no conflict output, and the real merge on a throwaway
+branch applied cleanly. **UP-007's prediction that `laracasts/presenter`'s removal would be the
+likeliest conflict did NOT materialise.** Upstream touches only 8 files and **no** `composer.json`,
+migrations or config, so there is no dependency churn.
+
+On the merged tree: `composer validate --strict` clean, package suite 3/3,
+characterization suite **47 of 48**. The single failure is
+`test_documents_defect_member_show_fails_on_missing_imagick` going red **because upstream fixed the
+defect** — it deleted the `format('png')` QR call from `idcard.blade.php`. A documenting test doing
+exactly its job. **UP-008's scope drops from 8 call sites to 7**, and that file must NOT be
+hand-edited; take upstream's version.
+
+Now automated: the **`merge-rehearsal` job** in `.github/workflows/ci.yml`. Read-only by
+construction — `contents: read`, upstream added fetch-only with its push URL disabled, merge on a
+throwaway branch in an ephemeral runner, nothing ever pushed. It runs alongside `test`, not as a
+gate on it, so a red rehearsal never blocks unrelated work. **It is supposed to be able to fail** —
+red means upstream changed something this fork has pinned. Read the diff before touching the test.
 - `/` returns 500 — `imagick` absent, pre-existing, resolved by decision to `format('svg')` (UP-008,
   not yet landed).
 - 166 npm vulnerabilities; Vue 2 EOL. `npm run production` still builds (exit 0). Never `npm audit fix`.
@@ -254,7 +274,7 @@ serving. `tests/Feature/Package/PackageProviderSmokeTest.php` is the alarm, and 
 1. **WP 0A characterization gate** — 7 suites essentially unwritten. Blocks everything.
 2. ~~**WP 0A package gate**~~ — **CLOSED 2026-08-15.** Package scaffolded (item 11), smoke tests
    written (item 14). See UP-010.
-3. **WP 0A CI gates** — no frontend build, and **no merge rehearsal (item 13, never run)**. CI does
-   not yet run the package suite either.
+3. **WP 0A CI gates** — **no frontend build.** ~~merge rehearsal~~ and ~~package suite in CI~~ both
+   **closed 2026-08-15**. The frontend build (`npm ci` + `npm run production`) is the last CI gap.
 4. `contrib/laravel-supported-platform` unmerged into `ifgf/main`, gated on gate 1.
 5. Upstream merge blocked until the exit gate passes; reviewed pin `d12c110`, ref at `800c29f`.

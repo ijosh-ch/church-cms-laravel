@@ -94,6 +94,11 @@ jobs:
             echo "DB_DATABASE=churchcms_test_disposable"
             echo "DB_USERNAME=root"
             echo "DB_PASSWORD=root"
+            # EXPLICIT, not inherited. config/app.php reads env('TIMEZONE','UTC'),
+            # so omitting this happens to give UTC by accident -- and an accident is
+            # not a contract. Owner decision 2026-08-15: UTC at rest
+            # (PRD L859/L877/L909/L1502, UPSTREAM.md UP-009).
+            echo "TIMEZONE=UTC"
           } > .env.testing
 
       - name: Run migrations and seeders
@@ -103,3 +108,124 @@ jobs:
 
       - name: Run test suite
         run: php artisan test
+
+      - name: Run the IFGF package suite
+        # WP 0A item 11 requires an explicit package test runner path, and item 14's
+        # smoke tests are worthless if nothing runs them. The package suite is
+        # framework-free and runs independently of the application.
+        run: vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml
+
+  merge-rehearsal:
+    # WP 0A item 13, gate 4. "Add a read-only CI merge rehearsal that attempts the
+    # latest upstream/main merge and runs the characterization suite without pushing
+    # or mutating protected branches."
+    #
+    # READ-ONLY BY CONSTRUCTION: permissions are contents:read, the upstream remote is
+    # added fetch-only, the merge happens on a throwaway local branch inside an
+    # ephemeral runner, and nothing is ever pushed. It cannot touch main, ifgf/main or
+    # deploy because it never writes to a remote at all.
+    #
+    # THIS JOB IS SUPPOSED TO BE ABLE TO FAIL. build.md OPEN-SOURCE ADAPTATION 6:
+    # "block release on unresolved conflicts or behavior regression". A red rehearsal
+    # means upstream changed something this fork has characterized -- which is
+    # information, not breakage. Read the diff before "fixing" the test.
+    #
+    # It does NOT gate the `test` job; it runs alongside it so a normal red rehearsal
+    # never blocks unrelated work.
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: churchcms_test_disposable
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: a merge base cannot be computed from a shallow clone.
+          fetch-depth: 0
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, ctype, curl, dom, exif, fileinfo, filter, gd, iconv, intl, mbstring, openssl, pdo, pdo_mysql, phar, session, simplexml, sodium, tokenizer, xml, xmlreader, xmlwriter, zip
+          coverage: none
+
+      - name: Add upstream as a fetch-only remote
+        run: |
+          git remote add upstream https://github.com/church-cms/church-cms-laravel.git
+          # Make pushing to upstream impossible even by accident.
+          git remote set-url --push upstream DISABLED_read_only_rehearsal
+          git fetch upstream --prune
+          echo "upstream/main is now $(git rev-parse --short upstream/main)"
+
+      - name: Report divergence
+        run: |
+          echo "ahead/behind (HEAD...upstream/main):"
+          git rev-list --left-right --count HEAD...upstream/main
+          echo "upstream commits not in this branch:"
+          git log --oneline HEAD..upstream/main
+
+      - name: Conflict analysis (no working tree change)
+        # merge-tree computes the merge in memory. It reports conflicts without
+        # touching the index or the working tree, so this step is safe even if the
+        # merge is a disaster.
+        run: |
+          set -o pipefail
+          if git merge-tree --write-tree --messages HEAD upstream/main > merge-tree.out; then
+            echo "No merge conflicts."
+          else
+            echo "::error::Merge conflicts against upstream/main"
+            cat merge-tree.out
+            exit 1
+          fi
+
+      - name: Perform the merge on a throwaway branch
+        run: |
+          git config user.name  "ci-merge-rehearsal"
+          git config user.email "ci@example.invalid"
+          git switch -c rehearsal/ci-$GITHUB_RUN_ID
+          git merge --no-ff --no-edit upstream/main
+
+      - name: Install dependencies on the merged tree
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          {
+            echo "APP_ENV=testing"
+            echo "DB_CONNECTION=mysql"
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_PORT=3306"
+            echo "DB_DATABASE=churchcms_test_disposable"
+            echo "DB_USERNAME=root"
+            echo "DB_PASSWORD=root"
+            echo "TIMEZONE=UTC"
+          } > .env.testing
+
+      - name: Run migrations and seeders on the merged tree
+        run: php artisan migrate:fresh --seed --env=testing
+
+      - name: Run the characterization suite against the merged result
+        # The actual gate. A failure here means upstream changed behaviour this fork
+        # has pinned. Investigate the upstream diff first -- do NOT relax the
+        # characterization test to make this green.
+        run: php artisan test
+
+      - name: Run the IFGF package suite against the merged result
+        # The package seam fails SILENTLY when a merge drops the root composer.json
+        # repositories or require entry -- nothing errors, IFGF behaviour just stops
+        # loading. This is the alarm for exactly that.
+        run: vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml

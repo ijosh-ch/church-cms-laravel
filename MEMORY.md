@@ -304,12 +304,45 @@ recorded as **UP-010**). **Application suite: 48 passed, 109 assertions.** Packa
   `.github/workflows/ci.yml`. **A seam whose alarm never runs in CI is not actually guarded** —
   in `TODO.md`, small, and should land before Step 5.
 
+**Step 6 done — the merge rehearsal ran for the first time, and it earned its keep immediately**
+
+Against `upstream/main` = `800c29f`, 40 ahead / 9 behind. **THE MERGE IS CLEAN — no conflicts.**
+
+- **UP-007's standing prediction was wrong.** It named `laracasts/presenter`'s in-house replacement
+  as the likeliest conflict. It produced none. Upstream touches only 8 files and **no**
+  `composer.json`, migrations or config, so there is no dependency churn at all. **A predicted
+  conflict is not a measured one** — this had been carried as a risk since Session 2b on no evidence.
+- **The rehearsal paid for itself on its first run, via a FAILING test.** On the merged tree the
+  characterization suite is 47/48, and the failure is
+  `test_documents_defect_member_show_fails_on_missing_imagick` — red **because upstream FIXED the
+  defect**. Upstream rewrites `resources/views/member/idcard/idcard.blade.php` (179 lines) and
+  **deletes the `format('png')` QR call**. So `GET /admin/member/show/{name}` returns 200 instead of
+  500 once merged.
+- **Consequence: UP-008 is 7 call sites, not 8, and `idcard.blade.php` must NOT be hand-edited.**
+  Doing UP-008 as planned would have hand-edited a file upstream rewrites, manufacturing a conflict
+  to fix a problem upstream already removed. **This is the concrete argument for running the
+  rehearsal BEFORE planned upstream-owned work, not after.**
+- **A documenting test going red is the mechanism working, not breaking.** `test_documents_defect_*`
+  named tests are designed to fail when the defect is fixed. Because the docblock says what to do
+  when that happens, the red is self-explaining rather than alarming. **The naming convention paid
+  off here for the first time.**
+- **`git merge-tree --write-tree` is the right first move** — it computes the merge in memory and
+  reports conflicts without touching the index or working tree, so the conflict question is answered
+  before anything is mutated. The throwaway-branch merge is only needed to *run the tests*.
+- **Automated as the `merge-rehearsal` CI job**, read-only by construction: `contents: read`,
+  upstream added fetch-only with its push URL disabled, merge on a throwaway branch in an ephemeral
+  runner, nothing ever pushed. It runs **alongside** `test` rather than gating it, so a red
+  rehearsal never blocks unrelated work — and it is **supposed to be able to fail**.
+- Also closed two smaller CI gaps: the package suite now runs in CI, and the generated `.env.testing`
+  now sets `TIMEZONE=UTC` **explicitly**. It resolved to UTC by accident before, via
+  `env('TIMEZONE','UTC')` — and an accident is not a contract. That was an open `REVIEW.md` item.
+
 **Not done — read before assuming progress**
 
 - **7 of 11 characterization suites not started; 2 partial.** **48 tests** total but only **37** are
-  characterization, against a **80–120** target. Still the reason WP 0A cannot close.
-- **Merge rehearsal (item 13) has never run** — now the last WP 0A gate with no evidence at all
-  behind it, and the one that would actually measure UP-010's conflict risk rather than assess it. Steps 3–7 of the closure plan (package
+  characterization, against **80–120**. Still the reason WP 0A cannot close and Step 5 stays blocked.
+- **Frontend build is the last CI gap** (item 7) — no `npm ci` / `npm run production` step.
+- Steps 5 and 7 not started. Steps 3–7 of the closure plan (package
   scaffold, smoke tests, `ifgf/main` merge, upstream rehearsal, exit-gate review) remain
   **not started**.
 - **No evidence of any 10 → 13 upgrade regression has been found.** The one candidate was withdrawn.
