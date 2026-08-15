@@ -65,8 +65,26 @@ Registering it permanently needs elevation and is an open owner question.
   one squashed schema instead of replaying 93 migrations. The old ~8-minute-per-class figure
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
-- **Last recorded run:** `TimezoneCharacterizationTest` — **6 passed, 0 failed, 0 skipped**,
-  11 assertions, **1.96s**. `MemberImportCharacterizationTest` not rerun since Session 2b.
+- **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
+  `RolePermissionCharacterizationTest` — **4 passed**, 6 assertions, 6.6s.
+  `MemberImportCharacterizationTest` **not rerun** since Session 2b.
+  **Coverage: 3 test files, 10 tests** against a 60–90 target.
+
+## SEC-001 — the legacy authorization bypass is ONE LINE
+
+`app/Http/Kernel.php:74` aliases `'permission'` to `App\Http\Middleware\AdminOrPermission` instead
+of Laratrust's own middleware, and that class admits **any** `usergroup_id == 3` account to **every**
+`permission:*` route with no role, no direct grant and no audit record
+(`AdminOrPermission.php:16`). Severity high. It is a single alias, not the 33 scattered call sites
+earlier notes implied — easier to fix, much easier to miss. **It cannot be removed before FR-11**
+maps legacy groups onto the three approved roles; removing it today locks out every church admin.
+Pinned by `test_documents_defect_usergroup_id_three_bypasses_all_permission_checks`, which must be
+**replaced, not deleted**, when FR-11 lands.
+
+Two related behaviours are recorded but not fixed, both needing their own `UPSTREAM.md` entries:
+`routes/web.php:182` guards the `/admin/*` group with `permission:*` but **not** `auth`, and the two
+denial paths disagree — **401** for a guest, **302 redirect** for an authenticated user without the
+permission.
 
 ## Known debt
 

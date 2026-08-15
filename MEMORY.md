@@ -66,10 +66,41 @@ plus `build.md` TECHNICAL BASELINE 3) now agree and no document carries a deviat
 
 `php artisan about --only=environment` reports `Timezone ... UTC` on Laravel 13.24.0 / PHP 8.4.24.
 
+**Step 2 started — suite 1, first file (added after the reconciliation commit)**
+
+`tests/Feature/Auth/RolePermissionCharacterizationTest.php` — **4 passed, 0 failed, 0 skipped**,
+6 assertions, 6.6s. Coverage is now **3 test files, 10 tests**.
+
+- **SEC-001 — the `usergroup_id` bypass is ONE LINE, not 33 call sites.** `app/Http/Kernel.php:74`
+  aliases `'permission'` to `App\Http\Middleware\AdminOrPermission` instead of to Laratrust's own
+  middleware, and that class bypasses the entire granular permission system for
+  `usergroup_id == 3` (`AdminOrPermission.php:16`). So **every** `permission:*` route in the
+  application is affected by a single alias. Easier to fix than the 33-file estimate suggested and
+  far easier to miss. It cannot be removed before FR-11 maps legacy groups onto the three approved
+  roles — removing it today locks out every existing church admin.
+- **Denial is by 302 redirect, not 403** — for an authenticated user without the permission. A
+  redirect is still a denial (the request never reaches the controller), so `build.md` SECURITY 11
+  is satisfied. **An assertion of 403 would have been asserting what SHOULD be and would have failed
+  against a system that refuses correctly.** This is the exact trap a characterization pass exists
+  to avoid, and it was hit on the first run.
+- **A guest gets 401, not a login redirect**, because `routes/web.php:182` guards the group with
+  `permission:*` but **not** with `auth`. The two denial paths differ. Both recorded, neither
+  normalized — adding `auth` changes an upstream-owned route group and belongs to FR-11 with its
+  own `UPSTREAM.md` entry.
+- **Fixture lesson:** `users.usergroup_id` is a foreign key to **`user_group`** (singular, not
+  `usergroup`), and the bypass compares the literal value `3`, so the fixture must insert that
+  **exact id** — `insertGetId` hands back whatever autoincrement is free and silently destroys the
+  point of the test.
+- **Assert "not 403" rather than 200 for allowed cases.** Asserting 200 couples an authorization
+  test to view rendering and seed data, so an unrelated view change fails an auth test and teaches
+  the next session to weaken it. Reasoning is in the class docblock so it is not "tightened" back.
+
 **Not done — read before assuming progress**
 
-- **Step 2 characterization suites: not started.** Still 2 test files against a 60–90 test target.
-  This remains the largest open risk and the reason WP 0A cannot close.
+- **Suite 1 is started, not finished.** Still missing: role assignment and replacement, the
+  final-admin guard, role-mediated (vs direct) grants, and authentication itself. Suites 2–7 are
+  untouched. 3 test files against a 60–90 test target remains the largest open risk and the reason
+  WP 0A cannot close.
 - Steps 3–7 (package scaffold, provider smoke tests, `ifgf/main` merge, upstream merge rehearsal,
   exit-gate review) untouched.
 - Nothing pushed. The branch is now 30 ahead / 8 behind `upstream/main`.

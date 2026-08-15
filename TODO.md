@@ -22,10 +22,20 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. **Step 2 — characterization suite 1: roles, permissions and authentication.** WP 0A item 6,
-   gate 5. `TESTING_PLAN.md` Part 1 lists what it asserts. **Roles first, then attendance** — this
-   is the 33-file authorization surface WP 0C must replace, so it must be pinned before it moves.
-   Generate with `php artisan make:test Auth/RoleCharacterizationTest`, not by hand.
+1. **Step 2 — FINISH characterization suite 1: roles, permissions and authentication.** WP 0A item
+   6, gate 5. **Started 2026-08-15**, not finished.
+
+   ✅ **Done:** `tests/Feature/Auth/RolePermissionCharacterizationTest.php` — 4 tests, 6 assertions,
+   6.6s. Covers the permission-middleware surface and records **SEC-001**.
+
+   ❌ **Still missing from suite 1:** role assignment and replacement, the final-admin guard,
+   role-mediated (as opposed to direct) grants, and authentication itself. `TESTING_PLAN.md` Part 1.
+
+   **Read the existing file's class docblock before adding to it** — it carries three measured
+   behaviours that are counter-intuitive and were each hit as a failure first: denial for an
+   authenticated user without the permission is a **302 redirect, not 403**; a guest gets **401**,
+   not a login redirect (the group has `permission:*` but no `auth`); and `users.usergroup_id` is a
+   foreign key to **`user_group`** (singular) where the fixture must insert an **exact** id.
 
    **Capture what IS, not what should be.** If a behaviour looks wrong, assert the wrong behaviour
    and name the test `test_documents_defect_*`. Fixing and characterizing in one pass destroys the
