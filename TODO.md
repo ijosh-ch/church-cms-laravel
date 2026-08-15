@@ -22,10 +22,24 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. **Step 2 — characterization suite 3.** WP 0A item 6, gate 5. **Suites 1 and 2 are COMPLETE**
-   (30 tests, 77 assertions, whole `tests/Feature` suite green). Remaining suites, per
-   `TESTING_PLAN.md` Part 1: **member profile, group access (incl. the `usergroup_id` Gate
-   bypasses), member QR / membership card, exports, birthday routes, queues, private media.**
+1. **Settle MEM-001 — is the member admin UI break an upgrade regression?** One check, and it
+   changes what WP 0A's exit gate can honestly claim. `GET /admin/members`, `/member/add` and
+   `/member/edit/{name}` all return **500** with `htmlspecialchars(): Argument #1 must be of type
+   string, Illuminate\Routing\UrlGenerator given`. **Check out `086f33d` (pre-upgrade), hit the same
+   route, compare.** Same technique the route-count item needs, so do both in one pass.
+   If it IS a regression, WP 0B's exit gate ("all characterization and regression tests pass") was
+   never actually met and the exit-gate review must say so.
+
+2. **Step 2 — continue characterization.** WP 0A item 6, gate 5. **36 tests, 97 assertions**, whole
+   `tests/Feature` suite green.
+
+   ⚠ **Corrected scope:** `TESTING_PLAN.md` Part 1 lists **eleven** suites (its "seven" heading is
+   stale) and targets **80–120 tests**, not the 60–90 quoted in earlier notes.
+
+   **Done:** 2 Roles+permissions, 4 Attendance. **Partial:** 1 Auth (owes password reset, email
+   verification, session lifetime, throttling), 3 Member profile (render coverage blocked on
+   MEM-001 + UP-008). **Not started:** 5 QR/card, 6 Groups, 7 Event management, 8 Birthday,
+   9 Exports, 10 Queues, 11 Private media.
 
    ⚠ **Check each planned suite has a SUBJECT before budgeting it.** Several `TESTING_PLAN.md`
    entries describe FR-11 behaviour that does not exist yet and therefore cannot be characterized —

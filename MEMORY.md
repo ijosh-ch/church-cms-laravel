@@ -230,11 +230,48 @@ Session 2b and does still pass.
   session → **403** JSON; unknown member → **404**; lock/unlock → **302** setting and clearing
   `locked_at`.
 
+**Suite 3 started — and it found the first real upgrade regression candidate**
+
+`MemberProfileCharacterizationTest` — 6 tests. **Full suite: 36 passed, 97 assertions.**
+
+- **MEM-001 — the member admin UI is BROKEN on Laravel 13.** `GET /admin/members`,
+  `/admin/member/add` and `/admin/member/edit/{name}` all return **500**:
+  `htmlspecialchars(): Argument #1 ($string) must be of type string,
+  Illuminate\Routing\UrlGenerator given`. `/admin/member/show/{name}` also 500s but for a
+  **different** cause — the known missing `imagick` (UP-008 owns it). Two bugs behind one status
+  code; fixing either leaves the other. **This is the first concrete candidate for an actual 10 → 13
+  regression, and it is exactly what WP 0B item 6 would have caught had it not been skipped.**
+- **NOT recorded as a regression, because it is not proven.** A type error reaching Blade's `e()`
+  has the *shape* of a framework behaviour change, but there is **no pre-upgrade baseline to diff**
+  — the same gap that blocks the 730-vs-812 route count. Settle it by checking out `086f33d` and
+  hitting the same route. **Resisting the inference is the point**: this session already recorded
+  one confident-sounding finding (role resolution broken) that a probe demolished.
+- **If it IS a regression, WP 0B's exit gate was never met** — "all characterization and regression
+  tests pass" cannot be true of a surface that 500s. The Step 7 exit-gate review must say so rather
+  than inheriting the "WP 0B complete" claim.
+- **WP 0C item 3 confirmed WITH DATA:** `userprofiles.user_id` has a foreign key but the index is
+  `Non_unique = 1`, and a second profile row for the same user **inserts cleanly**. Invariant 4
+  requires exactly one. Every `$user->userprofile` accessor silently picks **one** row, so a
+  duplicated member can show different names or birthdays by row order. **The dedupe must precede
+  the unique key, and "which row wins" is a pastoral data decision for the owner, not a technical
+  one.**
+- **A blocked surface is still characterizable — just not the way the plan assumed.** The views
+  throw, so render coverage is impossible; what survives is the authorization decision (a **500**
+  proves the request cleared both gates *and* the permission middleware; **401** proves it did not),
+  the data-layer invariants, and the failures themselves. **Assert the failure, not an aspirational
+  200** — when it is fixed the test goes red, which is the signal to come back and write the render
+  coverage.
+- **Corrected a number I had been repeating:** `TESTING_PLAN.md` Part 1 lists **eleven** suites (the
+  "seven" in its own heading is stale) and targets **80–120** tests, not 60–90. Suite 1 also still
+  owes password reset, email verification, session lifetime and throttling; suite 4 owes
+  `searchMember` and `removeAttendee`. **Read the table, not the heading.**
+
 **Not done — read before assuming progress**
 
-- **Suites 3–7 untouched.** **6 test files, 30 tests** — all verified today — against a 60–90
-  target. Still the reason WP 0A cannot close. Steps 3–7 of the closure plan (package scaffold,
-  smoke tests, `ifgf/main` merge, upstream rehearsal, exit-gate review) remain **not started**.
+- **7 of 11 suites not started; 2 partial.** **7 test files, 36 tests** — all verified today —
+  against **80–120**. Still the reason WP 0A cannot close. Steps 3–7 of the closure plan (package
+  scaffold, smoke tests, `ifgf/main` merge, upstream rehearsal, exit-gate review) remain
+  **not started**.
 - **This session ran ~40k past the `CLAUDE.md` 120k handoff line**, at owner direction. The last
   stretch produced the open question above. Treat the newest assertions as provisional and review
   `RolePermissionCharacterizationTest` from a fresh session before building on it.

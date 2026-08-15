@@ -66,10 +66,50 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  **Full `tests/Feature` suite: 30 passed, 77 assertions.** Every test verified today, including
-  `MemberImportCharacterizationTest`, which had not been rerun since Session 2b.
-  **Coverage: 6 test files, 30 tests** against a 60–90 target.
-  **Suites 1 and 2 COMPLETE. Suites 3–7 untouched.**
+  **Full `tests/Feature` suite: 36 passed, 97 assertions.** Every test verified today.
+  **Coverage: 7 test files, 36 tests.**
+
+  ⚠ **Corrected target.** `TESTING_PLAN.md` Part 1 lists **eleven** suites (its "seven" heading is
+  stale) and targets **80–120 tests**, not the 60–90 quoted in earlier notes.
+  **Done: 1 Auth (partial), 2 Roles+permissions, 3 Member profile (partial), 4 Attendance.**
+  **Not started: 5 QR/card, 6 Groups, 7 Event management, 8 Birthday, 9 Exports, 10 Queues,
+  11 Private media.** Suite 1 still owes password reset, email verification, session lifetime and
+  throttling; suite 4 owes `searchMember` and `removeAttendee`.
+
+## 🔴 MEM-001 — the member admin UI is BROKEN on Laravel 13
+
+**The first concrete evidence of an actual 10 → 13 upgrade regression**, and exactly what WP 0B
+item 6 would have caught had it not been skipped by owner directive (`MEMORY.md` 2026-08-10).
+
+```
+GET /admin/members            500  ViewException: htmlspecialchars(): Argument #1
+GET /admin/member/add         500  ($string) must be of type string,
+GET /admin/member/edit/{name} 500  Illuminate\Routing\UrlGenerator given
+GET /admin/member/show/{name} 500  imagick missing (SEPARATE cause, UP-008 owns it)
+GET /admin/members/find       200  (JSON)
+```
+
+**NOT PROVEN a regression** — a type error reaching Blade's `e()` is the *shape* of a framework
+behaviour change, but there is no pre-upgrade baseline to diff, the same gap as the 730-vs-812 route
+count. **To settle it: check out `086f33d`, hit the same route, compare.** Do not record it as a
+regression until then.
+
+Render behaviour for suite 3 cannot be characterized while the views throw. What is pinned instead:
+the authorization decisions (a 500 proves the request cleared both gates *and* the permission
+middleware; 401 proves it did not), the data-layer invariants, and the two failures themselves.
+
+## WP 0C item 3 confirmed with data — `userprofiles` allows duplicate rows per user
+
+`userprofiles.user_id` has a foreign key but the index is **`Non_unique = 1`**, and a second row for
+the same user **inserts cleanly** (verified, not inferred). Architectural invariant 4 requires
+exactly one row per user. Every `$user->userprofile` accessor silently picks **one** row, so a
+duplicated member can show different names, birthdays or membership types by row order. **WP 0C must
+dedupe before adding the unique key, and "which row wins" is a pastoral data decision needing the
+owner, not a technical one.**
+
+Also pinned: `/member/show/{name}` and `/member/edit/{firstname}` key on **name**, and `users.name`
+is **not unique within a church** — those URLs are ambiguous. FR-02.7 prohibits sequential IDs in
+URLs; the answer is its specified opaque token, not a name.
 
 ## SEC-002 — attendance has NO per-leader scope
 
