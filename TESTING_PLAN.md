@@ -154,29 +154,33 @@ Consequences:
 - The legacy Apps Script manifest uses `Asia/Taipei`. Importing legacy timestamps into a
   Kolkata-configured application shifts every one of them.
 
-### Fix — owner decision 2026-08-10: `Asia/Taipei`, not UTC
+### ✅ RESOLVED 2026-08-15 — UTC at rest, landed in `f192b11`
 
-**Approved deviation from `build.md` TECHNICAL BASELINE 3 ("UTC storage").** Defensible here:
+**Superseded.** An earlier version of this section recommended `Asia/Taipei` at rest as an approved
+deviation from `build.md` TECHNICAL BASELINE 3, on the grounds that Taiwan has no DST, both branches
+share a zone, and the legacy Apps Script manifest already uses `Asia/Taipei`. **The owner rejected
+that on 2026-08-15 and affirmed `PRD.md`**, which requires UTC at L859, L877, L909 and L1502 — L909
+specifies UTC at rest with per-branch display rendering. The full comparison, including the rejected
+proposal's reasoning, is in `UPSTREAM.md` **UP-009**. Do not reopen it from this file.
 
-- **Taiwan has no daylight saving**, so UTC+8 is constant year-round. The main argument for UTC
-  storage — ambiguous and skipped local times at DST transitions — does not apply.
-- Both branches are in the same zone.
-- The legacy Apps Script manifest already uses `Asia/Taipei`, so imported timestamps map 1:1 with
-  no shift and no conversion step to get wrong.
+The diagnosis below (the `Asia/Kolkata` defect, the mixed column types, the silent-corruption
+mechanism) was correct and is retained. Only the chosen value changed.
 
-Record this as an approved deviation in `UPSTREAM.md` or a `build.md` amendment. Revisit only if a
-branch outside UTC+8 is ever added.
+**Accepted consequence.** `attendance_date` is a `date()` column that never converts, so a service
+between 00:00 and 08:00 Taipei files under the previous UTC calendar day. Services from 08:00
+onward — every regular Sunday service — are unaffected. Any code deriving a calendar day from an
+instant must convert to the branch timezone first.
 
-### The change set — both halves are required
+### The change set — both halves are required — ✅ landed
 
 ```
 # .env
-TIMEZONE=Asia/Taipei
+TIMEZONE=UTC
 ```
 
 ```php
 // config/database.php — inside the 'mysql' connection array
-'timezone' => '+08:00',
+'timezone' => '+00:00',
 ```
 
 **Setting only the first is a silent-corruption bug.** `config/database.php` currently sets no
@@ -191,29 +195,35 @@ connection timezone, so MySQL uses the *server* default, and the schema mixes co
 If PHP and MySQL disagree, the `timestamp` columns shift and the `dateTime` columns do not — half
 the data looks right, which makes this the hardest class of timezone bug to spot.
 
-Use the fixed offset `+08:00` for the connection value, **not** `'Asia/Taipei'`. Named zones
-require MySQL's timezone tables to be loaded, which a default install usually lacks; and with no
-DST in Taiwan a fixed offset is exactly correct and cannot drift.
+Use the fixed offset `+00:00` for the connection value, **not** `'UTC'`. Named zones require MySQL's
+timezone tables to be loaded, which a default install usually lacks. Note that choosing UTC makes the
+pin *easier to lose*, not less necessary: most Linux and CI hosts already default to UTC, so a
+missing pin now passes by luck almost everywhere and fails only on this dev machine, where
+`@@global.time_zone` is `SYSTEM` = Taipei.
 
-Also remove or reconcile the dead `APP_TIMEZONE=UTC` line in `.env.example`. Two variables where
-only one is read is a trap for the next person who "fixes" the timezone by editing the wrong one.
+The dead `APP_TIMEZONE=UTC` line in `.env.example` is removed. Two variables where only one is read
+is a trap for the next person who "fixes" the timezone by editing the wrong one.
 
-**Add characterization assertions** in suite 4 (attendance session), where the consequence is
-worst:
-- the configured application timezone is `Asia/Taipei`
-- the MySQL connection timezone is `+08:00`
-- a `timestamp` column and a `dateTime` column written in the same request round-trip to the
-  same wall-clock value
+**Characterization assertions — written, green.**
+`tests/Feature/Attendance/TimezoneCharacterizationTest.php`, 6 tests / 11 assertions / 1.96s:
+- the configured application timezone and `date_default_timezone_get()` are both `UTC`
+- the **live** `@@session.time_zone` is `+00:00`, read by query rather than from config
+- a `timestamp` and a `dateTime` column written in the same request round-trip to the same
+  wall-clock **and** the same absolute instant (`UNIX_TIMESTAMP`) — the string comparison alone
+  does not catch an offset mismatch, see the test's docblock
+- MySQL `NOW()` agrees with PHP `now()`
+- `test_documents_early_taipei_services_resolve_to_the_previous_utc_day` — pins the accepted day
+  boundary so a WP 0C migration cannot quietly change what `attendance_date` means
 
-**Urgency: before WP 0C.** Once attendance is imported or written, wrong-zone timestamps are wrong
-at rest and need a data migration to correct rather than a config change.
+**Urgency: was before WP 0C. Met** — settled while every application table was still empty, so this
+was a configuration change and not a data migration.
 
 ### Three loose ends
 
-- **`database/schema/mysql-schema.sql` is untracked** (114 KB, generated 2026-08-11). Decide:
-  commit it so CI skips replaying 93 migrations, or gitignore it. Note the repo already has a
-  root `mysql-schema.sql` — two schema files with the same name in different places will confuse
-  a future session. Rename or remove one.
+- ~~**`database/schema/mysql-schema.sql` is untracked**~~ — **resolved 2026-08-15, committed in
+  `aa3d279`.** Laravel reads only `database/schema/<connection>-schema.sql`, so the two files never
+  compete: the root `mysql-schema.sql` is an unrelated legacy artifact and is left alone. Verified
+  before committing that the dump holds schema plus 93 `migrations` rows and no member data.
 - **PHP 8.3 was deleted**, so there is no PATH-reorder rollback. Acceptable now that 8.4 is
   verified, but it means a PHP-level problem needs a reinstall rather than a switch. Record it in
   the 1E rollback plan.

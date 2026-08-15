@@ -3,90 +3,90 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-08-10 · **Session:** 4 complete → 5 next · **Work package:** 0B substantially
-complete (Laravel 13 + PHP 8.4 landed); WP 0A gates 3 and 5 still open
+**Updated:** 2026-08-15 · **Session:** WP 0A closure Step 1 (commit the baseline) · **Work package:**
+WP 0A — items 6, 11, 13, 14 and the exit gate remain. WP 0B complete.
 
 ## Git
 
 | | |
 |---|---|
-| Branch | `contrib/laravel-supported-platform` (17 commits ahead of `f2ad3bb`) |
-| HEAD | `87742dc` (HTTP verify + 8.3/backup deletion) ← `831cf2d` ← `df9b41e` ← `06b9766` (C4/C5/C6 + CI) ← `30db6c9` (L13) ← `32e65f9` (L12) ← `9a39cde` (L11) |
-| `codex-PRD` | `086f33d` — Session 3 docs + gates 1/2/6/7 work, all committed |
-| `ifgf/main` | **created** at `aa8194e` (= `main`), local only, not pushed |
+| Branch | `contrib/laravel-supported-platform` — **30 ahead, 9 behind** `upstream/main` |
+| HEAD | `f192b11` (timestamp contract settled on UTC) |
+| This session | `aa3d279` schema dump · `7ab95a9` agent instructions + prompt library · `4d8a13d` audit/status/test plan · `f192b11` timezone |
+| `ifgf/main` | exists at `aa8194e` (= `main`), local only, **not yet merged into** — Step 5 |
 | `main` | `aa8194e` — clean subset of `upstream/main`, no local commits |
-| `upstream/main` | `d12c110` — **still frozen**, 8 commits ahead. Do not merge until WP 0A exit gate |
-| `deploy` | does not exist (correct) |
-| Pushed? | **Nothing pushed.** All 17 commits are local only. |
+| **Reviewed upstream pin** | **`d12c110`** — the SHA `UPSTREAM.md` freezes and the only one reviewed |
+| **Local `upstream/main` ref** | **`800c29f`** ("Changes grouplink", 2026-08-11) — the ref has **moved past the pin**. Do not confuse the two. Merging is still blocked until the WP 0A exit gate. |
+| `deploy` | does not exist (correct — 1E.3) |
+| Pushed? | **Nothing pushed.** All 30 commits are local only. |
 
-## Documents
+## The working tree is now clean
 
-Reconciled to the post-WP-0B state on **2026-08-10** (Session 5, Cowork): `build.md`, `PRD.md`,
-`CLAUDE.md`, `AGENTS.md`, `EXECUTION_PLAN.md`, `PRODUCTION_PATH.md`, `DEPENDENCY_INVENTORY.md`,
-`UPSTREAM.md` (**UP-007** added for the platform series). `EXECUTION_PLAN.md` Appendix A line maps
-for both `PRD.md` and `build.md` were re-derived after those edits. `CLAUDE.md`/`AGENTS.md` now
-carry a settled tool-capability matrix instead of a "re-verify this" note — do not re-test it.
+The four-month backlog of uncommitted work is committed. `PROJECT_STATUS.md`, `REVIEW.md` and
+`TESTING_PLAN.md` are tracked. `.env` and `.env.testing` remain gitignored and were never staged.
 
-## Environment — upgraded to latest LTS
+## Timestamp contract — SETTLED, do not reopen
 
-| | Installed | Active | Target |
-|---|---|---|---|
-| PHP | **8.4.24 only** (8.3 deleted) | **8.4.24** | ✅ done |
-| Laravel | **13.24.0** | 13.24.0 | ✅ done |
-| MySQL | **8.4.11 LTS** | 8.4.11 | ✅ done |
-| Composer | 2.10.2 | — | — |
-| Node | 22.15.0 | — | 16.20.2 for Mix 4 (unresolved) |
-| PHPUnit | 11.x | — | — |
+**UTC at rest.** `PRD.md` L859/L877/L909/L1502 and `build.md` TECHNICAL BASELINE 3 now agree; the
+2026-08-10 `Asia/Taipei` proposal is **rejected**, with its reasoning preserved in `UPSTREAM.md`
+UP-009 "Alternatives considered". `TIMEZONE=UTC`, `'timezone' => '+00:00'` on the MySQL connection.
 
-**PHP 8.4.24 is the resolved runtime** (`C:\php\8.4` first on the Machine PATH) and is pinned in
-`composer.json` as `config.platform.php`. **`C:\php\8.3` was deleted 2026-08-10** once 8.4 was
-verified serving real pages — there is no longer a local PHP rollback by PATH reorder. To roll
-back, reinstall 8.3 from `windows.php.net` and re-run `tools\fix-php-ini.ps1 -PhpRoot C:\php\8.3`
-(about two minutes; that is exactly how 8.4 was installed this session).
+**Accepted consequence, pinned by a test:** `event_attendance_sessions.attendance_date` is a
+`date()` column that never converts, so a service between **00:00 and 08:00 Taipei files under the
+previous UTC calendar day**. Services from 08:00 onward — every regular Sunday service — are
+unaffected. **Any code deriving a calendar day from an instant must convert to the branch timezone
+first**; the 8 `date()` columns are where that rule gets broken.
 
-**Verified serving HTTP on 13.24.0 + 8.4.24:** `/login` and `/register` return 200 with rendered
-pages against the seeded test database. `/` returns 500 — **pre-existing**, not an upgrade
-regression: the QR backend needs the `imagick` extension, which has never been installed on this
-machine and is not in the project's 27-extension list. `gd` is present. See `TODO.md`.
+## Environment
+
+| | Installed | Active |
+|---|---|---|
+| PHP | 8.4.24 only (8.3 deleted) | 8.4.24 — bare `php` resolves correctly in Claude Code |
+| Laravel | 13.24.0 | 13.24.0 |
+| MySQL | 8.4.11 LTS | **must be started by hand — see below** |
+| Composer / Node / PHPUnit | 2.10.2 / 22.15.0 / 11.5.56 | — |
+
+**⚠ MySQL has NO registered Windows service.** `Get-Service` returns only `postgresql-x64-17`.
+Nothing listens on 3306 after a reboot and every test errors `SQLSTATE[HY000] [2002]`, which reads
+as a code failure and is not. The install is intact — `mysqld.exe`,
+`C:\ProgramData\MySQL\MySQL Server 8.4\my.ini`, `D:\MySQL\data` with `churchcms_test_disposable`.
+Start it in the background (accepts connections ~4s later); the command is in `TODO.md`.
+Registering it permanently needs elevation and is an open owner question.
+
+`mysqldump` **is** on the Machine PATH (`C:\Program Files\MySQL\MySQL Server 8.4\bin`).
 
 ## Test and database
 
-- **Disposable DB:** `churchcms_test_disposable` on MySQL 8.4.11, owned by user `iJosh`, scoped to
-  that database only. Credentials in `.env.testing` (**gitignored**).
-- `phpunit.xml` points at it via `APP_ENV=testing`; the sqlite `:memory:` stopgap is gone.
+- **Disposable DB:** `churchcms_test_disposable`, MySQL 8.4.11, user `iJosh`, scoped to that DB.
+  Credentials in `.env.testing` (gitignored). `phpunit.xml` points at it via `APP_ENV=testing`.
 - `App\Providers\DatabaseSafetyServiceProvider` prints and asserts environment/driver/host/database
-  before `migrate:fresh`/`db:wipe`/`migrate:reset` and refuses anything not provably disposable
-  (`build.md` L517). Both paths verified.
-- **`php artisan test` works** (collision 6→7→8, PHPUnit 11). **1 test, 1 passed, 4 assertions** —
-  identical at Laravel 10, 11, 12, 13 and under PHP 8.4.
-- **The suite takes ~8 minutes for that single test** — `RefreshDatabase` replays 93 migrations per
-  test class. Fix with `php artisan schema:dump` **before** writing more tests.
+  before `migrate:fresh`/`db:wipe`/`migrate:reset` (`build.md` L517). Both paths verified.
+- **`database/schema/mysql-schema.sql` is now committed** (`aa3d279`), so `RefreshDatabase` loads
+  one squashed schema instead of replaying 93 migrations. The old ~8-minute-per-class figure
+  predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
+  only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
+- **Last recorded run:** `TimezoneCharacterizationTest` — **6 passed, 0 failed, 0 skipped**,
+  11 assertions, **1.96s**. `MemberImportCharacterizationTest` not rerun since Session 2b.
 
 ## Known debt
 
-- **No characterization tests** for the Release 1 surface (WP 0A item 6 / gate 5). The entire
-  10→13 upgrade is verified against one import test. **This is the largest open risk.**
-- **166 npm vulnerabilities** (17 low, 78 moderate, 58 high, 13 critical), unchanged. Vue 2 EOL
-  with an unfixable ReDoS advisory. `npm run production` **still builds** (exit 0, 290s). Never run
-  `npm audit fix`.
-- `route:list` = 730 vs the inventory's 812 static declarations (12 commented; ~70 unexplained).
-  Not proven upgrade-neutral — no pre-upgrade baseline exists.
-- `app/Models/FeedbackMessage.php` references a non-existent `App\Presenters\UserPresenter`.
-- `app/Imports/UsersImport.php::collection()` and `app/Traits/SendPushNotification.php` remain
-  broken (pre-existing, both documented since Session 2b).
-- `mysqldump` not on PATH → `schema:dump` unavailable locally.
-
-## Baseline shape
-
-Laravel **13.24.0** / PHP `^8.3` (pinned 8.4.24) / Vue 2.6 / laravel-mix 4 / webpack 4.
-730 registered routes · 93 migrations · 1 test file · `.github/workflows/ci.yml` (new) ·
-`app/Support/Presenter/` (new, replaces `laracasts/presenter`) ·
-`custompackages/ifgf/church-operations` **still not scaffolded** (WP 0A item 11, gate 3).
+- **Characterization coverage is 2 test files against a 60–90 test target.** WP 0A item 6 / gate 5.
+  Three Laravel majors were crossed without a behavioural baseline. **The largest open risk, and the
+  reason WP 0A cannot close.** Seven suites are specified in `TESTING_PLAN.md` Part 1.
+- `custompackages/ifgf/church-operations` **still not scaffolded** (item 11, gate 3). Nothing
+  IFGF-specific can legally land until it exists. **0 `ifgf_` tables. 0 of 14 FRs complete.**
+- Merge rehearsal **never run** (item 13). Provider smoke tests absent (item 14).
+- `/` returns 500 — `imagick` absent, pre-existing, resolved by decision to `format('svg')` (UP-008,
+  not yet landed).
+- 166 npm vulnerabilities; Vue 2 EOL. `npm run production` still builds (exit 0). Never `npm audit fix`.
+- `route:list` = 730 vs the inventory's 812; ~70 unexplained, no pre-upgrade baseline to diff.
+- Pre-existing and unfixed: `UsersImport::collection()`, `SendPushNotification.php`,
+  `FeedbackMessage.php`'s missing presenter.
 
 ## Open gates
 
-1. **WP 0A gate 3** — no `custompackages/ifgf/church-operations`. Nowhere for IFGF code to live.
-2. **WP 0A gate 5** — characterization tests. Deferred by owner directive; still the real gate.
-3. **C7 not done** — `UPSTREAM.md` not updated for this session's upstream-owned file changes, and
-   the merge rehearsal has never run.
-4. Upstream still frozen at `d12c110`; 8 commits unmerged by design.
+1. **WP 0A characterization gate** — 7 suites essentially unwritten. Blocks everything.
+2. **WP 0A package gate** — no `custompackages/ifgf/church-operations`.
+3. **WP 0A CI gates** — no frontend build, no provider smoke tests, no merge rehearsal.
+4. `contrib/laravel-supported-platform` unmerged into `ifgf/main`, gated on gate 1.
+5. Upstream merge blocked until the exit gate passes; reviewed pin `d12c110`, ref at `800c29f`.

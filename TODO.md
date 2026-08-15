@@ -4,69 +4,101 @@
 > Hard cap: 1,500 tokens — archive completed items to `MEMORY.md`, do not accumulate them here.
 > Every item names its `build.md` item number and its `PRD.md` line range where relevant.
 
-**Active work package:** 0B substantially complete → WP 0A gates 3 and 5 remain
-**Session:** 4 → 5
+**Active work package:** WP 0A closure — Steps 2–7 of the approved 7-step plan
+**Session:** 2026-08-15 Step 1 complete (4 commits) → Step 2 characterization is next and is the gate
 
 ---
 
+## Before anything: start MySQL
+
+There is **no registered Windows service**. Nothing listens on 3306 after a reboot, and every test
+errors with `SQLSTATE[HY000] [2002]`, which looks like a code failure and is not. Run in background:
+
+```
+& "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe" --defaults-file="C:\ProgramData\MySQL\MySQL Server 8.4\my.ini" --console
+```
+
+Accepts connections ~4s later. Registering it permanently needs elevation — owner question below.
+
 ## Now
 
-1. **`imagick` is missing and `/` returns 500 because of it.** The QR backend
-   (`simplesoftwareio/simple-qrcode` → `BaconQrCode`) throws
-   `RuntimeException: You need to install the imagick extension to use this back end`.
-   **Pre-existing, not caused by the upgrade** — imagick has never been installed here and is
-   absent from the 27-extension list in `tools/fix-php-ini.ps1`. Two options: install the imagick
-   DLL for PHP 8.4, or switch the QR writer to the **`gd`** backend, which IS present. **This must
-   be resolved before the server redeploy** — otherwise the homepage 500s in production too. Add
-   whichever choice to `tools/fix-php-ini.ps1` and to the CI workflow's extension list.
+1. **Step 2 — characterization suite 1: roles, permissions and authentication.** WP 0A item 6,
+   gate 5. `TESTING_PLAN.md` Part 1 lists what it asserts. **Roles first, then attendance** — this
+   is the 33-file authorization surface WP 0C must replace, so it must be pinned before it moves.
+   Generate with `php artisan make:test Auth/RoleCharacterizationTest`, not by hand.
 
-2. **Fix the 8-minute test suite before writing any more tests.** `RefreshDatabase` replays all 93
-   migrations per test class. `php artisan schema:dump` collapses them into one SQL file but needs
-   `mysqldump`, which is not on PATH — it is in `C:\Program Files\MySQL\MySQL Server 8.4\bin`. Add
-   that directory to the Machine PATH (elevated) and re-run. Doing item 3 first without this makes
-   every future suite run take hours.
+   **Capture what IS, not what should be.** If a behaviour looks wrong, assert the wrong behaviour
+   and name the test `test_documents_defect_*`. Fixing and characterizing in one pass destroys the
+   baseline. Green on a defect test is never endorsement — cross-reference a written finding
+   (decision 4, 2026-08-10: every `usergroup_id` Gate bypass gets one).
 
-3. **WP 0A item 6 / gate 5 — characterization tests for the Release 1 surface.** Auth, roles and
-   direct permissions, member profile, member QR / membership card, event attendance session
-   open/scan/lock/unlock, group access, exports. **This is the gate that was skipped to reach
-   Laravel 13** — the whole 10→13 upgrade currently rests on one import test. Nothing about the
-   upgrade should be called "safe" until this exists. Do **not** write tests for CGSL, ministries,
-   registration or Worship Night (Release 2, `PRODUCTION_PATH.md`).
+   **Assert the denial explicitly:** a leader with **no** assignment is **DENIED**. Hidden
+   navigation is not authorization (`build.md` SECURITY 11).
 
-4. **Re-verify the route count.** `route:list` = 730 vs `ROUTE_MIGRATION_INVENTORY.md`'s 812 static
-   declarations; 12 are commented out, ~70 unexplained. Almost certainly pre-existing duplicate
-   method+URI pairs, but there is **no pre-upgrade baseline to diff against**. Check out `086f33d`
-   (pre-upgrade), run `route:list --json`, and diff. Correct the inventory either way — and while
-   there, fix its "console.php defines no scheduled tasks" claim (`schedule:list` shows two).
+2. **Step 2 — characterization suite 2: attendance** (open / scan / lock / unlock). The ~60% of
+   FR-04 that Phase 1B extends. **Write this assertion before the `status` column exists:**
+   a **MISSING** `EventAttendee` row is **NOT** absence — it is "not recorded". `EventAttendee` is
+   presence-only today, and the WP 0C migration must not be able to quietly change what "no row"
+   means. `TimezoneCharacterizationTest` already lives in this suite's directory and is green.
 
-## Next — remaining WP 0A / WP 0B closeout
+3. **Step 2 — the remaining five suites.** Member profile, group access (incl. the `usergroup_id`
+   Gate bypasses), member QR / membership card, exports, birthday routes, queues, private media.
+   See `TESTING_PLAN.md` Part 1. Record pass/fail/skip in `MEMORY.md` — **that record is the
+   baseline**, not the code.
+
+4. **Step 3 — scaffold `custompackages/ifgf/church-operations`.** WP 0A item 11, gate 3. Composer
+   path repository, PSR-4, `extra.laravel.providers` auto-discovery, committed lockfile resolution,
+   package test-runner path. **No product behaviour.** Generate into `app/`, then `git mv` and fix
+   the namespace with one `sed` (`CLAUDE.md`). Record root `composer.json` and `composer.lock` as
+   approved upstream-owned touchpoints.
+
+5. **Step 4 — provider smoke tests from a clean checkout.** WP 0A item 14: package routes,
+   migrations, views, translations, commands and policies all load.
+
+6. **Step 5 — merge `contrib/laravel-supported-platform` into `ifgf/main`.** **Only after step 2
+   passes.** The one hard-to-undo action in the plan. Re-run the full suite after merging.
+
+7. **Step 6 — upstream merge rehearsal, read-only.** WP 0A item 13. No push, no mutation of
+   protected branches. Recurring infrastructure, not a one-off — the owner wants upstream's later
+   features. `laracasts/presenter`'s removal is the likeliest conflict (UP-007).
+
+8. **Step 7 — WP 0A exit-gate review.** Report each `build.md` L226–228 criterion met / not met.
+   **Do not mark the gate passed if any criterion fails.** Then STOP — WP 0C needs its own approval
+   (`tools/PROMPTS.md` P1).
+
+## Next — deferred within WP 0A
 
 | Item | Action |
 |---|---|
-| 0A item 11 (gate 3) | Scaffold `custompackages/ifgf/church-operations` with path loading + auto-discovery. No product behaviour. Nothing IFGF-specific can legally land until this exists. |
-| C7 | Update `UPSTREAM.md` for every upstream-owned file this session touched (`app/Models/{User,Role,Permission,Userprofile,FeedbackMessage}.php`, `app/Http/Middleware/AdminOrPermission.php`, `app/Presenters/UserprofilePresenter.php`, `config/app.php`, `phpunit.xml`, `composer.json`), then run the **merge rehearsal** — never run to date. |
-| 0A item 13 | Push the branches. **Nothing has been pushed this session** — 14 commits are local only. |
-| 0A exit gate | Review, then formally close WP 0A/0B. |
+| Now item 2 (old) | **QR `format('png')` → `format('svg')`**, 8 upstream-owned Blade call sites + their `data:image/...` prefixes, needs **UP-008** (number reserved). Owner decision 2026-08-10 #1. Order: characterize the route's non-QR behaviour + the current `RuntimeException` → change → flip the assertion. `/` returns 500 until this lands (`imagick` absent, pre-existing). |
+| C7 | Update `UPSTREAM.md` for every upstream-owned file touched: `app/Models/{User,Role,Permission,Userprofile,FeedbackMessage}.php`, `app/Http/Middleware/AdminOrPermission.php`, `app/Presenters/UserprofilePresenter.php`, `config/app.php`, `phpunit.xml`, `composer.json`. |
+| 0A item 13 | Push branches only after review. Nothing is pushed; 30 ahead / 8 behind. |
+| Route count | `route:list` = 730 vs the inventory's 812 static declarations; 12 commented, ~70 unexplained, **no pre-upgrade baseline to diff**. Check out `086f33d`, `route:list --json`, diff. Fix the inventory's "no scheduled tasks" claim while there (`schedule:list` shows two). |
 
 ## Blocked / deferred
 
-- **Vite migration** (replaces Vue 2.6 / laravel-mix 4 / webpack 4). C5 audit done: the production
-  build **still works** (exit 0), but 166 npm vulnerabilities remain and Vue 2 is EOL with an
-  unfixable ReDoS advisory. Separate approved decision — must not be mixed into a framework
-  upgrade. `DEPENDENCY_INVENTORY.md` lists the 14 packages it replaces.
-- **Upstream sync** — still frozen at `d12c110`, 8 commits behind, by design until the WP 0A exit
-  gate passes.
+- **Vite migration** — separately approved deferral. Build still works (exit 0); 166 npm
+  vulnerabilities, Vue 2 EOL with an unfixable ReDoS advisory. Never run `npm audit fix`.
+- **Upstream sync** — frozen at `d12c110` by design until the WP 0A exit gate passes.
+
+## Decisions taken — do not re-ask
+
+| # | Decision | Consequence |
+|---|---|---|
+| 2026-08-15 | **Timestamps: UTC at rest.** `PRD.md` wins; the `Asia/Taipei` proposal is rejected. | Landed `f192b11`. **Accepted cost:** `attendance_date` is a `date()` column, so a 00:00–08:00 Taipei service files under the previous UTC day. Any code deriving a calendar day from an instant must convert to the branch timezone first. Pinned by a `test_documents_*` test. See UP-009. |
+| 2026-08-10 #1 | **QR: `format('svg')`.** No imagick anywhere. | Needs UP-008. |
+| 2026-08-10 #2 | **Upstream: rehearse only, keep the `d12c110` pin.** | Step 6. |
+| 2026-08-10 #3 | **Keep `app/Support/Presenter/`.** | Carried in UP-007. |
+| 2026-08-10 #4 | **Characterize all group access, incl. `usergroup_id` Gate bypasses**, each named `test_documents_defect_*` + a written security finding. | 32 files. Feeds the FR-11 cutover. |
 
 ## Decisions awaiting the owner
 
-- **`laracasts/presenter` replacement** — reimplemented in-house at `app/Support/Presenter/`
-  (behaviour-identical, 4 files). Confirm this is the wanted long-term answer, or whether the
-  presenter pattern should be retired into accessors instead.
-- `app/Imports/UsersImport.php::collection()` crashes on any non-empty import (undefined
-  `$request`). Still unfixed. Schedule it before member-import work.
+- **Register MySQL 8.4 as a Windows service?** Needs one elevated command. Until then every session
+  starts it by hand.
+- `app/Imports/UsersImport.php::collection()` crashes on any non-empty import (undefined `$request`).
+  Schedule before member-import work.
 - `app/Traits/SendPushNotification.php` references never-autoloaded `LaravelFCM\*` classes.
-  Rewriting to the installed `laravel-notification-channels/fcm` is a real fix needing its own test
-  + `UPSTREAM.md` entry.
 - `app/Models/FeedbackMessage.php` points `$presenter` at a non-existent `App\Presenters\UserPresenter`.
 - Whether `barryvdh/laravel-dompdf` (unused, zero call sites) should be removed.
 - Which of `yarn.lock` / `package-lock.json` survives.
+- The remaining `REVIEW.md` questions: legacy-source access, Composer audit, frontend CI gate.

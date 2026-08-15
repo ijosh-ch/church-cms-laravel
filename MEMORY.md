@@ -6,6 +6,101 @@
 
 ---
 
+## 2026-08-15 — Session 6 — WP 0A Step 1: baseline committed, timestamp contract settled on UTC
+
+**Outcome:** the four-month backlog of uncommitted work is committed in four attributable commits
+(`aa3d279`, `7ab95a9`, `4d8a13d`, `f192b11`), and the single blocking owner decision is resolved.
+**Step 2 (characterization suites) was not started** — deliberately, at the budget line. WP 0A items
+6, 11, 13 and 14 all remain open; nothing about the exit gate changed this session.
+
+**The decision — UTC at rest, `PRD.md` wins.** `REVIEW.md` question 1 is answered. The 2026-08-10
+`Asia/Taipei`-at-rest proposal is **rejected**. All five normative statements (four `PRD.md` lines
+plus `build.md` TECHNICAL BASELINE 3) now agree and no document carries a deviation pointer.
+
+**Learned — carry forward**
+
+- **A confirmed decision can contradict a later instruction. Check before executing.** The session's
+  step plan said "commit the timezone fix"; the answer given minutes earlier said "UTC — revert the
+  staged change". The staged files *were* the rejected contract. Committing as instructed would have
+  written the rejected contract into history and, worse, into the characterization baseline that
+  Step 2 exists to establish. Surfacing the conflict cost one round-trip; not surfacing it would
+  have cost a revert plus a corrupted baseline.
+- **The connection pin is required under either contract — and UTC makes it EASIER to lose.** Most
+  Linux and CI hosts default to UTC, so a missing `'timezone'` in `config/database.php` now passes
+  by luck almost everywhere and fails only on this dev machine, where `@@global.time_zone` is
+  `SYSTEM` = Taipei. Do not delete the live `@@session.time_zone` assertion on the grounds that
+  "the host is UTC anyway". That is exactly backwards.
+- **UTC at rest has a real, accepted cost that is now pinned by a test.**
+  `event_attendance_sessions.attendance_date` is a `date()` column that never converts, so a service
+  between **00:00 and 08:00 Taipei files under the previous UTC calendar day** — an 06:00 prayer
+  meeting lands on the day before. Services from 08:00 onward are unaffected, which covers every
+  regular Sunday service. The rule this creates: **any code deriving a calendar day from an instant
+  must convert to the branch timezone first**; the 8 `date()` columns are where it gets broken.
+  `test_documents_early_taipei_services_resolve_to_the_previous_utc_day` asserts the shift so WP 0C
+  cannot change what a stored `attendance_date` means without turning it red.
+- **Two `TODO.md` facts were stale — verify before acting on a note.** `mysqldump` is already on the
+  Machine PATH (`C:\Program Files\MySQL\MySQL Server 8.4\bin`), no elevated edit needed, and
+  `database/schema/mysql-schema.sql` had **already been generated** on 2026-08-11 and only needed
+  committing. Item 3 was budgeted as work and was actually done. Also: the two `mysql-schema.sql`
+  files never compete — Laravel reads only `database/schema/<connection>-schema.sql`, so the root
+  one is an unrelated legacy artifact. That question is closed.
+- **MySQL 8.4 has NO registered Windows service on this machine.** `Get-Service` returns only
+  `postgresql-x64-17`; there is no `mysqld` service and nothing listens on 3306 after a reboot. The
+  install is intact (`mysqld.exe`, `C:\ProgramData\MySQL\MySQL Server 8.4\my.ini`, `D:\MySQL\data`
+  holding `churchcms_test_disposable`). Start it manually:
+  `& "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe" --defaults-file="C:\ProgramData\MySQL\MySQL Server 8.4\my.ini" --console`
+  in the background; it accepts connections ~4s later. **Every test session must do this first** or
+  the whole suite errors with `SQLSTATE[HY000] [2002]` and looks like a code failure. Registering
+  the service permanently needs elevation and is an open owner question.
+- **The suite is fast again.** `TimezoneCharacterizationTest` runs **6 tests / 11 assertions in
+  1.96s** using `DatabaseTransactions`. The committed schema dump is what makes the `RefreshDatabase`
+  suites in Step 2 viable; the ~8-minute figure was measured before it existed.
+
+**Recorded pass/fail/skip — THIS IS THE BASELINE so far**
+
+| Suite | Result |
+|---|---|
+| `TimezoneCharacterizationTest` | **6 passed, 0 failed, 0 skipped**, 11 assertions, 1.96s |
+| `MemberImportCharacterizationTest` | **not rerun this session** — unchanged since Session 2b |
+| The other 7 planned suites | **do not exist yet** |
+
+`php artisan about --only=environment` reports `Timezone ... UTC` on Laravel 13.24.0 / PHP 8.4.24.
+
+**Not done — read before assuming progress**
+
+- **Step 2 characterization suites: not started.** Still 2 test files against a 60–90 test target.
+  This remains the largest open risk and the reason WP 0A cannot close.
+- Steps 3–7 (package scaffold, provider smoke tests, `ifgf/main` merge, upstream merge rehearsal,
+  exit-gate review) untouched.
+- Nothing pushed. The branch is now 30 ahead / 8 behind `upstream/main`.
+
+---
+
+## 2026-08-11 — Requirements re-review against PRD, Graphify, and current worktree
+
+**Outcome:** the PRD still represents the requested product, but the repository is a Phase-0
+foundation and does not yet meet the original product requirements. WP 0B is substantially
+complete; WP 0A remains open on characterization, package loading, frontend CI, provider smoke
+tests, and upstream merge rehearsal. No FR-01 through FR-13 package implementation has landed.
+
+**Highest-risk finding:** PRD L859/L877/L909/L1502 still require UTC timestamps while the pending
+UP-009/build/config changes establish Taipei wall-clock semantics. `build.md` cannot override the
+PRD. The owner must choose one contract before the timezone files are approved. The proposed
+timezone test passes locally (4 tests, 6 assertions), but CI's generated `.env.testing` does not
+set `TIMEZONE`. A UTC process simulation confirmed the failure: 2 failed, 2 passed.
+
+**Other findings:** only two real test files exist; the previous seven-suite testing plan omitted
+event management, birthday routes, queues, and private media required by WP 0A item 6. The IFGF
+package is absent. CI lacks the frontend build, package provider smoke tests, and merge rehearsal.
+The current branch is 26 ahead and 8 behind `upstream/main`; the Graphify graph predates current
+HEAD and was used only for legacy architecture anchors. The authoritative GAS/workbook sources
+remain unavailable from this workspace and must be supplied or anonymized before WP 0C.
+
+**Tool note:** in this Codex shell, bare `php` is not on PATH. `C:\php\8.4\php.exe` runs directly
+and was used for the focused test. Do not repeat PATH diagnosis.
+
+---
+
 ## 2026-08-10 — Session 4 — Toolchain to latest LTS; Laravel 10 → 13; PHP 8.4 pinned
 
 **Done:** WP 0A gates 1, 2, 6, 7 closed + CI (gate 4). WP 0B effectively complete:
