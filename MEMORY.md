@@ -271,10 +271,45 @@ Session 2b and does still pass.
   owes password reset, email verification, session lifetime and throttling; suite 4 owes
   `searchMember` and `removeAttendee`. **Read the table, not the heading.**
 
+**Steps 3 and 4 done — the package seam exists and is proven**
+
+`custompackages/ifgf/church-operations` scaffolded and loading (WP 0A items 11 and 14, gate 3,
+recorded as **UP-010**). **Application suite: 48 passed, 109 assertions.** Package's own suite:
+**3 passed, 10 assertions.** Nothing IFGF-specific was legally placeable before this.
+
+- **Auto-discovery means the root `app.php` is never touched.** The package declares
+  `extra.laravel.providers` and Laravel finds it, so the change set is two lines in the root
+  `composer.json` plus the lockfile — one fewer upstream-owned file than registering the provider by
+  hand. Verified in `bootstrap/cache/packages.php`, not assumed.
+- **Two Composer gotchas that cost a round trip each, neither obvious from the error text.**
+  (1) A **path** package with no `version` resolves to `dev-<current-branch>`, which fails the root's
+  `minimum-stability: stable` — declare `"version"` in the package manifest. (2) `"*"` fails
+  `composer validate --strict` as an unbound constraint. Worth knowing before the next path package.
+- **`sed -i` silently did not match the generated namespaces.** `CLAUDE.md`'s generate → `git mv` →
+  `sed` recipe half-worked: the Artisan generators and the move were fine, the namespace rewrite was
+  not, and it **failed silently** — `grep` afterwards is what caught it. The files needed real
+  content anyway so I wrote them, but **verify a `sed` rewrite instead of trusting its exit code.**
+- **The seam's failure mode is SILENT, which is the whole reason item 14 exists.** A merge that drops
+  the `repositories` or `require` entry does not error — the package stops loading and IFGF
+  behaviour disappears while the application keeps serving normally. That is why the smoke test
+  asserts **each registration kind separately**: a single "the package loads" test would pass on a
+  provider that registered nothing.
+- **A placeholder policy must DENY.** The marker policy returns false and there is a test asserting
+  it. Scaffolding that accidentally grants is a security hole wearing the costume of placeholder
+  code.
+- **WP 0A item 11 says "do not implement product behavior", so I guarded it with a test** — in
+  *both* suites, asserting the package's `database/migrations/` is empty. Instructions that are easy
+  to violate later deserve an assertion, not a comment.
+- ⚠ **CI runs neither new suite.** Neither the package phpunit config nor the smoke tests are in
+  `.github/workflows/ci.yml`. **A seam whose alarm never runs in CI is not actually guarded** —
+  in `TODO.md`, small, and should land before Step 5.
+
 **Not done — read before assuming progress**
 
-- **7 of 11 suites not started; 2 partial.** **7 test files, 37 tests** — all verified today —
-  against **80–120**. Still the reason WP 0A cannot close. Steps 3–7 of the closure plan (package
+- **7 of 11 characterization suites not started; 2 partial.** **48 tests** total but only **37** are
+  characterization, against a **80–120** target. Still the reason WP 0A cannot close.
+- **Merge rehearsal (item 13) has never run** — now the last WP 0A gate with no evidence at all
+  behind it, and the one that would actually measure UP-010's conflict risk rather than assess it. Steps 3–7 of the closure plan (package
   scaffold, smoke tests, `ifgf/main` merge, upstream rehearsal, exit-gate review) remain
   **not started**.
 - **No evidence of any 10 → 13 upgrade regression has been found.** The one candidate was withdrawn.

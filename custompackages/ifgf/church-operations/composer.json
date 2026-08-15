@@ -1,0 +1,36 @@
+{
+    "name": "ifgf/church-operations",
+    "description": "IFGF church operations package. Owns all IFGF-specific behaviour so it stays out of upstream-owned files.",
+    "license": "proprietary",
+    "type": "library",
+    "version": "0.1.0",
+    "require": {
+        "php": "^8.3",
+        "illuminate/support": "^13.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ifgf\\ChurchOperations\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ifgf\\ChurchOperations\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Ifgf\\ChurchOperations\\ChurchOperationsServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

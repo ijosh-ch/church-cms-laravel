@@ -773,6 +773,65 @@ timestamps are wrong at rest and need a data migration instead.
 
 ---
 
+### UP-010 — Root `composer.json` and `composer.lock`: load the IFGF package seam
+
+| Field | Value |
+|---|---|
+| **Status** | **approved** — WP 0A item 11 requires exactly this ("Record root composer.json and composer.lock as approved upstream-owned touchpoints"). |
+| **Files** | `composer.json` (upstream-owned), `composer.lock` (upstream-owned, generated) |
+| **New files** | `custompackages/ifgf/church-operations/**` (IFGF-owned, 13 files), `tests/Feature/Package/PackageProviderSmokeTest.php` (IFGF-neutral) |
+| **Work package** | WP 0A items 11 and 14, gate 3 |
+| **Disposition** | `carry`. Never goes upstream — it exists to keep IFGF behaviour OUT of upstream-owned files, which is the opposite of a contribution. |
+| **Conflict risk** | **Moderate, and the failure mode is silent.** `composer.json` is a file upstream edits often. A merge that drops the `repositories` entry or the `require` line does not error — the package simply stops loading and IFGF behaviour disappears while the application keeps serving. `tests/Feature/Package/PackageProviderSmokeTest.php` is the alarm; the merge rehearsal (item 13) must run it. |
+
+**The change**
+
+Two additions to the root manifest, both minimal and both required for Composer path loading:
+
+```json
+"require": { "ifgf/church-operations": "^0.1.0" },
+"repositories": [
+    { "type": "path", "url": "custompackages/ifgf/church-operations",
+      "options": { "symlink": true } }
+]
+```
+
+The package declares its own PSR-4 (`Ifgf\ChurchOperations\` → `src/`) and
+`extra.laravel.providers`, so registration happens through **Laravel package auto-discovery** — the
+root `app.php` provider array is **not** touched, which keeps another upstream-owned file out of the
+change set. Verified: `bootstrap/cache/packages.php` line 40 lists the provider.
+
+**Two things that had to be fixed to make `composer validate --strict` pass**
+
+1. A path package with **no `version`** resolves to `dev-<current-branch>`, which fails the root's
+   `minimum-stability: stable`. The package now declares `"version": "0.1.0"`.
+2. `"ifgf/church-operations": "*"` is an unbound constraint and warns under `--strict`. Now `^0.1.0`.
+
+Both are worth knowing before the next path package is added; neither is obvious from the error text.
+
+**Nothing in this entry implements product behaviour**
+
+WP 0A item 11 is explicit that the seam is scaffolded and nothing is implemented. The package ships
+a marker route, view, translation, config key, command and policy whose only purpose is to be
+asserted against, and **two** tests guard the instruction — one in the package's own suite and one in
+the application suite — both asserting `database/migrations/` holds no migrations. Schema belongs to
+WP 0C, which needs its own approval.
+
+**Regression tests required before this entry is closed**
+
+- [x] `tests/Feature/Package/PackageProviderSmokeTest.php` — 11 tests covering provider registration,
+      routes, migration path, views, translations, config merge, commands, policies, the package test
+      runner path, and the no-product-behaviour guard
+- [x] Package's own suite runs independently of the application:
+      `vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml` → 3 tests, 10 assertions
+- [x] `composer validate --strict` passes
+- [x] `php artisan ifgf:ping` prints the merged config value
+- [x] `php artisan route:list --path=_ifgf` shows the package route
+- [ ] **Merge rehearsal (WP 0A item 13) has never run.** Until it does, the "moderate conflict risk"
+      above is an assessment, not a measurement.
+
+---
+
 ## Security findings — deferred, not yet entries
 
 Recorded at first successful `composer audit`, 2026-08-08. **52 advisories across 14 packages.**

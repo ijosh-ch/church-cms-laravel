@@ -66,8 +66,11 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  **Full `tests/Feature` suite: 37 passed, 92 assertions.** Every test verified today.
-  **Coverage: 7 test files, 37 tests.**
+  **Full `tests/Feature` suite: 48 passed, 109 assertions.** Every test verified today.
+  **Coverage: 8 test files, 48 tests** — 37 characterization + 11 package smoke.
+  **Package's own suite** (runs independently of the application):
+  `vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml` → **3 passed**,
+  10 assertions.
 
   ⚠ **Corrected target.** `TESTING_PLAN.md` Part 1 lists **eleven** suites (its "seven" heading is
   stale) and targets **80–120 tests**, not the 60–90 quoted in earlier notes.
@@ -216,9 +219,8 @@ permission.
 - **Characterization coverage is 2 test files against a 60–90 test target.** WP 0A item 6 / gate 5.
   Three Laravel majors were crossed without a behavioural baseline. **The largest open risk, and the
   reason WP 0A cannot close.** Seven suites are specified in `TESTING_PLAN.md` Part 1.
-- `custompackages/ifgf/church-operations` **still not scaffolded** (item 11, gate 3). Nothing
-  IFGF-specific can legally land until it exists. **0 `ifgf_` tables. 0 of 14 FRs complete.**
-- Merge rehearsal **never run** (item 13). Provider smoke tests absent (item 14).
+- **0 `ifgf_` tables. 0 of 14 FRs complete.** The package seam now exists but is empty by design.
+- Merge rehearsal **never run** (item 13) — the last WP 0A gate with no evidence at all behind it.
 - `/` returns 500 — `imagick` absent, pre-existing, resolved by decision to `format('svg')` (UP-008,
   not yet landed).
 - 166 npm vulnerabilities; Vue 2 EOL. `npm run production` still builds (exit 0). Never `npm audit fix`.
@@ -226,10 +228,33 @@ permission.
 - Pre-existing and unfixed: `UsersImport::collection()`, `SendPushNotification.php`,
   `FeedbackMessage.php`'s missing presenter.
 
+## ✅ The IFGF package seam EXISTS — WP 0A items 11 and 14 closed
+
+`custompackages/ifgf/church-operations` is scaffolded and loading. **Nothing IFGF-specific was
+legally placeable before this; now it is.** Composer **path repository** + `require ^0.1.0` in the
+root manifest; PSR-4 `Ifgf\ChurchOperations\` → `src/`; registration via
+`extra.laravel.providers` **auto-discovery**, so the root `app.php` provider array is untouched.
+Recorded as **UP-010**. Verified: `composer validate --strict` clean, provider in
+`bootstrap/cache/packages.php`, `php artisan ifgf:ping` prints the merged config, route registered.
+
+**No product behaviour, and two tests guard that** — one in each suite, both asserting the package's
+`database/migrations/` is empty. Schema is WP 0C's, which needs its own approval.
+
+Two gotchas worth knowing before adding another path package: a path package with **no `version`**
+resolves to `dev-<branch>` and fails `minimum-stability: stable`; and `"*"` fails
+`composer validate --strict` as an unbound constraint. Neither is obvious from the error text.
+
+⚠ **The seam's failure mode is silent.** A merge that drops the `repositories` or `require` entry
+does not error — the package stops loading and IFGF behaviour disappears while the app keeps
+serving. `tests/Feature/Package/PackageProviderSmokeTest.php` is the alarm, and the **merge rehearsal
+(item 13) must run it**.
+
 ## Open gates
 
 1. **WP 0A characterization gate** — 7 suites essentially unwritten. Blocks everything.
-2. **WP 0A package gate** — no `custompackages/ifgf/church-operations`.
-3. **WP 0A CI gates** — no frontend build, no provider smoke tests, no merge rehearsal.
+2. ~~**WP 0A package gate**~~ — **CLOSED 2026-08-15.** Package scaffolded (item 11), smoke tests
+   written (item 14). See UP-010.
+3. **WP 0A CI gates** — no frontend build, and **no merge rehearsal (item 13, never run)**. CI does
+   not yet run the package suite either.
 4. `contrib/laravel-supported-platform` unmerged into `ifgf/main`, gated on gate 1.
 5. Upstream merge blocked until the exit gate passes; reviewed pin `d12c110`, ref at `800c29f`.

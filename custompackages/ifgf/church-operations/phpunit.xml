@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Explicit package test runner path, required by WP 0A item 11.
+
+    Run the package's own suite with:
+        vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml
+
+    The root phpunit.xml does NOT include this directory: package tests are the
+    package's responsibility and must be runnable from a clean checkout on their own.
+    The application-side proof that the seam loads is
+    tests/Feature/Package/PackageProviderSmokeTest.php (item 14).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../../vendor/phpunit/phpunit/phpunit.xsd"
+         colors="true">
+    <testsuites>
+        <testsuite name="church-operations">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

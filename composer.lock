@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "09d7b6ba0d0cbdeefc667cb3cef13a54",
+    "content-hash": "0cbad1892d3279d77cd47d978cf62c1d",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2856,6 +2856,48 @@
                 }
             ],
             "time": "2026-07-17T13:53:03+00:00"
+        },
+        {
+            "name": "ifgf/church-operations",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "custompackages/ifgf/church-operations",
+                "reference": "f881b2119ec782aa80f6b767050cd21bcc4d0eb1"
+            },
+            "require": {
+                "illuminate/support": "^13.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^11.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Ifgf\\ChurchOperations\\ChurchOperationsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Ifgf\\ChurchOperations\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Ifgf\\ChurchOperations\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "IFGF church operations package. Owns all IFGF-specific behaviour so it stays out of upstream-owned files.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "kkszymanowski/traitor",

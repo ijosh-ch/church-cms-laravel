@@ -116,17 +116,19 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
    See `TESTING_PLAN.md` Part 1. Record pass/fail/skip in `MEMORY.md` — **that record is the
    baseline**, not the code.
 
-4. **Step 3 — scaffold `custompackages/ifgf/church-operations`.** WP 0A item 11, gate 3. Composer
-   path repository, PSR-4, `extra.laravel.providers` auto-discovery, committed lockfile resolution,
-   package test-runner path. **No product behaviour.** Generate into `app/`, then `git mv` and fix
-   the namespace with one `sed` (`CLAUDE.md`). Record root `composer.json` and `composer.lock` as
-   approved upstream-owned touchpoints.
+4. ✅ ~~**Step 3 — scaffold the package**~~ — **DONE 2026-08-15**, UP-010. Path repository, PSR-4,
+   auto-discovery, lockfile committed, package test-runner path. No product behaviour, guarded by a
+   test in each suite.
 
-5. **Step 4 — provider smoke tests from a clean checkout.** WP 0A item 14: package routes,
-   migrations, views, translations, commands and policies all load.
+5. ✅ ~~**Step 4 — provider smoke tests**~~ — **DONE 2026-08-15.** 11 tests in
+   `tests/Feature/Package/PackageProviderSmokeTest.php`.
+   ⚠ **CI does not run either new suite yet** — neither the package's own phpunit config nor the
+   smoke tests are in `.github/workflows/ci.yml`. Add both; a seam whose alarm never runs in CI is
+   not actually guarded. Small, do it before Step 5.
 
 6. **Step 5 — merge `contrib/laravel-supported-platform` into `ifgf/main`.** **Only after step 2
-   passes.** The one hard-to-undo action in the plan. Re-run the full suite after merging.
+   passes** — it does not yet; 4 of 11 suites are done or partial. The one hard-to-undo action in
+   the plan. Re-run both suites after merging.
 
 7. **Step 6 — upstream merge rehearsal, read-only.** WP 0A item 13. No push, no mutation of
    protected branches. Recurring infrastructure, not a one-off — the owner wants upstream's later

@@ -24,6 +24,7 @@
         "laravel/tinker": "^3.0",
         "laravel/ui": "^4.5",
         "lcobucci/jwt": "^5.2",
+        "ifgf/church-operations": "^0.1.0",
         "league/csv": "^9.2",
         "league/flysystem-aws-s3-v3": "^3.0",
         "maatwebsite/excel": "^3.1",
@@ -70,7 +71,15 @@
             "dont-discover": []
         }
     },
-    "repositories": [],
+    "repositories": [
+        {
+            "type": "path",
+            "url": "custompackages/ifgf/church-operations",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "scripts": {
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""

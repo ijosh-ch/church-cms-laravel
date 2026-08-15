@@ -1,0 +1,3 @@
+Package-owned migrations live here. Never edit a historical upstream migration;
+use expand -> backfill -> verify -> contract, and prefix every physical table with
+ifgf_. build.md TECHNICAL BASELINE 10 and 12.
