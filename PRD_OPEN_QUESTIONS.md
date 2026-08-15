@@ -4,15 +4,15 @@
 into a scheduled, decision-ready set, so each is answered shortly before the work package that
 needs it rather than all at once now.
 
-**Status:** 2 of 16 resolved, plus 2 governing decisions recorded · **Updated** 2026-08-09
+**Status:** 3 of 16 resolved, plus 2 governing decisions recorded · **Updated** 2026-08-11
 
-`PRD.md` is the committed approved baseline (`e394e74`). Answering a question here does **not**
+`PRD.md` is the committed approved baseline at `9120af9`. Answering a question here does **not**
 silently amend it — each resolution produces a specific PRD edit, reviewed and committed as a
 documentation change. `build.md` OPERATING CONTRACT 1 and 6.
 
 ---
 
-## Defect found while triaging — fix regardless of how Q3 resolves
+## Resolved PRD consistency defect — home branch
 
 **`PRD.md` contradicts itself on home branch.**
 
@@ -21,9 +21,9 @@ documentation change. `build.md` OPERATING CONTRACT 1 and 6.
 | L402 | `Branch "0..1" --> "many" UserProfile : optional home branch` — **optional** |
 | L973 | "The initial minimum is full name, birthday, one contact method, **home branch**, privacy consent, and follow-up preference" — **required** |
 
-Optional in the domain model, mandatory in the required-field list. This is almost certainly why
-Q3 exists. Whichever way Q3 is decided, **both lines must end up agreeing** — otherwise WP 0C and
-Phase 1A read the same document and build different things.
+Resolved 2026-08-09. The schema remains nullable; self-service registration and activation require
+a branch; imported and unclaimed records may remain branch-neutral and a source row without a
+branch becomes an import exception. PRD FR-02 and Section 13.1.19 now agree with the domain model.
 
 ---
 
@@ -31,7 +31,7 @@ Phase 1A read the same document and build different things.
 
 | # | Question | Blocks | When to answer |
 |---|---|---|---|
-| **3** | Home branch mandatory or optional? | **WP 0C item 7** (`ifgf_member_profiles`) | **Now — only remaining blocker** |
+| ~~3~~ | ~~Home branch mandatory or optional?~~ | — | **Resolved** — nullable schema, required at registration and activation |
 | ~~2~~ | ~~Which source wins on disagreement?~~ | — | **Resolved** — escalate every conflict |
 | 15 | Who may upload/replace a profile image? | Phase 1A.5 | Before Phase 1A |
 | 14 | Which provider/region for member images? | Phase 1A.5 | Before Phase 1A |
@@ -200,34 +200,6 @@ conflict, or error before any member is committed.
 already qualify — UP-001 through UP-004 — all generic, none IFGF-specific.
 
 *PRD edit required:* move to §13.1 as a default decision, noting it is revisitable.
-
----
-
-## Awaiting decision — the one that blocks now
-
-### Q3 — Is a home branch mandatory for all members?
-
-| Option | Consequence |
-|---|---|
-| **Optional, nullable** *(recommended)* | Matches the domain model at L402. Imported and unclaimed records routinely arrive without a branch; forcing one means **inventing data during migration**, which WP 0C's all-row reconciliation would have to account for as fabricated. Registration can still require it for new self-service signups while the column stays nullable. |
-| Mandatory, `NOT NULL` | Matches L973. Cleaner branch-scoped reporting, but every imported row lacking a branch needs a default or becomes an import exception. |
-| Mandatory at activation only | Nullable in schema, enforced when an account activates. Unclaimed records may be branch-neutral; anyone who can authenticate has a branch. A state-dependent rule rather than a constraint. |
-
-**Empirical answer from the workbook, 2026-08-09** — see `WORKBOOK_INVENTORY.md` §4:
-
-`Domisili Gereja IFGF` is **99.5% filled with exactly 2 values** — IFGF Taipei 112, IFGF Zhongli
-104. The one missing value belongs to the single structurally malformed row (the same row is
-missing across ~12 other columns, and the Absen sheets carry 216 members against the roster's 217).
-**There is no genuine branch-neutral member in the source.**
-
-This strengthens the nullable recommendation rather than weakening it: a `NOT NULL` constraint
-would fail on exactly one row, and that row is junk that should become an import exception with a
-reason — not a schema violation that blocks the migration.
-
-**Recommendation: nullable column, required at activation, malformed row → import exception.**
-That is option 3 in substance, implemented as option 1 in the schema.
-
-*PRD edit required:* reconcile L402 and L973 either way.
 
 ---
 
