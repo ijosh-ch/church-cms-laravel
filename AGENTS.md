@@ -73,7 +73,7 @@ do not re-verify.
 |---|---|---|
 | **Claude Code**, Windows host | **Runs directly.** Verified Sessions 2 and 4 — three Laravel majors and a MySQL 8.4 upgrade. Packagist reachable. | `EXECUTION_PLAN.md` §3.4 Rule T2 ("2 round-trips per session") is **obsolete here** — verify inline. |
 | **Cowork** | **Does not run.** Linux sandbox, no PHP, no Composer, no root; packagist off-allowlist. Re-verified 2026-08-10. But `Read`/`Write`/`Edit`/`Glob`/`Grep` reach all selected Windows folders, and `git` reads work. | Read, analyse, design and write freely; **hand every** php/artisan/test command to the owner. **Batch them** — §3.4's budget binds. |
-| **Codex CLI** | Unsettled. `AGENTS.md` claims Session 2 ran php directly; `CLAUDE.md` claimed the same session for Claude Code. One attribution is wrong. | On the host, use row 1; in a container, row 2. Confirm once, then fix this row. |
+| **Codex desktop/CLI in this workspace** | **Runs by explicit host path.** Verified 2026-08-11: bare `php` is absent from the Codex shell PATH, while `C:\php\8.4\php.exe` runs Artisan and tests. Composer command resolution remains unverified. | Use `C:\php\8.4\php.exe` explicitly and pipe output through `Select-Object -Last 60`. Do not repeat PATH diagnosis. |
 
 Always pipe output (`2>&1 | tail -60` / `Select-Object -Last 60`) regardless of tool.
 
@@ -113,3 +113,5 @@ New IFGF behavior goes in `custompackages/ifgf/church-operations`. New physical 
 Append to `MEMORY.md` (what was learned and what failed) → rewrite `TODO.md` so item 1 is the
 literal next action → update `CONTEXT.md` → emit the report fields from `build.md` L585–599.
 A session that runs to 100% without this costs the next session ~30k in rediscovery.
+
+## Imported Claude Cowork project instructions

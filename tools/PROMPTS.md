@@ -8,7 +8,8 @@ Each is deliberately short. The context lives in `CLAUDE.md`, `CONTEXT.md`, `TOD
 
 | Order | Prompt | Package | Est. sessions |
 |---|---|---|---:|
-| 0 | *(see `tools/UPGRADE_PROMPT.md`)* | Machine + WP 0A gates + WP 0B | 20–24 |
+| — | *(done — `tools/UPGRADE_PROMPT.md`)* | Machine + WP 0B | ✅ 2026-08-10 |
+| **0** | **P0 Close WP 0A** | WP 0A items 6, 11, 14 + gate | **6–7** |
 | 1 | P1 Schema foundation | WP 0C | 10–13 |
 | 2 | P2 Privacy gates | WP 0D | 3–4 |
 | 3 | P3 Member registry + QR | Phase 1A | 10–12 |
@@ -26,6 +27,69 @@ Read only the build.md and PRD.md line ranges this work package needs
 State the work package, step and exit gate, then ask me to confirm before the first
 code change. Use artisan generators rather than hand-writing files. Never commit
 without showing staged files and message. Stop at 120k and hand off per CLAUDE.md.
+```
+
+---
+
+## P0 — Close Work Package 0A
+
+**Run this next.** Nothing else can safely start until it finishes.
+
+```
+Execute Work Package 0A closure only. build.md L202-228. Do NOT start WP 0C.
+
+State check first: WP 0B is complete (Laravel 13.24.0, PHP 8.4.24, MySQL 8.4 LTS).
+See PROJECT_STATUS.md. Three items remain: 6 (characterization), 11 (package),
+14 (smoke tests), plus the exit gate.
+
+STEP 1 — commit the outstanding work.
+~13 modified/staged files including the timezone fix (.env.example,
+config/database.php, tests/Feature/Attendance/TimezoneCharacterizationTest.php)
+and untracked REVIEW.md, TESTING_PLAN.md, PROJECT_STATUS.md, tools/*.md.
+Group into logical commits. Show staged files and message before each.
+Do NOT commit .env. Confirm the timezone UPSTREAM.md entry exists — config/database.php
+and .env.example are upstream-owned and CLAUDE.md requires a ledger entry.
+
+STEP 2 — characterization tests. THE PRIORITY. 3-4 sessions.
+Currently 2 test files. Target 60-90 tests across seven suites; TESTING_PLAN.md
+Part 1 lists them with what each asserts. Order: roles/permissions and attendance
+FIRST — the 33-file authorization surface WP 0C must replace, and the 60% of FR-04
+Phase 1B extends.
+
+Capture what IS, not what should be. If a behaviour looks wrong, assert the wrong
+behaviour and note it. Fixing and characterizing in one pass destroys the baseline.
+
+Two assertions to write explicitly:
+  - A MISSING attendance row is NOT absence. EventAttendee is presence-only today;
+    write this before the status column exists so the migration cannot quietly
+    change what "no row" means.
+  - A leader with NO assignment is DENIED. Assert the denial directly. Hidden
+    navigation is not authorization (build.md SECURITY 11).
+
+Use php artisan make:test. Run the suite and record pass/fail/skip in MEMORY.md.
+THIS IS THE BASELINE.
+
+STEP 3 — scaffold custompackages/ifgf/church-operations. WP 0A item 11.
+Composer path repository, PSR-4, extra.laravel.providers auto-discovery, committed
+lockfile resolution, package test runner path. NO product behaviour.
+Record root composer.json and composer.lock as approved upstream-owned touchpoints.
+Generate into app/ then git mv and fix the namespace with sed — CLAUDE.md.
+
+STEP 4 — provider smoke tests from a clean checkout. WP 0A item 14.
+Package routes, migrations, views, translations, commands, policies load.
+
+STEP 5 — merge contrib/laravel-supported-platform into ifgf/main.
+ONLY after step 2 passes. This is the one action here that is hard to undo.
+Re-run the full suite after merging.
+
+STEP 6 — upstream merge rehearsal, read-only. No push, no mutation of protected
+branches. The owner wants upstream's additional features, so this is recurring
+infrastructure, not a one-off.
+
+STEP 7 — WP 0A exit gate review. Report which build.md L226-228 criteria are met
+and which are not. Do not mark the gate passed if any criterion fails.
+
+Then STOP. WP 0C needs its own approval (tools/PROMPTS.md P1).
 ```
 
 ---
