@@ -168,10 +168,37 @@ Final state: **7 passed, 13 assertions, 7.5s. No incomplete.**
   RolePermission file, which was written the other way round and had to be corrected. **Make it the
   standing method for suites 2–7.**
 
+**Suite 2 started — the semantics, which are the part that expires**
+
+`AttendanceSemanticsCharacterizationTest` — 4 tests, green. Deliberately schema/semantics level
+rather than HTTP: **the meaning of the data outlives any controller, and a migration can corrupt
+meaning without touching a route.** The HTTP flow is still owed and is ordinary work; this part had
+a deadline.
+
+- **`event_attendees` is presence-only and the absence of a row is NOT absence.** Columns are
+  `session_id, church_id, event_id, user_id, scanned_at, scanned_by` — no `status`, no
+  `participation_mode`, no `capture_method`. A member whose scan failed, a session nobody opened,
+  and a member who genuinely stayed home are **represented identically: by nothing**. So an FR-04
+  backfill writing `'absent'` for everyone without a row would **invent pastoral data that was
+  never observed** — a wrong answer to "who has stopped coming?", which is precisely what FR-10's
+  inactive-risk report asks. Once the migration runs, "what did a missing row mean before?" is
+  unanswerable from the database. That is why this had to be written now.
+- **Both duplicate guards are DATABASE constraints, not controller logic.** `event_attendees`
+  UNIQUE `(session_id, user_id)`; `event_attendance_sessions` UNIQUE `(event_id, attendance_date)`.
+  FR-04's `AttendanceRecorder` must not drop the first while "moving the check into the service
+  layer" — the constraint is what actually holds under concurrency, not the 409.
+- **The one-session-per-day key collides with the UTC decision made earlier this same session.**
+  `attendance_date` is a `date()` column that never converts. Under UTC at rest, a 00:00–08:00
+  Taipei service falls on the previous UTC day — so an early prayer meeting and the main Sunday
+  service can get **different** `attendance_date` values on the same Taipei day, while a
+  Saturday-evening and a Sunday-early service can **collide** on the same one. Two decisions taken
+  hours apart that have to be resolved together in FR-03. **Worth looking for more of these**: the
+  UTC choice touches all 8 `date()` columns.
+
 **Not done — read before assuming progress**
 
-- **Suites 2–7 untouched.** **4 test files, 20 tests** (19 verified today; `MemberImport`'s 1 test
-  not rerun) against a 60–90 target. Still the reason WP 0A cannot close.
+- **Suite 2's HTTP flow owed; suites 3–7 untouched.** **5 test files, 24 tests** (23 verified today;
+  `MemberImport`'s 1 test not rerun) against a 60–90 target. Still the reason WP 0A cannot close.
 - **This session ran ~40k past the `CLAUDE.md` 120k handoff line**, at owner direction. The last
   stretch produced the open question above. Treat the newest assertions as provisional and review
   `RolePermissionCharacterizationTest` from a fresh session before building on it.

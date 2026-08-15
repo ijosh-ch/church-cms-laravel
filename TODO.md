@@ -22,12 +22,25 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. **Step 2 — characterization suite 2: ATTENDANCE** (open / scan / lock / unlock). WP 0A item 6,
-   gate 5. **Suite 1 is done; this is the literal next action.** The ~60% of FR-04 that Phase 1B
-   extends. **Write this assertion first, before the `status` column exists:** a **MISSING**
-   `EventAttendee` row is **NOT** absence — it is "not recorded". `EventAttendee` is presence-only
-   today, and the WP 0C migration must not be able to quietly change what "no row" means.
-   `TimezoneCharacterizationTest` already lives in that directory and is green.
+1. **Step 2 — FINISH suite 2: the attendance HTTP FLOW.** WP 0A item 6, gate 5.
+
+   ✅ **Done:** `AttendanceSemanticsCharacterizationTest` — 4 tests. **The missing-row-is-not-absence
+   assertion is written and green**, before the `status` column exists, which was the point. Also
+   pins both unique constraints and the `attendance_date`/UTC interaction.
+
+   🔴 **Owed:** `openSession`, `scan`/`markAttendee`, `lock`, `unlock` over HTTP —
+   `routes/admin.php` L861–875. Plus the **409 duplicate-scan** response and **the leader-scope
+   denial: a leader with NO assignment is DENIED**, asserted directly on a direct URL. Hidden
+   navigation is not authorization (`build.md` SECURITY 11).
+
+   ⚠ Those routes are `/admin/*`, so they sit behind **BOTH legacy gates** (`RouteServiceProvider`
+   applies `['web','auth','churchadmin']` to the whole file). **Use usergroup 4.** Read
+   `RolePermissionCharacterizationTest`'s docblock first.
+
+   **Diagnostic before assertions.** Print status, `Location` and state for several inputs side by
+   side before writing a single expectation. Suite 1 had to be re-baselined once because assertions
+   were written from what the code appeared to say; three inputs producing one identical output is
+   what exposed it. The two files written that way afterwards needed no correction.
 
    **Diagnostic before assertions.** Print status, `Location` and the relevant state for several
    inputs side by side before writing a single expectation. Suite 1 had to be re-baselined once

@@ -66,10 +66,33 @@ Registering it permanently needs elevation and is an open owner question.
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
 - **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  `tests/Feature/Auth` (both files) — **13 passed**, 28 assertions, 8.7s.
+  `tests/Feature/Auth` — **13 passed**, 28 assertions, 8.7s.
+  `tests/Feature/Attendance` — **10 passed**, 25 assertions, 2.1s.
   `MemberImportCharacterizationTest` **not rerun** since Session 2b.
-  **Coverage: 4 test files, 20 tests** (19 verified today) against a 60–90 target.
-  **Suite 1 is COMPLETE.** Suites 2–7 untouched.
+  **Coverage: 5 test files, 24 tests** (23 verified today) against a 60–90 target.
+  **Suite 1 COMPLETE. Suite 2 started** (semantics done, HTTP flow owed). Suites 3–7 untouched.
+
+## Attendance semantics — pinned before WP 0C, which is the whole point
+
+`event_attendees` is **presence-only**: `session_id, church_id, event_id, user_id, scanned_at,
+scanned_by`. **No `status`, no `participation_mode`, no `capture_method`.** A row means "recorded
+present". **No row means NOT RECORDED — not "absent".** A member whose scan failed, a session nobody
+opened, and a member who stayed home are all represented identically: by nothing.
+
+**Therefore an FR-04 backfill writing `'absent'` for every member without a row would invent
+pastoral data that was never observed** — a wrong answer to "who has stopped coming?", which is
+exactly what FR-10's inactive-risk report asks. Pinned by
+`test_documents_event_attendees_is_presence_only_and_has_no_status`.
+
+Two constraints also pinned, and they interact:
+- `event_attendees` UNIQUE `(session_id, user_id)` — the duplicate-scan guard is a **database
+  constraint**, not controller logic. FR-04's `AttendanceRecorder` must not drop it.
+- `event_attendance_sessions` UNIQUE `(event_id, attendance_date)` — one session per event per
+  calendar day, so an event held twice on a Sunday cannot be represented (FR-03).
+  **`attendance_date` is a `date()` column and the app now stores UTC**, so a 00:00–08:00 Taipei
+  service lands on the previous UTC day: an early service and the main Sunday service can get
+  **different** dates on the same Taipei day, and a Saturday-evening and Sunday-early service can
+  **collide** on the same one. FR-03's occurrence model must resolve both together.
 
 ## AUTH-001 — registration is live although explicitly disabled
 
