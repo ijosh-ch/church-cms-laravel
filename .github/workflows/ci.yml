@@ -115,6 +115,36 @@ jobs:
         # framework-free and runs independently of the application.
         run: vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml
 
+      - name: Set up Node 22
+        # Matches the local toolchain (22.15.0), which is the ONLY configuration in
+        # which `npm run production` has actually been observed to succeed (exit 0,
+        # ~290s). Node >=17 breaks webpack 4 on OpenSSL 3, and package.json's
+        # `production` script already carries NODE_OPTIONS=--openssl-legacy-provider
+        # to work around it -- so do NOT add that flag here as well. CONTEXT.md's
+        # unresolved note about Mix 4 wanting Node 16.20.2 is the lead if this fails;
+        # do not downgrade blind.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install frontend dependencies
+        # npm ci, not npm install: it installs strictly from package-lock.json and
+        # fails if the lockfile disagrees with package.json, which is the reproducible
+        # -build property this gate is about. NEVER `npm audit fix` here -- the 166
+        # known advisories are tracked in DEPENDENCY_INVENTORY.md and clearing them
+        # blind would dissolve the pinned baseline (CLAUDE.md).
+        #
+        # Note: both package-lock.json and yarn.lock are committed. Which one survives
+        # is an open owner question in TODO.md; this step commits CI to the npm one.
+        run: npm ci
+
+      - name: Build production frontend assets
+        # WP 0A item 7 requires the frontend production build in CI. The script name
+        # is read from package.json rather than invented: this repository is still on
+        # the characterized legacy toolchain (Vue 2 / laravel-mix 4 / webpack 4), so
+        # the script is `production`, not `build`. build.md L515.
+        run: npm run production
+
   merge-rehearsal:
     # WP 0A item 13, gate 4. "Add a read-only CI merge rehearsal that attempts the
     # latest upstream/main merge and runs the characterization suite without pushing
