@@ -83,23 +83,51 @@ jobs:
           fi
 
       - name: Prepare environment
+        # .env.testing REPLACES .env, it does NOT merge with it (MEMORY.md
+        # 2026-08-10). An earlier version of this step wrote a DB-only .env.testing,
+        # which meant no APP_KEY and 22 MissingAppKeyException failures on the very
+        # first CI run. So: copy the COMPLETE environment, then override in place.
+        #
+        # sed, not append: appending a duplicate key relies on dotenv precedence,
+        # which differs between versions. Every key below already exists in
+        # .env.example, so each sed replaces exactly one line. The verification
+        # step after this one exists because a sed that silently fails to match is
+        # a real failure mode we have already hit in this project.
         run: |
           cp .env.example .env
           php artisan key:generate
-          {
-            echo "APP_ENV=testing"
-            echo "DB_CONNECTION=mysql"
-            echo "DB_HOST=127.0.0.1"
-            echo "DB_PORT=3306"
-            echo "DB_DATABASE=churchcms_test_disposable"
-            echo "DB_USERNAME=root"
-            echo "DB_PASSWORD=root"
-            # EXPLICIT, not inherited. config/app.php reads env('TIMEZONE','UTC'),
-            # so omitting this happens to give UTC by accident -- and an accident is
-            # not a contract. Owner decision 2026-08-15: UTC at rest
-            # (PRD L859/L877/L909/L1502, UPSTREAM.md UP-009).
-            echo "TIMEZONE=UTC"
-          } > .env.testing
+          cp .env .env.testing
+          sed -i 's|^APP_ENV=.*|APP_ENV=testing|'                              .env.testing
+          sed -i 's|^DB_CONNECTION=.*|DB_CONNECTION=mysql|'                    .env.testing
+          sed -i 's|^DB_HOST=.*|DB_HOST=127.0.0.1|'                            .env.testing
+          sed -i 's|^DB_PORT=.*|DB_PORT=3306|'                                 .env.testing
+          sed -i 's|^DB_DATABASE=.*|DB_DATABASE=churchcms_test_disposable|'    .env.testing
+          sed -i 's|^DB_USERNAME=.*|DB_USERNAME=root|'                         .env.testing
+          sed -i 's|^DB_PASSWORD=.*|DB_PASSWORD=root|'                         .env.testing
+          # EXPLICIT, not inherited. config/app.php reads env('TIMEZONE','UTC'),
+          # so omitting this gives UTC by accident -- and an accident is not a
+          # contract. Owner decision 2026-08-15: UTC at rest
+          # (PRD L859/L877/L909/L1502, UPSTREAM.md UP-009).
+          sed -i 's|^TIMEZONE=.*|TIMEZONE=UTC|'                                .env.testing
+
+      - name: Verify the testing environment is complete
+        # Fails loudly if a sed above matched nothing. Prints no secret values --
+        # only whether each required key is non-empty.
+        run: |
+          fail=0
+          for key in APP_KEY APP_ENV DB_CONNECTION DB_DATABASE DB_USERNAME TIMEZONE; do
+            value=$(grep -E "^${key}=" .env.testing | head -1 | cut -d= -f2-)
+            if [ -z "$value" ]; then
+              echo "::error::.env.testing is missing a value for ${key}"
+              fail=1
+            else
+              case "$key" in
+                APP_KEY) echo "${key} is set (${#value} chars)";;
+                *)       echo "${key}=${value}";;
+              esac
+            fi
+          done
+          exit $fail
 
       - name: Run migrations and seeders
         # DatabaseSafetyServiceProvider (build.md L515) prints and asserts
@@ -231,19 +259,22 @@ jobs:
         run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Prepare environment
+        # Same shape as the test job -- see the long comment there. .env.testing
+        # REPLACES .env rather than merging, so it must carry APP_KEY.
         run: |
           cp .env.example .env
           php artisan key:generate
-          {
-            echo "APP_ENV=testing"
-            echo "DB_CONNECTION=mysql"
-            echo "DB_HOST=127.0.0.1"
-            echo "DB_PORT=3306"
-            echo "DB_DATABASE=churchcms_test_disposable"
-            echo "DB_USERNAME=root"
-            echo "DB_PASSWORD=root"
-            echo "TIMEZONE=UTC"
-          } > .env.testing
+          cp .env .env.testing
+          sed -i 's|^APP_ENV=.*|APP_ENV=testing|'                              .env.testing
+          sed -i 's|^DB_CONNECTION=.*|DB_CONNECTION=mysql|'                    .env.testing
+          sed -i 's|^DB_HOST=.*|DB_HOST=127.0.0.1|'                            .env.testing
+          sed -i 's|^DB_PORT=.*|DB_PORT=3306|'                                 .env.testing
+          sed -i 's|^DB_DATABASE=.*|DB_DATABASE=churchcms_test_disposable|'    .env.testing
+          sed -i 's|^DB_USERNAME=.*|DB_USERNAME=root|'                         .env.testing
+          sed -i 's|^DB_PASSWORD=.*|DB_PASSWORD=root|'                         .env.testing
+          sed -i 's|^TIMEZONE=.*|TIMEZONE=UTC|'                                .env.testing
+          test -n "$(grep -E '^APP_KEY=' .env.testing | cut -d= -f2-)" \
+            || { echo "::error::.env.testing has no APP_KEY"; exit 1; }
 
       - name: Run migrations and seeders on the merged tree
         run: php artisan migrate:fresh --seed --env=testing
