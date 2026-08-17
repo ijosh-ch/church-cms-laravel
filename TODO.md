@@ -140,8 +140,22 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
    the plan. Re-run both suites after merging. The rehearsal has now proven the upstream side is
    clean, but that is a *different* merge from this one.
 
-8. **Last CI gap — the frontend build.** WP 0A item 7 requires it and `.github/workflows/ci.yml` has
-   no `npm ci` / `npm run production` step. Known to build locally (exit 0, 290s).
+8. ✅ ~~**Step 7 — WP 0A exit gate review**~~ — **DONE 2026-08-17. VERDICT: NOT PASSED.**
+   Full assessment in `WP0A_EXIT_GATE.md`. 1 of 7 criteria met, 2 partial, 4 not met.
+   **WP 0C must not begin** (`build.md` OPERATING CONTRACT 10).
+
+## Shortest path to a passing gate — from `WP0A_EXIT_GATE.md`
+
+Four of the six failures share two causes, and neither is characterization. Do these first; between
+them they are about a day, and they close or complete criteria 1, 4, 5, 6 and 7.
+
+| Action | Closes | Effort |
+|---|---|---|
+| **Add the frontend build to CI** (`npm ci` + `npm run production`), then **push the branch once.** CI has **never executed** — no remote ref exists for this branch. | 5, completes 1, lets 6's job run | hours |
+| **Assemble the upgrade compatibility matrix** from `DEPENDENCY_INVENTORY.md`, `MEMORY.md` 2026-08-10 and UP-002. Compilation, not investigation. | 7 | hours |
+| **Owner review of `UPSTREAM.md`**; classify `app/Providers/RouteServiceProvider.php` (currently "Not yet classified", and Step 6 proved it applies `churchadmin` to all of `routes/admin.php`); add `phpunit.xml` to an entry. Update UP-007's "High" conflict risk to the *measured* clean result. | 4 | hours |
+| **Resolve `test_documents_defect_member_show_fails_on_missing_imagick`** — red against the merged tree because upstream fixed the defect. Needs a decision, not a silent edit. | 6 | minutes |
+| **Write the 7 remaining characterization suites.** | 2 | **3–4 sessions** |
 
 8. **Step 7 — WP 0A exit-gate review.** Report each `build.md` L226–228 criterion met / not met.
    **Do not mark the gate passed if any criterion fails.** Then STOP — WP 0C needs its own approval

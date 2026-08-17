@@ -269,6 +269,29 @@ does not error — the package stops loading and IFGF behaviour disappears while
 serving. `tests/Feature/Package/PackageProviderSmokeTest.php` is the alarm, and the **merge rehearsal
 (item 13) must run it**.
 
+## ❌ WP 0A exit gate: REVIEWED 2026-08-17 — **NOT PASSED**
+
+Full assessment in **`WP0A_EXIT_GATE.md`**. **1 of 7 criteria met, 2 partial, 4 not met.**
+
+| # | Criterion (`build.md` L227) | Verdict |
+|---|---|---|
+| 1 | Installs reproducibly / documented blocker | 🟡 never proven on a clean checkout |
+| 2 | **Critical behavior has characterization coverage** | ❌ **the real blocker** — 37 tests, 2 of 11 suites complete |
+| 3 | Package seam loads without changing behavior | ✅ met |
+| 4 | `UPSTREAM.md` + ownership map reviewed | ❌ owner review outstanding |
+| 5 | CI runs from a clean checkout | ❌ **CI has NEVER executed — nothing is pushed** |
+| 6 | Upstream merge rehearsal passes | 🟡 merge clean, one documenting test red |
+| 7 | Upgrade compatibility matrix reviewed | ❌ not assembled |
+
+**Four of the six failures are cheap.** Push the branch once (closes 5, completes 1, lets 6's CI job
+run), assemble the matrix from existing material (7), owner-review the ledger (4). About a day
+between them. **Characterization is the only long pole** — 7 suites, 3–4 sessions.
+
+**WP 0C MUST NOT BEGIN.** `build.md` OPERATING CONTRACT 10 forbids starting a later work package
+while an earlier exit gate is incomplete — and WP 0C's highest-risk items (the `usergroup_id`
+replacement across 33 files, cascade deletes, the `userprofiles` dedupe) are exactly what
+characterization coverage exists to make safe.
+
 ## Open gates
 
 1. **WP 0A characterization gate** — 7 suites essentially unwritten. Blocks everything.

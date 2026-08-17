@@ -337,12 +337,40 @@ Against `upstream/main` = `800c29f`, 40 ahead / 9 behind. **THE MERGE IS CLEAN �
   now sets `TIMEZONE=UTC` **explicitly**. It resolved to UTC by accident before, via
   `env('TIMEZONE','UTC')` — and an accident is not a contract. That was an open `REVIEW.md` item.
 
+**Step 7 done — WP 0A exit gate reviewed. VERDICT: NOT PASSED.**
+
+`WP0A_EXIT_GATE.md`. **1 of 7 criteria met, 2 partial, 4 not met.**
+
+- **The most useful thing the review produced was noticing that CI HAS NEVER RUN.**
+  `git ls-remote --heads origin contrib/laravel-supported-platform` returns **nothing**; the branch
+  has no upstream tracking and all 15 commits are local. A comprehensive CI file was written in
+  WP 0B, extended twice this session, and **has never executed once**. It had been counted as a
+  closed gate for a week. **A CI file that has never run is a hypothesis, not a gate** — and it was
+  only caught by checking the remote instead of reading the workflow.
+- **Four of the six failures are cheap, and none of them is characterization.** Push once (closes 5,
+  completes 1, lets the rehearsal job run), assemble the compatibility matrix from material that
+  already exists (7), owner-review the ledger (4). About a day. **Characterization is the only long
+  pole** — 7 suites, 3–4 sessions. Worth knowing before assuming the gate is months away.
+- **Criterion 7 has no artifact at all.** No document is identifiable as the "upgrade compatibility
+  matrix". The inputs are all there — `DEPENDENCY_INVENTORY.md`, the `composer why-not` evidence in
+  the 2026-08-10 entry, UP-002's PHP pin, the MySQL 8.4 notes — but nobody ever assembled them.
+  **A gate criterion phrased as "X is reviewed" needs an X that exists**; this one was quietly
+  assumed to be satisfied by its inputs.
+- **The review corrected UP-007's own risk rating.** It rates conflict risk **High** on prediction;
+  Step 6 **measured** it clean against `800c29f`. Left as-is pending owner review rather than edited,
+  but flagged — an assessment that has since been measured should say so.
+- **Writing the gate as a document rather than a chat answer was the right call.** Seven criteria
+  with evidence and a "to close" line each is a reference the next session reads instead of
+  re-deriving. It is also the artifact the owner needs in order to *review* anything.
+
 **Not done — read before assuming progress**
 
-- **7 of 11 characterization suites not started; 2 partial.** **48 tests** total but only **37** are
-  characterization, against **80–120**. Still the reason WP 0A cannot close and Step 5 stays blocked.
-- **Frontend build is the last CI gap** (item 7) — no `npm ci` / `npm run production` step.
-- Steps 5 and 7 not started. Steps 3–7 of the closure plan (package
+- **7 of 11 characterization suites not started; 2 partial.** **48 tests** total, only **37**
+  characterization, against **80–120**. The single blocking criterion.
+- **Nothing has ever been pushed.** 16 local commits.
+- **Frontend build still absent from CI** (item 7).
+- **Step 5** (merge into `ifgf/main`) correctly still blocked on characterization.
+- **WP 0C must not begin** — OPERATING CONTRACT 10. Steps 3–7 of the closure plan (package
   scaffold, smoke tests, `ifgf/main` merge, upstream rehearsal, exit-gate review) remain
   **not started**.
 - **No evidence of any 10 → 13 upgrade regression has been found.** The one candidate was withdrawn.
