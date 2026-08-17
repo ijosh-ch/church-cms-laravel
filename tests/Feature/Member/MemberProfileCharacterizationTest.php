@@ -44,12 +44,19 @@ use Tests\TestCase;
  * provider runs at BOOT, before a test's fixture data exists — inserting rows mid-test
  * would not be read.
  *
- * MEASURED 2026-08-15 with settings seeded:
+ * MEASURED 2026-08-15 with settings seeded, on the Windows dev box:
  *   GET /admin/members              200
  *   GET /admin/member/add           200
  *   GET /admin/members/find         200 (JSON)
  *   GET /admin/member/edit/{name}   200
- *   GET /admin/member/show/{name}   500 — imagick, REAL and separate, owned by UP-008
+ *   GET /admin/member/show/{name}   500 — imagick missing HERE; see the note below
+ *
+ * ⚠ THE SHOW ROUTE'S OUTCOME IS ENVIRONMENT-DEPENDENT. It is 500 on this dev box and
+ * 200 on GitHub's Ubuntu runners, which ship imagick. The first CI run ever executed
+ * (2026-08-17) caught a flat assertSame(500) here that was characterizing the machine
+ * rather than the application. Assert environment-dependent behaviour against the
+ * environment, not against one machine's defaults —
+ * test_documents_member_show_qr_depends_on_the_imagick_extension is the corrected form.
  */
 class MemberProfileCharacterizationTest extends TestCase
 {
@@ -98,26 +105,63 @@ class MemberProfileCharacterizationTest extends TestCase
     }
 
     /**
-     * DOCUMENTS a real defect — the member show route needs the imagick extension.
+     * DOCUMENTS that the member show route's QR rendering DEPENDS ON imagick.
      *
-     * Survives the settings fixture, so unlike the withdrawn MEM-001 this one is
-     * genuine. Already owned: decision 2026-08-10 #1, UP-008 reserved for the
-     * format('png') -> format('svg') change across 8 Blade call sites.
+     * THE OUTCOME IS ENVIRONMENT-DEPENDENT, AND THAT IS THE POINT. An earlier version
+     * of this test asserted a flat 500. It passed on the Windows dev box (no imagick)
+     * and FAILED on CI (GitHub's Ubuntu runners ship imagick, so the page renders).
+     * It was characterizing the machine, not the application — caught by the first CI
+     * run that ever executed, 2026-08-17.
+     *
+     * Both branches below are true statements about the application, so the test is
+     * portable while still pinning the dependency UP-008 exists to remove:
+     *
+     *   imagick present  -> the page renders (200)
+     *   imagick absent   -> RuntimeException, "You need to install the imagick
+     *                       extension to use this back end"
+     *
+     * WHY NOT JUST INSTALL imagick IN CI: because the dependency is the finding.
+     * Owner decision 2026-08-10 #1 is to remove it (format('png') -> format('svg'),
+     * UP-008) precisely so no environment needs the extension. Installing it in CI
+     * would hide the very thing this test is here to track. The production VPS is the
+     * environment that matters, and it does not have imagick either.
+     *
+     * WHEN UP-008 LANDS both branches collapse into a plain 200 assertion, because
+     * the SVG backend needs no extension. Note the merge rehearsal has already shown
+     * upstream deletes this call site itself (UP-008 scope: 8 sites -> 7).
      */
-    public function test_documents_defect_member_show_fails_on_missing_imagick(): void
+    public function test_documents_member_show_qr_depends_on_the_imagick_extension(): void
     {
         $fixture = $this->fixture();
         $admin = $this->actorWithPermissions($fixture['church_id'], ['read-members', 'update-members']);
 
         $response = $this->actingAs($admin)->get('/admin/member/show/'.$fixture['member_name']);
 
-        $this->assertSame(500, $response->getStatusCode());
+        if (extension_loaded('imagick')) {
+            $this->assertSame(
+                200,
+                $response->getStatusCode(),
+                'imagick IS loaded, so the member card should render. A failure here is '
+                .'a real defect rather than the known extension gap — read the actual '
+                .'exception before touching this test.'
+            );
+
+            return;
+        }
+
+        $this->assertSame(
+            500,
+            $response->getStatusCode(),
+            'imagick is NOT loaded, so the QR backend should throw. If this now renders, '
+            .'UP-008 (format svg) has probably landed — collapse this test to a plain '
+            .'200 assertion and close UP-008.'
+        );
+
         $this->assertStringContainsString(
             'imagick',
             $response->baseResponse->exception->getMessage(),
-            'The member show route now fails for a different reason. If UP-008 has '
-            .'landed this should render — replace this test with the render assertion '
-            .'rather than loosening it.'
+            'The member show route fails for a reason OTHER than the missing imagick '
+            .'extension. A new failure is hiding behind the known one.'
         );
     }
 
