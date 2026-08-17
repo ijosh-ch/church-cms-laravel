@@ -269,6 +269,33 @@ does not error — the package stops loading and IFGF behaviour disappears while
 serving. `tests/Feature/Package/PackageProviderSmokeTest.php` is the alarm, and the **merge rehearsal
 (item 13) must run it**.
 
+## 🟢 CI IS LIVE — first executions ever, 2026-08-17
+
+Branch **pushed** to `origin/contrib/laravel-supported-platform` (43+ commits; nothing had ever been
+pushed). Three runs so far.
+
+| Job | Result |
+|---|---|
+| `test` | PHP side **fully green on Ubuntu — 48 passed, 108 assertions**. Fails only at the frontend build (see UP-011). |
+| `merge-rehearsal` | ✅ **SUCCESS.** Clean merge against `800c29f` *and* the full characterization suite passes on the merged tree. |
+
+**Two real defects found by running CI, both invisible locally:**
+
+1. **CI's `.env.testing` had no `APP_KEY`** — 22 `MissingAppKeyException` failures on run 1.
+   `.env.testing` *replaces* `.env`, it does not merge. Fixed: copy the complete env, override in
+   place, and a verification step now fails loudly if a `sed` matches nothing.
+2. **`test_documents_defect_member_show_fails_on_missing_imagick` was pinning the dev machine.**
+   GitHub runners ship `imagick`; this box does not, so the route is 200 there and 500 here. Rewritten
+   environment-aware. **Assert environment-dependent behaviour against the environment.**
+
+## 🔴 UP-011 (PROPOSED) — `npm run production` has ALWAYS been broken on Linux
+
+`app.js` imports `./components/payaccount/` but git records **`Payaccount/`**. Windows resolves it;
+Linux does not — and production is a Linux VPS. **The "build still works (exit 0, 290s)" note carried
+since the C5 audit is true only on Windows.** Convention is 34 lowercase dirs to 1 capitalised, so
+the fix is renaming the directory. Upstream-owned, so it is **proposed and awaiting approval**, not
+applied. Second Windows-passes/Linux-fails defect after UP-003.
+
 ## ❌ WP 0A exit gate: REVIEWED 2026-08-17 — **NOT PASSED**
 
 Full assessment in **`WP0A_EXIT_GATE.md`**. **1 of 7 criteria met, 2 partial, 4 not met.**
@@ -279,8 +306,8 @@ Full assessment in **`WP0A_EXIT_GATE.md`**. **1 of 7 criteria met, 2 partial, 4 
 | 2 | **Critical behavior has characterization coverage** | ❌ **the real blocker** — 37 tests, 2 of 11 suites complete |
 | 3 | Package seam loads without changing behavior | ✅ met |
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ owner review outstanding |
-| 5 | CI runs from a clean checkout | ❌ **CI has NEVER executed — nothing is pushed** |
-| 6 | Upstream merge rehearsal passes | 🟡 merge clean, one documenting test red |
+| 5 | CI runs from a clean checkout | 🟡 **now executing**; PHP side green, blocked only by UP-011 |
+| 6 | Upstream merge rehearsal passes | ✅ **MET 2026-08-17** — `merge-rehearsal` job green in CI |
 | 7 | Upgrade compatibility matrix reviewed | ❌ not assembled |
 
 **Four of the six failures are cheap.** Push the branch once (closes 5, completes 1, lets 6's CI job

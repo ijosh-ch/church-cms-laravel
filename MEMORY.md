@@ -363,11 +363,38 @@ Against `upstream/main` = `800c29f`, 40 ahead / 9 behind. **THE MERGE IS CLEAN �
   with evidence and a "to close" line each is a reference the next session reads instead of
   re-deriving. It is also the artifact the owner needs in order to *review* anything.
 
+**CI executed for the first time ever — and found two defects plus one production bug**
+
+Branch pushed. Three runs. `merge-rehearsal` is **green**; `test` is green on the entire PHP side
+(**48 passed, 108 assertions on Ubuntu**) and fails only at the frontend build.
+
+- **UP-011 (proposed) — `npm run production` has ALWAYS been broken on Linux.** `app.js` imports
+  `./components/payaccount/` while git records **`Payaccount/`**. Case-insensitive Windows resolves
+  it; Linux does not — **and production is a Linux VPS.** The "production build still works (exit 0,
+  290s)" claim carried since the C5 audit was **true only on Windows**, and had been treated as
+  evidence the frontend was safe. **A build result is only evidence for the platform it ran on.**
+  Second Windows-passes/Linux-fails defect after UP-003; the class is not exhausted — anything
+  resolved by string path at build or autoload time is exposed.
+- **Run 1: 22 `MissingAppKeyException` failures.** CI wrote a DB-only `.env.testing`, and
+  `.env.testing` **replaces** `.env` rather than merging. `MEMORY.md` recorded that exact trap on
+  2026-08-10 and the CI file still had it, **because CI had never run**. Knowing a thing and
+  executing it are different; only the second one finds this.
+- **Run 2: 1 failure — a test that was pinning the dev machine.** The imagick assertion was a flat
+  `assertSame(500)`, true only where imagick is absent. GitHub runners ship it, so CI got 200.
+  Rewritten environment-aware with both branches asserted. **Assert environment-dependent behaviour
+  against the environment, not one machine's defaults.** Third time this session an assertion
+  measured the harness rather than the application.
+- **Deliberately did NOT install imagick in CI to make it green.** The dependency *is* the finding —
+  UP-008 removes it so no environment needs it, and the production VPS lacks it too. Making CI green
+  by giving it the extension would have hidden exactly what the test tracks.
+- **A verification step now guards the `sed` rewrites in CI**, because a silently non-matching `sed`
+  already bit this project once during the package scaffold.
+
 **Not done — read before assuming progress**
 
 - **7 of 11 characterization suites not started; 2 partial.** **48 tests** total, only **37**
   characterization, against **80–120**. The single blocking criterion.
-- **Nothing has ever been pushed.** 16 local commits.
+- **UP-011 is proposed, not applied** — upstream-owned, needs approval. CI stays red until it lands.
 - **Frontend build still absent from CI** (item 7).
 - **Step 5** (merge into `ifgf/main`) correctly still blocked on characterization.
 - **WP 0C must not begin** — OPERATING CONTRACT 10. Steps 3–7 of the closure plan (package

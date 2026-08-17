@@ -843,6 +843,60 @@ WP 0C, which needs its own approval.
 
 ---
 
+### UP-011 — **PROPOSED, awaiting owner approval** — `Payaccount/` directory case breaks the production build on Linux
+
+| Field | Value |
+|---|---|
+| **Status** | **PROPOSED 2026-08-17. Not applied.** Upstream-owned path; `CLAUDE.md` requires an approved entry before the edit. |
+| **Files** | `resources/assets/js/components/Payaccount/{Create,Edit,List}.vue` → `payaccount/` (upstream-owned) |
+| **Work package** | WP 0A item 7 (CI frontend build) — found by the gate, not by inspection |
+| **Disposition** | **`contribute`.** This is a pure defect fix, IFGF-neutral, and upstream is as broken by it as this fork. Same class as UP-003. |
+| **Conflict risk** | **Low**, but a case-only rename needs care on Windows — use `git mv` in two steps or `git mv -f`, because the filesystem considers the names identical. |
+
+**The defect**
+
+`resources/assets/js/app.js` lines 46–48 import `./components/payaccount/{List,Create,Edit}.vue`
+(lowercase), but git records the directory as **`Payaccount/`** (capital P). Windows and macOS
+resolve this because their filesystems are case-insensitive. **Linux does not**, and the production
+target is a Linux VPS.
+
+```
+ERROR in ./resources/assets/js/app.js
+Module not found: Error: Can't resolve './components/payaccount/Create.vue'
+Module not found: Error: Can't resolve './components/payaccount/Edit.vue'
+Module not found: Error: Can't resolve './components/payaccount/List.vue'
+```
+
+**`npm run production` therefore FAILS on Linux.** It has always failed on Linux. The "build still
+works (exit 0, 290s)" note carried in `CONTEXT.md` and `DEPENDENCY_INVENTORY.md` since the C5 audit
+is **true only on Windows** — the build had never been run anywhere else.
+
+**Why the fix is the rename, not the import**
+
+The repository's convention is unambiguous: **34 lowercase component directories, 1 capitalised.**
+`Payaccount` is the sole outlier, and all three call sites already expect lowercase. Renaming the
+directory fixes the defect *and* removes the inconsistency; editing the three imports would fix the
+defect while preserving it.
+
+**Verification required before this entry is closed**
+
+- [ ] `git mv` the directory to `payaccount` (case-only rename — verify with `git ls-files`, not
+      with a directory listing, which lies on Windows)
+- [ ] `npm run production` succeeds **in CI on Linux**, not locally. Local success proves nothing
+      here; that is precisely how this survived.
+- [ ] No other case mismatch remains. A sweep found one further candidate (`sermon`) which is a
+      **false positive** — the only `./components/sermon/` reference is commented out at `app.js:203`,
+      and the live import at line 209 is `./components/sermon.vue`, a file.
+
+**Why this matters beyond one directory**
+
+This is the **second** Windows-passes/Linux-fails defect in the project after UP-003's PSR-4 filename
+case mismatch, and both were invisible until something ran on Linux. UP-003 was caught by the CI
+PSR-4 check; this one needed the frontend build, which is why WP 0A item 7 names it explicitly. The
+class is not exhausted — anything resolved by string path at build or autoload time is exposed.
+
+---
+
 ## Security findings — deferred, not yet entries
 
 Recorded at first successful `composer audit`, 2026-08-08. **52 advisories across 14 packages.**

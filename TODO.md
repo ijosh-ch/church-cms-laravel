@@ -22,8 +22,19 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. **Step 2 — continue characterization.** WP 0A item 6, gate 5. **37 tests, 92 assertions**, whole
-   `tests/Feature` suite green.
+1. 🔴 **APPROVE UP-011, then apply it — CI is red on it and production is affected.**
+   `resources/assets/js/app.js` imports `./components/payaccount/` but git records **`Payaccount/`**.
+   Windows resolves the case difference; **Linux does not**, so `npm run production` has **always**
+   failed on Linux — including the production VPS. The "build works, exit 0, 290s" note in
+   `CONTEXT.md`/`DEPENDENCY_INVENTORY.md` was only ever true on Windows.
+
+   **Fix:** `git mv` the directory to lowercase (convention is 34 lowercase dirs to 1 capitalised,
+   and all three imports already expect lowercase). Upstream-owned, so it needs approval first.
+   Verify with `git ls-files`, **not** a directory listing — Windows lies about case. Confirm in CI
+   on Linux, not locally; local success is exactly how this survived.
+
+2. **Step 2 — continue characterization.** WP 0A item 6, gate 5. **48 tests, 108 assertions, green
+   on Ubuntu CI** as well as locally.
 
    ⚠ **Any test that renders an admin view must seed `settings.*` config first.** Copy
    `MemberProfileCharacterizationTest::seedRuntimeSettings()`. Without it every admin page 500s on
