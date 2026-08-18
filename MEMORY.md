@@ -38,12 +38,31 @@ history** (CI run `32090487802`, both jobs, every step). Exit-gate criteria 1, 5
   and a duplicated paragraph. Rewritten to 828 words. It is the next session's entry point; bloat
   there has a direct cost.
 
+**Compatibility matrix assembled — criterion 7's artifact now exists**
+
+`UPGRADE_COMPATIBILITY_MATRIX.md`, 1,777 words. Compilation from `composer.lock`, UP-001…UP-011,
+`MEMORY.md` 2026-08-10 and `DEPENDENCY_INVENTORY.md`.
+
+- **Reading `composer.lock` instead of reconstructing from memory corrected several values I would
+  have stated wrongly** — the intermediate majors were **11.55.0** and **12.65.0**, not round
+  numbers; `collision` is **v8.9.5**; npm is **11.4.2**, not what I assumed. **Compile a matrix from
+  the lockfile, never from recollection**, even when the recollection is your own from days earlier.
+- **`composer.json` `require.php` (`^8.3`) and `config.platform.php` (`8.4.24`) are deliberately
+  different values** — the supported *range* versus what the solver resolves against.
+  `composer.lock` carries it as `platform-overrides`. **Do not "align" them.**
+- **The matrix ends with a section on what it does NOT establish**, because a matrix that reads as
+  complete when it is not is worse than none: it is not behavioural proof (criterion 2 is still
+  unmet), the lifecycle dates are unverified since 2026-08-10, no anonymized production snapshot has
+  been tested, and the 730-vs-812 route count is still unreconciled.
+- **Assembling is not reviewing.** Criterion 7 is marked **partial**, not met — same treatment as
+  criterion 4. The artifact existing is the deliverable; the owner reading it is the criterion.
+  Criteria 4 and 7 now close in one sitting.
+
 **Not done — read before assuming progress**
 
 - **7 of 11 characterization suites not started, 3 partial.** 37 characterization tests against
   **80–120**. The single blocking criterion, 3–4 sessions. **Exports and private media are wholly
   uncharacterized and both touch member PII.**
-- **Criterion 7** — the upgrade compatibility matrix still does not exist. Compilation, hours.
 - **Criterion 4** — owner review of `UPSTREAM.md`; classify `RouteServiceProvider`; fold in
   `phpunit.xml`; restate UP-007's *predicted* High conflict risk as the *measured* clean result.
 - **Step 5** (merge into `ifgf/main`) correctly still blocked. **WP 0C must not begin.**

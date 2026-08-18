@@ -307,7 +307,7 @@ no-op — do it in two steps and verify with `git ls-files`, never a directory l
 
 ## ❌ WP 0A exit gate: REVIEWED 2026-08-17 — **NOT PASSED**
 
-Full assessment in **`WP0A_EXIT_GATE.md`**. **Re-scored 2026-08-18: 4 of 7 met, 0 partial, 3 not met.**
+Full assessment in **`WP0A_EXIT_GATE.md`**. **Re-scored 2026-08-18: 4 of 7 met, 1 partial, 2 not met.**
 
 | # | Criterion (`build.md` L227) | Verdict |
 |---|---|---|
@@ -317,11 +317,11 @@ Full assessment in **`WP0A_EXIT_GATE.md`**. **Re-scored 2026-08-18: 4 of 7 met, 
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ owner review outstanding |
 | 5 | CI runs from a clean checkout | ✅ **met** — fully green incl. frontend build |
 | 6 | Upstream merge rehearsal passes | ✅ **met** — `merge-rehearsal` job green in CI |
-| 7 | Upgrade compatibility matrix reviewed | ❌ not assembled |
+| 7 | Upgrade compatibility matrix reviewed | 🟡 **assembled** (`UPGRADE_COMPATIBILITY_MATRIX.md`); owner review outstanding |
 
-**Two of the three remaining failures are cheap** — assemble the compatibility matrix from existing
-material (7) and owner-review the ledger (4), hours each. **Characterization is the only long pole**
-— 7 of 11 suites, 3–4 sessions.
+**Criteria 4 and 7 are now a single owner reading session** — the ledger and
+`UPGRADE_COMPATIBILITY_MATRIX.md`. **Characterization is the only remaining work** — 7 of 11 suites,
+3–4 sessions.
 
 **WP 0C MUST NOT BEGIN.** `build.md` OPERATING CONTRACT 10 forbids starting a later work package
 while an earlier exit gate is incomplete — and WP 0C's highest-risk items (the `usergroup_id`

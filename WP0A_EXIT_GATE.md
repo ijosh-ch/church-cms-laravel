@@ -7,12 +7,13 @@
 
 ## Verdict: ❌ **NOT PASSED** — but materially closer
 
-**Re-scored 2026-08-18: 4 of 7 criteria met, 0 partial, 3 not met** (was 1 met / 2 partial / 4 not
+**Re-scored 2026-08-18: 4 of 7 criteria met, 1 partial, 2 not met** (was 1 met / 2 partial / 4 not
 met). Criteria 1, 5 and 6 closed when CI ran fully green for the first time — run `32090487802`,
 both jobs, every step, including the frontend production build on Linux.
 
 `build.md` OPERATING CONTRACT 10 and the Step 7 instruction are both explicit: the gate is not
-marked passed if any criterion fails. **It still fails three.**
+marked passed if any criterion fails. **It still fails three** — criteria 2, 4 and 7, though 7's
+artifact now exists and 4 and 7 close together in one owner review.
 
 The single blocking criterion is **characterization coverage**. Everything else is either met, or
 fails for a reason that is cheap to fix — most of them fail for the *same* reason, below.
@@ -167,20 +168,29 @@ same root cause as criterion 5.
 
 ---
 
-## 7. Upgrade compatibility matrix is reviewed — ❌ **NOT MET**
+## 7. Upgrade compatibility matrix is reviewed — 🟡 **PARTIAL** *(assembled 2026-08-18)*
 
-**No document in the repository is identifiable as the upgrade compatibility matrix.**
+**`UPGRADE_COMPATIBILITY_MATRIX.md` now exists** — the artifact half of this criterion is done.
+**Owner review is still outstanding**, exactly as for criterion 4, so this is not yet MET.
 
-The *inputs* exist and are substantial: `DEPENDENCY_INVENTORY.md` (production and dev packages,
-abandoned packages, known vulnerabilities, framework constraints), the `composer why-not` findings
-and per-major upgrade evidence in `MEMORY.md` 2026-08-10, the PHP pin rationale in UP-002, and the
-MySQL 8.4 compatibility notes (`mysql_native_password` default change, one-way 8.0→8.4 upgrade).
+It covers: selected targets and why (WP 0B item 1), the pinning mechanism, the four-commit traversal
+10.50.2 → 11.55.0 → 12.65.0 → 13.24.0 with the blocker resolved at each step (item 3), a per-package
+disposition table for everything that blocked / moved / was removed, the MySQL 8.4 review (item 13),
+the deferred frontend, the CI verification evidence, and an explicit section on **what it does not
+establish**.
 
-What is missing is the **assembled matrix** — target versions against each traversed major, with the
-compatibility decision and evidence per package — and any record of owner review of it.
+Version columns were read from `composer.lock` on 2026-08-18 rather than reconstructed from memory —
+which corrected several values I would have got wrong, including the intermediate majors
+(11.55.0 and 12.65.0, not the round numbers) and `collision` v8.9.5.
 
-**To close:** assemble from existing material; this is compilation, not investigation. Low effort,
-and it is the deliverable that makes the whole upgrade auditable.
+**Historical note — why this was NOT MET when first reviewed:**
+
+no document was identifiable as the matrix. The *inputs* all existed —
+`DEPENDENCY_INVENTORY.md`, the `composer why-not` evidence in `MEMORY.md` 2026-08-10, UP-002's PHP
+pin rationale, the MySQL 8.4 notes — but nobody had assembled them. **A criterion phrased as "X is
+reviewed" needs an X that exists**, and this one had been quietly treated as satisfied by its inputs.
+
+**To close:** owner review, together with criterion 4's ledger review — they are the same sitting.
 
 ---
 
@@ -194,7 +204,7 @@ and it is the deliverable that makes the whole upgrade auditable.
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ Not met — owner review outstanding |
 | 5 | CI runs from a clean checkout | ✅ **Met 2026-08-18** — fully green incl. frontend build |
 | 6 | Upstream merge rehearsal passes | ✅ **Met 2026-08-18** — `merge-rehearsal` job green in CI |
-| 7 | Upgrade compatibility matrix reviewed | ❌ Not met — not assembled |
+| 7 | Upgrade compatibility matrix reviewed | 🟡 **Assembled 2026-08-18**; owner review outstanding |
 
 ## The shortest path to a passing gate
 
@@ -246,7 +256,7 @@ characterization suite and the package suite green on the merged tree.
 - **4 — `UPSTREAM.md` and ownership map reviewed.** Owner review; classify `RouteServiceProvider`;
   fold in `phpunit.xml`. UP-007's "High" conflict risk should also be restated as the *measured*
   clean result. Hours.
-- **7 — upgrade compatibility matrix.** Still not assembled. Compilation from existing material,
-  not investigation. Hours.
+- **7 — upgrade compatibility matrix.** **Assembled 2026-08-18** as
+  `UPGRADE_COMPATIBILITY_MATRIX.md`; owner review outstanding. Closes in the same sitting as 4.
 
-Two of the three are a morning's work. Characterization is the gate.
+**Criteria 4 and 7 are now a single reading session.** Characterization is the gate.

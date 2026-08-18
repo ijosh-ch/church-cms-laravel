@@ -5,8 +5,9 @@
 > Every item names its `build.md` item number and its `PRD.md` line range where relevant.
 
 **Active work package:** WP 0A closure · **Session:** 2026-08-18 — CI green, UP-011 closed
-**Exit gate:** ❌ NOT PASSED — **4 of 7 criteria met** (`WP0A_EXIT_GATE.md`). Characterization is the
-only long pole. **WP 0C must not begin** (`build.md` OPERATING CONTRACT 10).
+**Exit gate:** ❌ NOT PASSED — **4 of 7 met, 1 partial, 2 not met** (`WP0A_EXIT_GATE.md`).
+Characterization is the only remaining *work*; 4 and 7 are one owner reading session.
+**WP 0C must not begin** (`build.md` OPERATING CONTRACT 10).
 
 ---
 
@@ -50,15 +51,13 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
      entries describe FR-11 behaviour that does not exist and cannot be characterized.
    - Assert environment-dependent behaviour **against the environment**, not one machine's defaults.
 
-2. **Assemble the upgrade compatibility matrix.** Exit-gate criterion 7, currently unmet because no
-   such document exists. Compilation, not investigation: `DEPENDENCY_INVENTORY.md`, the
-   `composer why-not` evidence in `MEMORY.md` 2026-08-10, UP-002's PHP pin, the MySQL 8.4 notes.
-   **Hours.**
-
-3. **Owner review of `UPSTREAM.md`.** Exit-gate criterion 4. Also: classify
-   `app/Providers/RouteServiceProvider.php` (in "Not yet classified", and Step 6 proved it applies
-   `churchadmin` to all of `routes/admin.php`); fold `phpunit.xml` into an entry; restate UP-007's
-   **High** conflict risk as the **measured** clean result against `800c29f`. **Hours.**
+2. **OWNER: one reading session closes criteria 4 and 7.** Both are review, not work.
+   - **Criterion 7** — read `UPGRADE_COMPATIBILITY_MATRIX.md` (assembled 2026-08-18). Its §7 lists
+     what it deliberately does **not** establish; read that section first.
+   - **Criterion 4** — review `UPSTREAM.md` UP-001…UP-011. While there: classify
+     `app/Providers/RouteServiceProvider.php` (in "Not yet classified"; Step 6 proved it applies
+     `churchadmin` to all of `routes/admin.php`), fold `phpunit.xml` into an entry, and restate
+     UP-007's **predicted** High conflict risk as the **measured** clean result against `800c29f`.
 
 ## Next — remaining WP 0A
 
