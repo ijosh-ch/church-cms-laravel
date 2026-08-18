@@ -843,11 +843,11 @@ WP 0C, which needs its own approval.
 
 ---
 
-### UP-011 — **PROPOSED, awaiting owner approval** — `Payaccount/` directory case breaks the production build on Linux
+### UP-011 — `Payaccount/` directory case breaks the production build on Linux
 
 | Field | Value |
 |---|---|
-| **Status** | **PROPOSED 2026-08-17. Not applied.** Upstream-owned path; `CLAUDE.md` requires an approved entry before the edit. |
+| **Status** | **APPROVED and APPLIED 2026-08-18.** Owner approved 2026-08-18; directory renamed `Payaccount/` → `payaccount/` via a two-step `git mv`. |
 | **Files** | `resources/assets/js/components/Payaccount/{Create,Edit,List}.vue` → `payaccount/` (upstream-owned) |
 | **Work package** | WP 0A item 7 (CI frontend build) — found by the gate, not by inspection |
 | **Disposition** | **`contribute`.** This is a pure defect fix, IFGF-neutral, and upstream is as broken by it as this fork. Same class as UP-003. |
@@ -880,12 +880,16 @@ defect while preserving it.
 
 **Verification required before this entry is closed**
 
-- [ ] `git mv` the directory to `payaccount` (case-only rename — verify with `git ls-files`, not
-      with a directory listing, which lies on Windows)
+- [x] `git mv` the directory to `payaccount`. **`core.ignorecase = true` on this machine**, so a
+      direct case-only `git mv` is a silent no-op — it was done in two steps via an intermediate
+      name. Verified with `git ls-files` (which records `payaccount/`), **not** a directory listing,
+      which lies on Windows.
 - [ ] `npm run production` succeeds **in CI on Linux**, not locally. Local success proves nothing
-      here; that is precisely how this survived.
-- [ ] No other case mismatch remains. A sweep found one further candidate (`sermon`) which is a
-      **false positive** — the only `./components/sermon/` reference is commented out at `app.js:203`,
+      here; that is precisely how this survived. *(pending the CI run for this commit)*
+- [x] No other case mismatch remains. Every live `require('./components/…')` in `app.js` was checked
+      case-sensitively against `git ls-files`: **zero mismatches**, and **no capitalised component
+      directory remains** (`Payaccount` was the only one, 34 lowercase to 1). The earlier `sermon`
+      candidate is a **false positive** — the only `./components/sermon/` reference is commented out at `app.js:203`,
       and the live import at line 209 is `./components/sermon.vue`, a file.
 
 **Why this matters beyond one directory**

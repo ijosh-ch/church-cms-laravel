@@ -288,13 +288,16 @@ pushed). Three runs so far.
    GitHub runners ship `imagick`; this box does not, so the route is 200 there and 500 here. Rewritten
    environment-aware. **Assert environment-dependent behaviour against the environment.**
 
-## 🔴 UP-011 (PROPOSED) — `npm run production` has ALWAYS been broken on Linux
+## ✅ UP-011 (APPLIED 2026-08-18) — `npm run production` had ALWAYS been broken on Linux
 
 `app.js` imports `./components/payaccount/` but git records **`Payaccount/`**. Windows resolves it;
 Linux does not — and production is a Linux VPS. **The "build still works (exit 0, 290s)" note carried
-since the C5 audit is true only on Windows.** Convention is 34 lowercase dirs to 1 capitalised, so
-the fix is renaming the directory. Upstream-owned, so it is **proposed and awaiting approval**, not
-applied. Second Windows-passes/Linux-fails defect after UP-003.
+since the C5 audit is true only on Windows.** Convention was 34 lowercase dirs to 1 capitalised, so the fix
+was renaming the directory — done 2026-08-18 via a two-step `git mv` (`core.ignorecase = true`
+here makes a direct case-only rename a silent no-op). A case-sensitive sweep of every live
+`require('./components/…')` against `git ls-files` now finds **zero** mismatches and **no**
+capitalised component directory. Second Windows-passes/Linux-fails defect after UP-003; **awaiting
+CI confirmation on Linux, which is the only proof that counts here.**
 
 ## ❌ WP 0A exit gate: REVIEWED 2026-08-17 — **NOT PASSED**
 

@@ -22,7 +22,11 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. 🔴 **APPROVE UP-011, then apply it — CI is red on it and production is affected.**
+1. ✅ ~~**UP-011**~~ — **APPLIED 2026-08-18.** Directory renamed to `payaccount/`; ledger updated;
+   case-sensitive sweep clean. **Confirm the CI frontend build goes green on Linux before closing
+   the entry** — local success proves nothing here, which is exactly how the defect survived.
+
+   <details><summary>original item</summary>
    `resources/assets/js/app.js` imports `./components/payaccount/` but git records **`Payaccount/`**.
    Windows resolves the case difference; **Linux does not**, so `npm run production` has **always**
    failed on Linux — including the production VPS. The "build works, exit 0, 290s" note in
@@ -31,7 +35,7 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
    **Fix:** `git mv` the directory to lowercase (convention is 34 lowercase dirs to 1 capitalised,
    and all three imports already expect lowercase). Upstream-owned, so it needs approval first.
    Verify with `git ls-files`, **not** a directory listing — Windows lies about case. Confirm in CI
-   on Linux, not locally; local success is exactly how this survived.
+   on Linux, not locally; local success is exactly how this survived.</details>
 
 2. **Step 2 — continue characterization.** WP 0A item 6, gate 5. **48 tests, 108 assertions, green
    on Ubuntu CI** as well as locally.
