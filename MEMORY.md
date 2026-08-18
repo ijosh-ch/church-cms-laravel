@@ -6,6 +6,48 @@
 
 ---
 
+## 2026-08-18 — Session 7 — UP-011 applied; CI fully green; exit gate re-scored 4 of 7
+
+**Outcome:** the frontend production build passes on Linux **for the first time in this project's
+history** (CI run `32090487802`, both jobs, every step). Exit-gate criteria 1, 5 and 6 close;
+**4 of 7 met, 0 partial, 3 not met**, up from 1/2/4. Characterization is now the only long pole.
+
+**Learned — carry forward**
+
+- **`core.ignorecase = true` makes a case-only `git mv` a SILENT NO-OP.** It reports success and
+  changes nothing. UP-011 needed two steps via an intermediate name, and verification with
+  `git ls-files` — **a directory listing lies about case on this filesystem.** The commit shows three
+  `R` renames at 100% similarity, which is the proof the rename was recorded rather than faked.
+- **Rename the directory, not the imports.** Both fix the build; only one removes the inconsistency.
+  The convention was 34 lowercase component dirs to 1 capitalised, and all three call sites already
+  expected lowercase. **When two fixes work, prefer the one that also deletes the anomaly.**
+- **A build result is only evidence for the platform it ran on.** "`npm run production` still works
+  (exit 0, 290s)" had been carried since the C5 audit as evidence the frontend was safe to defer. It
+  was true only on Windows; the build had been broken on Linux — the production target — the whole
+  time. The note was accurate and the inference from it was wrong.
+- **It took FOUR CI runs, and three failed for real reasons.** Run 1: 22 `MissingAppKeyException`
+  (CI wrote a DB-only `.env.testing`; it *replaces* `.env`). Run 2: a characterization test pinning
+  the dev machine's extension list. Run 3: UP-011. Run 4: green. **A CI file that has never executed
+  is a hypothesis — this one was wrong in three separate ways**, and every one was invisible locally.
+- **`MEMORY.md` had already recorded run 1's trap on 2026-08-10** and the workflow still shipped it.
+  Knowing a thing and executing it are different; only the second finds this.
+- **Reconcile a re-scored document end to end.** Updating the exit gate's summary table left sections
+  1, 5 and 6 still reading PARTIAL/NOT MET — internally contradictory, and worse than not updating it
+  at all. Re-score the *whole* artifact or none of it.
+- **`TODO.md` had drifted well past its own 1,500-token cap** with a stale "done this session" block
+  and a duplicated paragraph. Rewritten to 828 words. It is the next session's entry point; bloat
+  there has a direct cost.
+
+**Not done — read before assuming progress**
+
+- **7 of 11 characterization suites not started, 3 partial.** 37 characterization tests against
+  **80–120**. The single blocking criterion, 3–4 sessions. **Exports and private media are wholly
+  uncharacterized and both touch member PII.**
+- **Criterion 7** — the upgrade compatibility matrix still does not exist. Compilation, hours.
+- **Criterion 4** — owner review of `UPSTREAM.md`; classify `RouteServiceProvider`; fold in
+  `phpunit.xml`; restate UP-007's *predicted* High conflict risk as the *measured* clean result.
+- **Step 5** (merge into `ifgf/main`) correctly still blocked. **WP 0C must not begin.**
+
 ## 2026-08-15 — Session 6 — WP 0A Step 1: baseline committed, timestamp contract settled on UTC
 
 **Outcome:** the four-month backlog of uncommitted work is committed in four attributable commits

@@ -276,8 +276,11 @@ pushed). Three runs so far.
 
 | Job | Result |
 |---|---|
-| `test` | PHP side **fully green on Ubuntu — 48 passed, 108 assertions**. Fails only at the frontend build (see UP-011). |
-| `merge-rehearsal` | ✅ **SUCCESS.** Clean merge against `800c29f` *and* the full characterization suite passes on the merged tree. |
+| `test` | ✅ **GREEN** — every step, incl. `npm ci` + `npm run production`. 48 passed, 108 assertions. |
+| `merge-rehearsal` | ✅ **GREEN** — clean merge against `800c29f`, characterization + package suites pass on the merged tree. |
+
+**Fully green as of run `32090487802`, 2026-08-18.** It took four runs; three failed for real
+reasons (see `WP0A_EXIT_GATE.md` criterion 5).
 
 **Two real defects found by running CI, both invisible locally:**
 
@@ -288,7 +291,7 @@ pushed). Three runs so far.
    GitHub runners ship `imagick`; this box does not, so the route is 200 there and 500 here. Rewritten
    environment-aware. **Assert environment-dependent behaviour against the environment.**
 
-## ✅ UP-011 (APPLIED 2026-08-18) — `npm run production` had ALWAYS been broken on Linux
+## ✅ UP-011 (CLOSED 2026-08-18) — `npm run production` had ALWAYS been broken on Linux
 
 `app.js` imports `./components/payaccount/` but git records **`Payaccount/`**. Windows resolves it;
 Linux does not — and production is a Linux VPS. **The "build still works (exit 0, 290s)" note carried
@@ -296,26 +299,29 @@ since the C5 audit is true only on Windows.** Convention was 34 lowercase dirs t
 was renaming the directory — done 2026-08-18 via a two-step `git mv` (`core.ignorecase = true`
 here makes a direct case-only rename a silent no-op). A case-sensitive sweep of every live
 `require('./components/…')` against `git ls-files` now finds **zero** mismatches and **no**
-capitalised component directory. Second Windows-passes/Linux-fails defect after UP-003; **awaiting
-CI confirmation on Linux, which is the only proof that counts here.**
+capitalised component directory. Second Windows-passes/Linux-fails defect after UP-003.
+**Confirmed fixed in CI run `32090487802` — the first Linux `npm run production` success in this
+project's history.** The class is not exhausted: anything resolved by string path at build or
+autoload time is exposed, and `core.ignorecase = true` here means a case-only `git mv` is a silent
+no-op — do it in two steps and verify with `git ls-files`, never a directory listing.
 
 ## ❌ WP 0A exit gate: REVIEWED 2026-08-17 — **NOT PASSED**
 
-Full assessment in **`WP0A_EXIT_GATE.md`**. **1 of 7 criteria met, 2 partial, 4 not met.**
+Full assessment in **`WP0A_EXIT_GATE.md`**. **Re-scored 2026-08-18: 4 of 7 met, 0 partial, 3 not met.**
 
 | # | Criterion (`build.md` L227) | Verdict |
 |---|---|---|
-| 1 | Installs reproducibly / documented blocker | 🟡 never proven on a clean checkout |
+| 1 | Installs reproducibly / documented blocker | ✅ **met** — proven on a clean Ubuntu checkout |
 | 2 | **Critical behavior has characterization coverage** | ❌ **the real blocker** — 37 tests, 2 of 11 suites complete |
 | 3 | Package seam loads without changing behavior | ✅ met |
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ owner review outstanding |
-| 5 | CI runs from a clean checkout | 🟡 **now executing**; PHP side green, blocked only by UP-011 |
-| 6 | Upstream merge rehearsal passes | ✅ **MET 2026-08-17** — `merge-rehearsal` job green in CI |
+| 5 | CI runs from a clean checkout | ✅ **met** — fully green incl. frontend build |
+| 6 | Upstream merge rehearsal passes | ✅ **met** — `merge-rehearsal` job green in CI |
 | 7 | Upgrade compatibility matrix reviewed | ❌ not assembled |
 
-**Four of the six failures are cheap.** Push the branch once (closes 5, completes 1, lets 6's CI job
-run), assemble the matrix from existing material (7), owner-review the ledger (4). About a day
-between them. **Characterization is the only long pole** — 7 suites, 3–4 sessions.
+**Two of the three remaining failures are cheap** — assemble the compatibility matrix from existing
+material (7) and owner-review the ledger (4), hours each. **Characterization is the only long pole**
+— 7 of 11 suites, 3–4 sessions.
 
 **WP 0C MUST NOT BEGIN.** `build.md` OPERATING CONTRACT 10 forbids starting a later work package
 while an earlier exit gate is incomplete — and WP 0C's highest-risk items (the `usergroup_id`

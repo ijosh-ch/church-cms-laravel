@@ -1,14 +1,18 @@
 # WP 0A exit gate review
 
-**Date:** 2026-08-17 · **Branch:** `contrib/laravel-supported-platform` · **HEAD:** `c3dc255`
+**Date:** 2026-08-17 · **Re-scored:** 2026-08-18 after CI went green · **Branch:** `contrib/laravel-supported-platform`
 **Reviewed against:** `build.md` L225–228 (Work Package 0A exit gate)
 
 ---
 
-## Verdict: ❌ **NOT PASSED**
+## Verdict: ❌ **NOT PASSED** — but materially closer
 
-**1 of 7 criteria fully met, 2 partial, 4 not met.** `build.md` OPERATING CONTRACT 10 and the Step 7
-instruction are both explicit: the gate is not marked passed if any criterion fails. It fails four.
+**Re-scored 2026-08-18: 4 of 7 criteria met, 0 partial, 3 not met** (was 1 met / 2 partial / 4 not
+met). Criteria 1, 5 and 6 closed when CI ran fully green for the first time — run `32090487802`,
+both jobs, every step, including the frontend production build on Linux.
+
+`build.md` OPERATING CONTRACT 10 and the Step 7 instruction are both explicit: the gate is not
+marked passed if any criterion fails. **It still fails three.**
 
 The single blocking criterion is **characterization coverage**. Everything else is either met, or
 fails for a reason that is cheap to fix — most of them fail for the *same* reason, below.
@@ -26,19 +30,19 @@ Seven criteria, assessed individually.
 
 ---
 
-## 1. Source installs reproducibly, or has a documented blocker — 🟡 **PARTIAL**
+## 1. Source installs reproducibly, or has a documented blocker — ✅ **MET** *(2026-08-18)*
 
-**Evidence for:** `composer install` succeeds; `composer validate --strict` is clean including the
-new path package; `composer.lock` is committed and resolves the IFGF package. `npm run production`
-builds locally (exit 0, ~290s).
+**Demonstrated on a clean Ubuntu runner**, not asserted: `composer validate --strict`,
+`composer install` from the committed lockfile (including the IFGF path package), `npm ci`, and
+`npm run production` all succeed — CI run `32090487802`.
 
-**Why not full:** "Reproducibly" means *on a clean checkout*, and that has never been demonstrated —
-see criterion 5. Every installation to date has been on this one Windows machine with a warm
-Composer cache. The 166 npm vulnerabilities (17 low, 78 moderate, 58 high, 13 critical) and the Vue 2
-EOL ReDoS advisory are **documented** in `DEPENDENCY_INVENTORY.md`, which satisfies the "documented
-blocker" half for the frontend.
+Until 2026-08-18 this was only ever true on one Windows machine with a warm Composer cache, and
+`npm run production` was in fact **broken on Linux the whole time** (UP-011). That is the difference
+between a clean checkout proving reproducibility and a developer machine implying it.
 
-**To close:** push the branch so CI executes once. That is the whole fix.
+The 166 npm vulnerabilities (17 low, 78 moderate, 58 high, 13 critical) and the Vue 2 EOL ReDoS
+advisory remain **documented** in `DEPENDENCY_INVENTORY.md`, satisfying the "documented blocker"
+half.
 
 ---
 
@@ -115,26 +119,27 @@ measurement rather than a prediction — for the current upstream head only.
 
 ---
 
-## 5. CI runs from a clean checkout — ❌ **NOT MET**
+## 5. CI runs from a clean checkout — ✅ **MET** *(2026-08-18)*
 
-**`.github/workflows/ci.yml` has never executed. Not once.**
+**Branch pushed and CI fully green** — run `32090487802`, both jobs, every step. It now covers all
+five things WP 0A item 7 names, including the **frontend production build** that was missing when
+this review was first written.
 
-`git ls-remote --heads origin contrib/laravel-supported-platform` returns nothing and the branch has
-no upstream tracking. **All 15 commits are local.** The workflow is comprehensive — Ubuntu, PHP 8.4,
-MySQL 8.4 service, `composer validate --strict`, audit, PSR-4 compliance, `migrate:fresh --seed`,
-`artisan test`, the package suite, and the merge-rehearsal job — but a CI file that has never run is
-a hypothesis, not a gate.
+**It took four runs, and three of them failed for real reasons** — which is the argument for this
+criterion rather than a footnote to it:
 
-**Also missing:** the **frontend build**. WP 0A item 7 requires "dependency installation, static
-validation, database migration, backend tests, **and frontend production build**". There is no
-`npm ci` / `npm run production` step.
+| Run | Failure | What it was |
+|---|---|---|
+| 1 | 22 × `MissingAppKeyException` | CI wrote a DB-only `.env.testing`; it *replaces* `.env`, not merges. `MEMORY.md` had recorded that exact trap on 2026-08-10 and the workflow still had it — because CI had never run. |
+| 2 | 1 × imagick assertion | A characterization test was pinning the dev machine's extension list. GitHub runners ship `imagick`; this one does not. |
+| 3 | frontend build | **UP-011.** A real production defect, broken on Linux since before the C5 audit. |
+| 4 | — | green |
 
-**To close:** add the frontend build step, then push once and read the result. This is the
-cheapest-to-close failing criterion and it also closes criterion 1.
+A CI file that has never run is a hypothesis. This one was wrong in three separate ways.
 
 ---
 
-## 6. Upstream merge rehearsal passes — 🟡 **PARTIAL**
+## 6. Upstream merge rehearsal passes — ✅ **MET** *(2026-08-18)*
 
 **Ran for the first time in the project's history on 2026-08-15**, against `upstream/main` =
 `800c29f` (40 ahead / 9 behind).
@@ -144,7 +149,12 @@ merge on a throwaway branch applied cleanly across 8 files with no `composer.jso
 config changes. UP-007's long-standing prediction that `laracasts/presenter` would be the likeliest
 conflict **did not materialise**.
 
-**Why not full:** the characterization suite on the merged tree is **47 of 48**. The failure is
+**Closed 2026-08-18:** the `merge-rehearsal` job is **green in CI** — clean merge, plus the full
+characterization suite *and* the package suite passing on the merged tree. The one test that was red
+below has been fixed (it was pinning the dev machine, not the application).
+
+**Historical note — why this was PARTIAL when first reviewed:** the characterization suite on the
+merged tree was **47 of 48**. The failure was
 `test_documents_defect_member_show_fails_on_missing_imagick`, red **because upstream fixed that
 defect** — `800c29f` rewrites `idcard.blade.php` and deletes the `format('png')` QR call. That is a
 documenting test behaving exactly as designed, but "the rehearsal passes" cannot be claimed over a
@@ -178,12 +188,12 @@ and it is the deliverable that makes the whole upgrade auditable.
 
 | # | Criterion | Verdict |
 |---|---|---|
-| 1 | Installs reproducibly / documented blocker | 🟡 Partial — never proven on a clean checkout |
+| 1 | Installs reproducibly / documented blocker | ✅ **Met 2026-08-18** — proven on a clean Ubuntu checkout |
 | 2 | **Critical behavior has characterization coverage** | ❌ **Not met — the real blocker** |
 | 3 | Package seam loads without changing behavior | ✅ **Met** |
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ Not met — owner review outstanding |
-| 5 | CI runs from a clean checkout | ❌ Not met — **has never executed** |
-| 6 | Upstream merge rehearsal passes | 🟡 Partial — merge clean, one documenting test red |
+| 5 | CI runs from a clean checkout | ✅ **Met 2026-08-18** — fully green incl. frontend build |
+| 6 | Upstream merge rehearsal passes | ✅ **Met 2026-08-18** — `merge-rehearsal` job green in CI |
 | 7 | Upgrade compatibility matrix reviewed | ❌ Not met — not assembled |
 
 ## The shortest path to a passing gate
@@ -205,3 +215,38 @@ day's work between them.
 while an earlier exit gate is incomplete, and WP 0C's own highest-risk items — the `usergroup_id`
 replacement across 33 files, the cascade-delete work, the `userprofiles` dedupe — are precisely the
 ones characterization coverage exists to make safe.
+
+---
+
+## Re-score, 2026-08-18 — what CI going green actually settled
+
+Run `32090487802`, both jobs, every step green.
+
+**Criterion 1 → MET.** `composer validate --strict`, `composer install` from the committed lockfile,
+`npm ci` and `npm run production` all succeed on a clean Ubuntu runner. "Reproducibly" now means
+demonstrated, not asserted.
+
+**Criterion 5 → MET.** CI executes and passes, and it now covers the frontend production build that
+WP 0A item 7 requires. It took four runs to get here, and each failure was real:
+
+| Run | Failure | What it was |
+|---|---|---|
+| 1 | 22 × `MissingAppKeyException` | CI wrote a DB-only `.env.testing`; it *replaces* `.env`, not merges |
+| 2 | 1 × imagick assertion | A characterization test was pinning the dev machine's extension list |
+| 3 | frontend build | **UP-011** — a real production defect, broken on Linux since before the C5 audit |
+| 4 | — | green |
+
+**Criterion 6 → MET.** `merge-rehearsal` passes in CI: clean merge against `800c29f`, plus the full
+characterization suite and the package suite green on the merged tree.
+
+## What still fails, and it is the same three
+
+- **2 — characterization coverage.** 4 of 11 suites. Unchanged, and still the long pole at 3–4
+  sessions.
+- **4 — `UPSTREAM.md` and ownership map reviewed.** Owner review; classify `RouteServiceProvider`;
+  fold in `phpunit.xml`. UP-007's "High" conflict risk should also be restated as the *measured*
+  clean result. Hours.
+- **7 — upgrade compatibility matrix.** Still not assembled. Compilation from existing material,
+  not investigation. Hours.
+
+Two of the three are a morning's work. Characterization is the gate.

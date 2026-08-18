@@ -847,7 +847,7 @@ WP 0C, which needs its own approval.
 
 | Field | Value |
 |---|---|
-| **Status** | **APPROVED and APPLIED 2026-08-18.** Owner approved 2026-08-18; directory renamed `Payaccount/` → `payaccount/` via a two-step `git mv`. |
+| **Status** | **CLOSED 2026-08-18.** Renamed `Payaccount/` → `payaccount/` via a two-step `git mv`; verified green in CI run `32090487802`, which is the first Linux `npm run production` success in this project. |
 | **Files** | `resources/assets/js/components/Payaccount/{Create,Edit,List}.vue` → `payaccount/` (upstream-owned) |
 | **Work package** | WP 0A item 7 (CI frontend build) — found by the gate, not by inspection |
 | **Disposition** | **`contribute`.** This is a pure defect fix, IFGF-neutral, and upstream is as broken by it as this fork. Same class as UP-003. |
@@ -884,8 +884,9 @@ defect while preserving it.
       direct case-only `git mv` is a silent no-op — it was done in two steps via an intermediate
       name. Verified with `git ls-files` (which records `payaccount/`), **not** a directory listing,
       which lies on Windows.
-- [ ] `npm run production` succeeds **in CI on Linux**, not locally. Local success proves nothing
-      here; that is precisely how this survived. *(pending the CI run for this commit)*
+- [x] `npm run production` succeeds **in CI on Linux** — run `32090487802`, 2026-08-18, step
+      "Build production frontend assets": success. **First time this build has ever passed on
+      Linux.** Local success would have proved nothing; that is precisely how this survived.
 - [x] No other case mismatch remains. Every live `require('./components/…')` in `app.js` was checked
       case-sensitively against `git ls-files`: **zero mismatches**, and **no capitalised component
       directory remains** (`Payaccount` was the only one, 34 lowercase to 1). The earlier `sermon`
