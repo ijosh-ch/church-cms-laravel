@@ -48,3 +48,43 @@
 
 # Generated Laravel bootstrap cache.
 /bootstrap/cache/
+
+# ---------------------------------------------------------------------------
+# 2026-08-18 — documentation and manifests. Measured at the a262771 rebuild the
+# graph spent its capacity on prose: package.json 116 nodes, a prayer-board
+# design .md 95, composer.json 82, PRD.md 80 — while app/Models/User.php, the
+# first real source file, had 48. Indexing PRD.md is actively counterproductive:
+# a query for an implementation returns the requirement text describing it.
+# Queries must return source. app/, custompackages/, database/migrations/,
+# routes/, config/ and tests/ are deliberately NOT excluded.
+
+# Agent scratch, design references and vendored reference code.
+/_ai/
+/_design_reference/
+/_code_reference/
+
+# Every root-level Markdown file — PRD.md, build.md, hosting.md, the inventories,
+# the plans, CONTEXT/MEMORY/TODO/CLAUDE/AGENTS/README/CONTRIBUTING, the install
+# guides. Nested .md (e.g. inside custompackages/) is unaffected.
+/*.md
+
+# One-off maintenance scripts, not application source.
+/tools/
+
+# Squashed schema dump — a generated snapshot of database/migrations/, which is
+# indexed. Indexing both duplicates every table twice.
+/database/schema/
+
+# Root dependency manifests and lockfiles. Not source, and the two manifests
+# alone were the #1 and #3 largest node clusters in the graph. Package-level
+# manifests under custompackages/ are kept — they identify the package.
+/package.json
+/package-lock.json
+/composer.json
+/composer.lock
+/yarn.lock
+
+# Graphify's own output directory. It was indexing itself — graphify-out/memory/
+# holds saved LLM query transcripts in Markdown, which is exactly the prose that
+# must not come back from a source query.
+/graphify-out/
