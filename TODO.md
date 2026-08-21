@@ -6,7 +6,7 @@
 
 **Active work package:** WP 0A closure · **Session:** 2026-08-21 — suites 9 and 11 characterized
 **Exit gate:** ❌ NOT PASSED — **4 of 7 met, 0 partial, 3 not met** (`WP0A_EXIT_GATE.md`), unchanged.
-Characterization is the only remaining *work* (60 of 80–120, 4 of 11 suites); 4 and 7 are one owner
+Characterization is the only remaining *work* (62 of 80–120, 4 of 11 suites); 4 and 7 are one owner
 reading session and the pack is written (`WP0A_OWNER_REVIEW.md`).
 **WP 0C must not begin** (`build.md` OPERATING CONTRACT 10). **`SCHEMA_SPEC.md` at the repo root is
 WP 0C material — untracked, do not action it.**
@@ -27,15 +27,15 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 ## Now
 
 1. **Characterization — 5 of 11 suites remain, 3 partial.** WP 0A item 6, gate 5. **The only thing
-   blocking the exit gate that costs real time** (2–3 sessions). Currently **60 characterization
-   tests** (71 total incl. package smoke) against a **80–120** target. Last full run 2026-08-21:
-   **71 passed, 238 assertions, 0 failed, 0 skipped, 2m41s.**
+   blocking the exit gate that costs real time** (2–3 sessions). Currently **62 characterization
+   tests** (73 total incl. package smoke) against a **80–120** target. Last full run 2026-08-21:
+   **73 passed, 250 assertions, 0 failed, 0 skipped, 2m41s**; package suite 3 passed, 10 assertions.
 
    **Not started:** 5 QR/card · 6 Groups · 7 Event management · 8 Birthday · 10 Queues.
    **Partial:** 1 Auth (owes password reset, email verification, session lifetime, throttling) ·
    3 Member profile (owes create/edit/delete/export behaviour) · 4 Attendance (owes `searchMember`,
    `removeAttendee`).
-   **Done 2026-08-21:** 9 Exports (11 tests) · 11 Private media (7 tests) · cross-cutting date-cast
+   **Done 2026-08-21:** 9 Exports (11 tests) · 11 Private media (9 tests) · cross-cutting date-cast
    regression (5 tests). Both PII surfaces are now covered.
 
    ⚠ **Suite 8 (birthday) depends on REG-001** — it derives from `Userprofile::date_of_birth`, one of
@@ -94,6 +94,8 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 | # | Decision |
 |---|---|
+| 2026-08-21 #2 | **SEC-003 fixed immediately** rather than left characterized — owner override of the standing capture-what-is method, once the endpoint was confirmed reachable by every sub-admin. **UP-012.** Two lines per file: type-hint `EditUserProfileImgRequest`, which already existed and was already wired to the API twin. |
+| 2026-08-21 #1 | **SEC-003 is stored XSS, NOT RCE.** The RCE rating came from `UploadedFile::fake()`, which derives MIME from the filename. Real PHP source is `text/x-php`, gets **no extension**, and cannot match a `\.php$` handler. `.svg`/`.html` are the real vector — served from `/storage/…` on the app's own origin. **Do not re-cite the RCE claim.** |
 | 2026-08-18 | **UP-011 applied and closed** — `Payaccount/` → `payaccount/`. First Linux `npm run production` success. |
 | 2026-08-15 | **Timestamps: UTC at rest.** PRD wins. Accepted cost: a 00:00–08:00 Taipei service files under the previous UTC day. Pinned by a `test_documents_*` test. UP-009. |
 | 2026-08-10 #1 | **QR: `format('svg')`.** No imagick anywhere. Needs UP-008. |
@@ -103,11 +105,11 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Decisions awaiting the owner
 
-- **SEC-003 (new 2026-08-21)** — `/admin/changeavatar` accepts **any** file type including `.php`,
-  unvalidated, extension preserved, onto a disk symlinked into the webroot. Deployment-dependent RCE;
-  `hosting.md` pins the webserver neither way. Reachable by every church admin and, via SEC-001, by
-  any `usergroup_id == 3` account. Pinned by
-  `PrivateMediaCharacterizationTest::test_documents_defect_avatar_upload_accepts_any_file_type_including_php`.
+- **SEC-003 residue (new 2026-08-21)** — the two avatar endpoints are fixed (UP-012), but
+  `Common::uploadFile()` has **47 call sites** and the rest are unvalidated and **unmeasured**.
+  Several take a plain `Request` the same way. Needs its own entry, and should be sized against
+  suite 11's finding that **no private disk exists at all** — an allow-list across 47 call sites is a
+  worse answer than moving member media off a public disk. **Measure before scoping.**
 - **REG-001 (new 2026-08-21)** — `protected $dates` was removed in Laravel 10; this app declares it
   on 37 models and **21 columns across 9 models silently return strings**. A WP 0B regression. The
   attendance CSV export has been dead since the upgrade because of it. Fix is mechanical (`$casts`,

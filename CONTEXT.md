@@ -6,18 +6,19 @@
 **Updated:** 2026-08-21 · **Session:** WP 0A closure Step 2 (characterization suites 9 and 11) ·
 **Work package:** WP 0A — item 6 and the exit gate remain. WP 0B complete.
 
-**Exit gate 2026-08-21: 4 of 7 met, 0 partial, 3 not met — UNCHANGED.** Criterion 2 moved 37 → 60
+**Exit gate 2026-08-21: 4 of 7 met, 0 partial, 3 not met — UNCHANGED.** Criterion 2 moved 37 → 62
 tests (4 of 11 suites) without crossing the line. Criteria 4 and 7 have their review pack
 (`WP0A_OWNER_REVIEW.md`, three decisions) and remain owner-gated. **Step 5 (merge to `ifgf/main`)
 correctly NOT performed.**
 
-**Test counts, 2026-08-21:** full `Feature` suite **71 passed, 238 assertions, 0 failed, 0 skipped**,
-2m41s. 60 characterization + 11 package smoke. Suites done: 2 roles+permissions, 4 attendance,
+**Test counts, 2026-08-21:** full `Feature` suite **73 passed, 250 assertions, 0 failed, 0 skipped**,
+2m41s. 62 characterization + 11 package smoke. Package suite 3 passed, 10 assertions. Suites done: 2 roles+permissions, 4 attendance,
 **9 exports**, **11 private media**, plus a cross-cutting date-cast regression file.
 
-**Three findings this session, characterized and NOT fixed — all need an owner decision:**
-**SEC-003** (`/admin/changeavatar` accepts any file type incl. `.php`, unvalidated, into a
-webroot-symlinked disk — deployment-dependent RCE), **REG-001** (`protected $dates` removed in
+**Three findings this session. SEC-003 was FIXED (UP-012); the other two are characterized, NOT
+fixed and need an owner decision:**
+**SEC-003** (`/admin/changeavatar` accepted any file type, unvalidated, into a webroot-symlinked
+disk — **FIXED same day, UP-012**; first rated RCE, corrected to **stored XSS** via `.svg`/`.html`), **REG-001** (`protected $dates` removed in
 Laravel 10; **21 columns across 9 models silently uncast**; a WP 0B regression that has left the
 attendance CSV export dead since the upgrade), and the **SEC-002 export extension** (the attendance
 export never consults `event_managers` either).
@@ -84,8 +85,8 @@ Registering it permanently needs elevation and is an open owner question.
   one squashed schema instead of replaying 93 migrations. The old ~8-minute-per-class figure
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
-- **Last recorded runs (2026-08-21):** full `tests/Feature` suite **71 passed, 238 assertions,
-  0 failed, 0 skipped, 2m41s**. **Coverage: 11 test files, 71 tests** — 60 characterization + 11
+- **Last recorded runs (2026-08-21):** full `tests/Feature` suite **73 passed, 250 assertions,
+  0 failed, 0 skipped, 2m41s**. **Coverage: 11 test files, 73 tests** — 62 characterization + 11
   package smoke. (Was 8 files / 48 tests / 37 characterization on 2026-08-18.)
   **Package's own suite** (runs independently of the application):
   `vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml` → **3 passed**,
@@ -236,7 +237,7 @@ permission.
 
 ## Known debt
 
-- **Characterization coverage is 60 tests against an 80–120 target, 4 of 11 suites.** WP 0A item 6 /
+- **Characterization coverage is 62 tests against an 80–120 target, 4 of 11 suites.** WP 0A item 6 /
   gate 5. Three Laravel majors were crossed without a behavioural baseline, and **REG-001 is the first
   proof that broke something** (21 date columns silently uncast). **Still the largest open risk and
   the reason WP 0A cannot close.** Eleven suites are specified in `TESTING_PLAN.md` Part 1.
@@ -333,7 +334,7 @@ Full assessment in **`WP0A_EXIT_GATE.md`**. **Re-scored 2026-08-21: 4 of 7 met, 
 | # | Criterion (`build.md` L227) | Verdict |
 |---|---|---|
 | 1 | Installs reproducibly / documented blocker | ✅ **met** — proven on a clean Ubuntu checkout |
-| 2 | **Critical behavior has characterization coverage** | ❌ **the real blocker** — 60 tests, 4 of 11 suites complete |
+| 2 | **Critical behavior has characterization coverage** | ❌ **the real blocker** — 62 tests, 4 of 11 suites complete |
 | 3 | Package seam loads without changing behavior | ✅ met |
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ review pack ready (`WP0A_OWNER_REVIEW.md`); owner review outstanding |
 | 5 | CI runs from a clean checkout | ✅ **met** — fully green incl. frontend build |

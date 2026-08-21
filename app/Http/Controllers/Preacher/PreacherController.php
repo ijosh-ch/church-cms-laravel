@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Preacher;
 
 use App\Http\Requests\ChangePasswordRequest;
+use App\Http\Requests\EditUserProfileImgRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
@@ -58,7 +59,7 @@ class PreacherController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function updatechangeavatar(Request $request)
+    public function updatechangeavatar(EditUserProfileImgRequest $request)
     {
         try {
             $user = User::where('id', Auth::id())->first();

@@ -14,7 +14,7 @@
 
 ## Part 1 — criterion 4: the `UPSTREAM.md` ledger, one line per entry
 
-Eleven entries. Columns are as recorded in `UPSTREAM.md`; the "what it changed / why" column is a
+Twelve entries. Columns are as recorded in `UPSTREAM.md`; the "what it changed / why" column is a
 compression, not a substitute for the entry.
 
 | # | What it changed | Why | Disposition | Conflict risk | Status |
@@ -114,9 +114,9 @@ Two ways to fix the inaccuracy:
 | Option | For | Against |
 |---|---|---|
 | **(a) Extend UP-005's Files row** and restate the conflict risk | Keeps one entry per *reason*; the file changed twice for the same reason (making the suite runnable) | Buries a WP 0A item-5 change inside a UP-005 entry that is about `phpspreadsheet` |
-| **(b) Give it UP-012 of its own** | The second change has a different cause (item 5, disposable DB) and a different risk profile — it is now a near-total rewrite of a file upstream also edits | Twelfth entry for a test-harness file |
+| **(b) Give it UP-013 of its own** | The second change has a different cause (item 5, disposable DB) and a different risk profile — it is now a near-total rewrite of a file upstream also edits | Twelfth entry for a test-harness file |
 
-**Recommendation: (b), UP-012.** The conflict risk genuinely changed — "three added `<env>` lines, no
+**Recommendation: (b), UP-013.** The conflict risk genuinely changed — "three added `<env>` lines, no
 removals" is Low; "31 lines removed" is not, and a reader deciding how to resolve a future conflict
 needs the accurate figure. **Approve (b), or prefer (a)?**
 
@@ -152,24 +152,24 @@ strength of the artifact alone.
 
 Relevant because both criteria's status depends on it.
 
-**Characterization: 37 → 60 tests** (71 total including the 11 package smoke tests). Full `Feature`
-suite green: **71 passed, 238 assertions, 0 failed, 0 skipped**, 2m41s.
+**Characterization: 37 → 62 tests** (73 total including the 11 package smoke tests). Full `Feature`
+suite green: **73 passed, 250 assertions, 0 failed, 0 skipped**, 2m41s. Package suite 3/10.
 
 Two suites closed, both PII-bearing and both previously uncharacterized:
 
 - **Suite 9, exports** — 11 tests. Found: `/admin/export` is a dead route (missing `index()`); two
   routes collide on that URI and the subscriber export loses silently; an empty result set emits the
   CSV **and then** 500s on an unset variable; the CSV never travels in the Laravel response at all.
-- **Suite 11, private media** — 7 tests. Found: **there is no private media.** Every disk is public,
+- **Suite 11, private media** — 9 tests. Found: **there is no private media.** Every disk is public,
   the `uploads` disk is rooted at `public_path()`, no signed or temporary URL exists anywhere, and
   member-photo privacy rests entirely on filename entropy.
 
-**Three new findings need your decision. They are characterized, not fixed** — fixing and
-characterizing in one pass destroys the baseline.
+**Three new findings. SEC-003 was fixed the same day by owner direction (UP-012); the other two are
+characterized, not fixed** — fixing and characterizing in one pass destroys the baseline.
 
 | ID | Finding | Why it matters here |
 |---|---|---|
-| **SEC-003** | `/admin/changeavatar` accepts **any** file type including `.php`, unvalidated, preserving the extension, onto a disk symlinked into the webroot | Deployment-dependent RCE. `hosting.md` does not pin the webserver config either way. Reachable by any church admin, and via SEC-001 by any `usergroup_id == 3` account with no permissions |
+| **SEC-003** — **FIXED same day, UP-012** | `/admin/changeavatar` (and the Preacher twin) accepted **any** file type, unvalidated. **First rated RCE — that was wrong.** Real PHP content stores extensionless; the genuine vector was **stored XSS** via `.svg`/`.html` served from the app's own origin | Fixed by owner direction 2026-08-21: type-hint the FormRequest that already existed. The severity correction is the durable lesson — `UploadedFile::fake()` derives MIME from the filename and cannot settle a file-type question |
 | **REG-001** | `protected $dates` (removed in Laravel 10) leaves **21 columns across 9 models** returning strings | An upgrade regression introduced by WP 0B. Directly relevant to criterion 7 §7 item 1 and to UP-007's status |
 | **SEC-002 extension** | The attendance **export** never consults `event_managers` either — assigned and unassigned leaders get identical outcomes | Widens a known finding onto the PII egress surface |
 
@@ -180,7 +180,7 @@ characterizing in one pass destroys the baseline.
 - **▶ D1** — approve the two UP-007 restatements (measured conflict risk; partial verification)?
 - **▶ D2** — classify `RouteServiceProvider.php` as `monitor` (unmodified, authorization-critical),
   or insist on a UP-nnn entry?
-- **▶ D3** — `phpunit.xml`: new **UP-012** (recommended), or extend UP-005?
+- **▶ D3** — `phpunit.xml`: new **UP-013** (recommended), or extend UP-005? *(Renumbered from UP-012, which was taken on 2026-08-21 by the SEC-003 fix.)*
 
 **And then the criterion verdicts, which are yours alone:**
 

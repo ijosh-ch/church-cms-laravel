@@ -6,6 +6,7 @@ use App\Http\Resources\API\Country as CountryResource;
 use App\Http\Resources\API\State as StateResource;
 use App\Http\Resources\API\City as CityResource;
 use App\Http\Requests\ChangePasswordRequest;
+use App\Http\Requests\EditUserProfileImgRequest;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -62,7 +63,7 @@ class UserProfileController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function updatechangeavatar(Request $request)
+    public function updatechangeavatar(EditUserProfileImgRequest $request)
     {
         try
         {

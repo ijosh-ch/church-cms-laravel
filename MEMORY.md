@@ -6,11 +6,11 @@
 
 ---
 
-## 2026-08-21 — Session 8 — Suites 9 and 11 characterized; three new findings; 37 → 60 tests
+## 2026-08-21 — Session 8 — Suites 9 and 11 characterized; SEC-003 found, mis-rated, fixed; 37 → 62 tests
 
 **Outcome:** the two wholly-uncharacterized PII surfaces are now covered. Characterization went
-**37 → 60 tests**; the full `Feature` suite is **71 passed, 238 assertions, 0 failed, 0 skipped**
-(2m41s), up from 48/109. Suites complete: **4 of 11**. The exit gate is **unchanged at 4 of 7** —
+**37 → 62 tests**; the full `Feature` suite is **73 passed, 250 assertions, 0 failed, 0 skipped**
+(2m41s), up from 48/109; package suite 3 passed, 10 assertions. Suites complete: **4 of 11**. The exit gate is **unchanged at 4 of 7** —
 criterion 2 moved a long way but is not met, and 4 and 7 still need the owner. **Step 4 (merge to
 `ifgf/main`) was correctly NOT performed** — it is gated on both.
 
@@ -22,22 +22,25 @@ criterion 2 moved a long way but is not met, and 4 and 7 still need the owner. *
 | `ExportCharacterizationTest` alone | 11 passed, 49 assertions, first run, **zero correction** |
 | `DateCastRegressionCharacterizationTest` alone | 5 passed, 50 assertions, first run, **zero correction** |
 | `PrivateMediaCharacterizationTest` alone | 7 passed, 30 assertions — **1 failure on first run**, see below |
-| **Full `Feature` suite, end of session** | **71 passed, 238 assertions, 0 failed, 0 skipped, 2m41s** |
+| Full `Feature` suite, mid-session | 71 passed, 238 assertions, 0 failed, 0 skipped, 2m41s |
+| `PrivateMediaCharacterizationTest` after the SEC-003 fix | 9 passed, 42 assertions |
+| **Full `Feature` suite, end of session** | **73 passed, 250 assertions, 0 failed, 0 skipped, 2m41s** |
+| **Package suite** | **3 passed, 10 assertions** |
 
-Characterization tests: **60** (71 minus the 11 package smoke tests). Target 80–120.
+Characterization tests: **62** (73 minus the 11 package smoke tests). Target 80–120.
 
-**Three new findings — characterized, NOT fixed. All need an owner decision.**
+**Three new findings. SEC-003 was FIXED the same day by owner direction (UP-012); the other two
+are characterized, NOT fixed and need an owner decision.**
 
-- **SEC-003 — `/admin/changeavatar` is an unrestricted file upload.**
-  `UserProfileController::updatechangeavatar()` takes a plain `Request`, calls no `validate()`, uses
-  no FormRequest, and hands `$request->avatar` to `Common::uploadFile()` = `Storage::disk('public')
-  ->putFile()`, which **preserves the submitted extension**. Measured: `.php`, `.zip` and `.txt` all
-  upload with a 200. `public/storage` is a live symlink to `storage/app/public`, so the file lands
-  **inside the webroot**. Whether it EXECUTES is webserver-dependent — a php-fpm block matching
-  `\.php$` across the docroot would run it — and `hosting.md` pins neither way. That makes it a
-  **deployment-dependent RCE**. Reachable by every church admin (the route sits in `routes/admin.php`
-  behind `['web','auth','churchadmin']` but inside **no** permission group), and via SEC-001 by any
-  `usergroup_id == 3` account holding nothing at all.
+- **SEC-003 — the avatar endpoints accepted ANY file type. FIXED, UP-012.** Both
+  `Admin\UserProfileController::updatechangeavatar()` and the Preacher twin took a plain
+  `Request`, called no `validate()` and used no FormRequest. Reachable by every church admin (the
+  route is in `routes/admin.php` behind `['web','auth','churchadmin']` but inside **no** permission
+  group) and, via SEC-001, by any `usergroup_id == 3` account holding nothing.
+  **I RATED IT RCE AND THAT WAS WRONG — see the first lesson below.** The real vector was
+  **stored XSS**. Fixed by type-hinting `EditUserProfileImgRequest`, which **already existed**
+  with the right rule and was **already wired to the API twin** — it had simply never been
+  attached to the two web endpoints. Two lines per file; nothing new written.
 - **REG-001 — `protected $dates` is inert, and 21 date columns across 9 models silently return
   strings.** The property was removed in **Laravel 10**; this application declares it on **37 models**
   and was carried 10 → 13 by WP 0B. `Illuminate\Database\Eloquent\Model` no longer defines it, nothing
@@ -53,6 +56,33 @@ Characterization tests: **60** (71 minus the 11 package smoke tests). Target 80�
   outcomes. Church isolation does work (403) and is asserted on the other side.
 
 **Learned — carry forward**
+
+- 🔴 **THE BIG ONE: `UploadedFile::fake()` DERIVES ITS MIME TYPE FROM THE FILENAME, so it
+  cannot settle any question about file-type handling — and it inflated SEC-003 into a false RCE
+  rating.** I reported a deployment-dependent remote code execution because a fake upload stored
+  `shell.php` as `.php`. Re-measured with a real `UploadedFile` built from real bytes:
+
+  | Upload | Detected MIME | `guessExtension()` | Stored as |
+  |---|---|---|---|
+  | `UploadedFile::fake()` named `shell.php` | `application/x-php` | `php` | `….php` ← **the harness** |
+  | real PHP source, named `shell.php` | `text/x-php` | *(empty)* | **no extension** |
+  | real PHP source, named `shell.jpg` | `text/x-php` | *(empty)* | **no extension** |
+  | real SVG with `<script>` | `image/svg+xml` | `svg` | `….svg` ← **the real vector** |
+  | real HTML with `<script>` | `text/html` | `html` | `….html` ← **the real vector** |
+
+  `Storage::putFile()` names via `hashName()`, which appends `guessExtension()` — derived from
+  the **detected MIME**, never the client filename. PHP source lands extensionless and could never
+  match a `\.php$` handler. **The fourth time this project has asserted against the harness instead
+  of the application, and the first time it inflated a severity rating rather than merely costing a
+  commit.** Rule: **a fake file is for convenience, never for a security conclusion. When the answer
+  depends on file CONTENT, construct a real `UploadedFile` from real bytes.**
+- **Laravel's `image` validation rule ALLOWS SVG** (`ValidatesAttributes` excludes it only without
+  `allow_svg`). SVG is the classic stored-XSS carrier, so `image` is the wrong rule for an avatar.
+  **Use an explicit `mimes:` allow-list, and do not let anyone “simplify” it back.**
+- **Look for the control before building one.** SEC-003's fix was two lines because
+  `EditUserProfileImgRequest` already existed with the correct rule and was already wired to the
+  API twin. The defect was not a missing control — it was a control **not connected** to two of its
+  three call sites. Grep for an existing FormRequest before writing validation.
 
 - **The single most valuable thing found today came from a fixture that looked broken.** The
   attendance export 500'd with `Call to a member function format() on string`. The tempting reading
@@ -110,6 +140,11 @@ Characterization tests: **60** (71 minus the 11 package smoke tests). Target 80�
   10 Queues. **3 partial:** 1 Auth (password reset, email verification, session lifetime,
   throttling), 3 Member profile (create/edit/delete/export behaviour), 4 Attendance (`searchMember`,
   `removeAttendee`). At 60 of 80–120, criterion 2 is **not met**.
+- **SEC-003's blast radius is NOT closed.** The two avatar endpoints are fixed;
+  `Common::uploadFile()` has **47 call sites** and the rest are unvalidated and unmeasured. Several
+  take a plain `Request` the same way. That needs its own entry, and it should be sized against
+  suite 11's finding that **no private disk exists at all** — an allow-list across 47 call sites is a
+  worse answer than moving member media off a public disk.
 - **Criteria 4 and 7 remain owner-gated.** `WP0A_OWNER_REVIEW.md` was written this session to make
   that one sitting possible; it asks three explicit decisions (D1 UP-007 restatements, D2
   `RouteServiceProvider` classification, D3 `phpunit.xml` entry) and **deliberately marks neither

@@ -43,12 +43,40 @@ use Tests\TestCase;
  * is a materially different risk from a stale dependency, and it had never been
  * measured.
  *
- * ══ SEC-003 IS RECORDED HERE ══
+ * ══ SEC-003 — FOUND, MIS-SIZED, RE-MEASURED, THEN FIXED (all on 2026-08-21) ══
  *
- * test_documents_defect_avatar_upload_accepts_any_file_type_including_php is a NEW
- * finding from this session. It is characterized, NOT fixed — fixing and
- * characterizing in one pass destroys the baseline. It needs an owner decision; see
- * MEMORY.md 2026-08-21.
+ * The avatar endpoint accepted ANY file type with no validation whatsoever. Found this
+ * session, and **fixed the same day by owner direction** rather than left characterized
+ * — so the tests below assert the FIXED behaviour, not a defect.
+ *
+ * ⚠ READ THIS BEFORE TRUSTING ANY UPLOAD ASSERTION — IT COST A WRONG SEVERITY RATING.
+ *
+ * The finding was first reported as a deployment-dependent **RCE**, on the strength of a
+ * test using `UploadedFile::fake()->createWithContent('shell.php', ...)`, which stored
+ * the file as `.php`. THAT WAS THE HARNESS, NOT THE APPLICATION:
+ *
+ *   UploadedFile::fake()  -> mime application/x-php -> guessExtension 'php'  -> stored .php
+ *   a REAL upload         -> mime text/x-php        -> guessExtension ''     -> stored with
+ *                                                                              NO EXTENSION
+ *
+ * `Storage::putFile()` names files with `hashName()`, which derives the extension from the
+ * **detected MIME type**, never from the client filename. Real PHP content has no
+ * extension mapping in Symfony's MimeTypes, so it landed extensionless and could never
+ * have matched a `\.php$` handler. A PHP file *named* `.jpg` landed extensionless too.
+ *
+ * THE REAL VECTOR WAS STORED XSS, and it was genuine: `.svg` stored as `.svg` and
+ * `.html`/`.xhtml` stored as `.html`, both served from `/storage/…` on the application's
+ * OWN ORIGIN. An SVG carrying `<script>` executes when navigated to.
+ *
+ * This is the fourth time this project has asserted against the harness instead of the
+ * application, and the first time the error inflated a severity rating rather than
+ * merely wasting a commit. **Fakes are for convenience, not for security conclusions —
+ * construct a real UploadedFile from real bytes when the answer depends on file content.**
+ *
+ * ⚠ AND: Laravel's `image` validation rule ALLOWS SVG (ValidatesAttributes line ~1535
+ * excludes it only without `allow_svg`). The fix therefore uses an explicit
+ * `mimes:jpg,jpeg,png,bmp,webp` list. **Do not "simplify" it to `image`** — that would
+ * silently reopen the one vector that actually existed.
  */
 class PrivateMediaCharacterizationTest extends TestCase
 {
@@ -212,67 +240,136 @@ class PrivateMediaCharacterizationTest extends TestCase
     }
 
     /**
-     * DOCUMENTS DEFECT (SEC-003, found 2026-08-21) — the avatar endpoint accepts ANY
-     * file type, including .php, and preserves the extension.
+     * SEC-003 FIXED — the avatar endpoint now rejects every non-image type.
      *
-     * UserProfileController::updatechangeavatar() takes a plain Request, calls no
-     * validate(), uses no FormRequest, and passes $request->avatar straight to
-     * Common::uploadFile(), which is Storage::disk('public')->putFile(). putFile
-     * keeps the submitted extension. MEASURED: .php, .zip and .txt all upload with a
-     * 200 and are written to storage/app/public/uploads/avatars/.
+     * `UserProfileController::updatechangeavatar()` took a plain `Request`, called no
+     * `validate()` and used no FormRequest. It now type-hints
+     * `App\Http\Requests\EditUserProfileImgRequest`, which ALREADY EXISTED with exactly
+     * the right rule (`mimes:jpg,jpeg,png,bmp,webp`) and was already wired to the API
+     * twin `Api\UserprofileController::updateprofileImg()` — it had simply never been
+     * attached to the two web endpoints. Recorded as **UP-012**.
      *
-     * WHY IT MATTERS: public/storage is a symlink to storage/app/public, so that
-     * directory IS inside the webroot. Whether an uploaded .php file EXECUTES depends
-     * on the webserver — a php-fpm location block matching \.php$ across the docroot
-     * would run it; a rule that only routes /index.php would not. THAT MAKES THIS A
-     * DEPLOYMENT-DEPENDENT REMOTE CODE EXECUTION RISK, and hosting.md does not
-     * currently pin the webserver configuration either way.
+     * Rejection is **302 back with an error bag**, not 422, because these are web form
+     * posts rather than JSON requests.
      *
-     * REACHABILITY: /admin/changeavatar sits in routes/admin.php behind
-     * ['web','auth','churchadmin'] but inside NO permission group — so every church
-     * admin and sub-admin account can reach it, and via SEC-001 so can any
-     * usergroup_id == 3 account with no permissions at all.
+     * Every case below is built from REAL BYTES via a real `UploadedFile`, never
+     * `UploadedFile::fake()` — see the class docblock for why that distinction cost a
+     * severity rating.
      *
-     * CHARACTERIZED, NOT FIXED, per the standing method. It needs an owner decision:
-     * the fix is a mimetype/extension allow-list plus forcing the stored extension,
-     * and it belongs in its own commit with its own UPSTREAM.md entry because
-     * UserProfileController and Common are both upstream-owned files.
+     * `shell.jpg` carrying PHP source is the case that matters most: it proves the rule
+     * checks the DETECTED MIME TYPE and not the client-supplied filename.
      *
-     * NOTHING IS WRITTEN TO THE REAL WEBROOT BY THIS TEST — Storage::fake('public')
-     * redirects the disk into a temporary directory first.
+     * NOTHING IS WRITTEN TO THE REAL WEBROOT — Storage::fake('public') redirects the
+     * disk into a temporary directory first.
      */
-    public function test_documents_defect_avatar_upload_accepts_any_file_type_including_php(): void
+    public function test_avatar_upload_rejects_every_non_image_type(): void
+    {
+        $actor = $this->memberActor();
+
+        $rejected = [
+            'svg carrying a script' => ['x.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'],
+            'html carrying a script' => ['x.html', '<html><script>alert(1)</script></html>'],
+            'php source' => ['shell.php', "<?php echo 'characterization only';"],
+            'php source NAMED .jpg' => ['shell.jpg', "<?php echo 'characterization only';"],
+            'plain text' => ['note.txt', 'plain text'],
+        ];
+
+        foreach ($rejected as $label => [$filename, $bytes]) {
+            Storage::fake('public');
+            DB::table('userprofiles')->where('user_id', $actor->id)->update(['avatar' => null]);
+
+            $response = $this->actingAs($actor)->post('/admin/changeavatar', [
+                'avatar' => $this->realUpload($filename, $bytes),
+            ]);
+
+            $this->assertSame(
+                302,
+                $response->getStatusCode(),
+                "SEC-003 HAS REGRESSED: {$label} was accepted. Check that "
+                .'updatechangeavatar() still type-hints EditUserProfileImgRequest and that '
+                ."the rule is still an explicit mimes: list — Laravel's `image` rule "
+                .'permits SVG, which is the one vector that actually existed.'
+            );
+
+            $this->assertNull(
+                DB::table('userprofiles')->where('user_id', $actor->id)->value('avatar'),
+                "SEC-003 HAS REGRESSED: {$label} was written to the profile."
+            );
+            $this->assertEmpty(
+                Storage::disk('public')->allFiles(),
+                "SEC-003 HAS REGRESSED: {$label} reached the disk even though the request "
+                .'was rejected.'
+            );
+        }
+    }
+
+    /**
+     * The control on the other side of the SEC-003 fix: a genuine image still uploads.
+     *
+     * Without this, the rejection test above would pass just as happily on an endpoint
+     * that had been broken outright.
+     */
+    public function test_avatar_upload_still_accepts_a_real_image(): void
     {
         Storage::fake('public');
         $actor = $this->memberActor();
 
-        foreach ([
-            'payload.php' => '<?php /* characterization only */ ?>',
-            'archive.zip' => "PK\x03\x04",
-            'note.txt' => 'plain text',
-        ] as $filename => $contents) {
-            $response = $this->actingAs($actor)->post('/admin/changeavatar', [
-                'avatar' => UploadedFile::fake()->createWithContent($filename, $contents),
-            ]);
+        $png = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+        );
 
-            $this->assertSame(
-                200,
-                $response->getStatusCode(),
-                "Uploading {$filename} is now rejected. IF VALIDATION WAS ADDED, SEC-003 "
-                .'is fixed — replace this test with one asserting the 422 and confirm the '
-                .'stored extension is forced, not merely checked.'
-            );
+        $response = $this->actingAs($actor)->post('/admin/changeavatar', [
+            'avatar' => $this->realUpload('face.png', $png),
+        ]);
 
-            $stored = (string) DB::table('userprofiles')->where('user_id', $actor->id)->value('avatar');
-            $this->assertSame(
-                pathinfo($filename, PATHINFO_EXTENSION),
-                pathinfo($stored, PATHINFO_EXTENSION),
-                "The submitted extension for {$filename} is no longer preserved. If the "
-                .'extension is now forced to an image type, SEC-003 is mitigated even '
-                .'without validation — re-baseline.'
-            );
-            Storage::disk('public')->assertExists($stored);
-        }
+        $this->assertSame(
+            200,
+            $response->getStatusCode(),
+            'A real PNG is now rejected. The SEC-003 fix has been tightened too far — '
+            .'members cannot change their avatar at all.'
+        );
+
+        $stored = (string) DB::table('userprofiles')->where('user_id', $actor->id)->value('avatar');
+        $this->assertStringStartsWith('uploads/avatars/', $stored);
+        $this->assertSame('png', pathinfo($stored, PATHINFO_EXTENSION));
+        Storage::disk('public')->assertExists($stored);
+    }
+
+    /**
+     * DOCUMENTS that the stored extension is derived from the DETECTED MIME TYPE, never
+     * from the client filename — the fact that made SEC-003 stored-XSS rather than RCE.
+     *
+     * `Storage::putFile()` names via `hashName()`, which appends `guessExtension()`.
+     * Real PHP source is `text/x-php`, which has no extension mapping, so it would have
+     * been stored with NO extension and could not have matched a `\.php$` handler. This
+     * is asserted at the storage layer rather than through the endpoint because the
+     * endpoint now rejects the file before it gets there — the property is what bounded
+     * the severity, so it is worth pinning independently of the fix that supersedes it.
+     */
+    public function test_documents_stored_extension_comes_from_detected_mime_not_filename(): void
+    {
+        Storage::fake('public');
+
+        $phpAsJpg = Storage::disk('public')->putFile(
+            'probe', $this->realUpload('shell.jpg', "<?php echo 'x';")
+        );
+        $this->assertSame(
+            '',
+            pathinfo($phpAsJpg, PATHINFO_EXTENSION),
+            'PHP source uploaded as shell.jpg now stores WITH an extension. If that '
+            .'extension is ever "php", SEC-003 becomes an RCE rather than stored XSS — '
+            .'re-rate it immediately.'
+        );
+
+        $svg = Storage::disk('public')->putFile(
+            'probe', $this->realUpload('x.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>')
+        );
+        $this->assertSame(
+            'svg',
+            pathinfo($svg, PATHINFO_EXTENSION),
+            'SVG no longer stores as .svg. This was the real SEC-003 vector — served from '
+            .'/storage/ on the application origin — so confirm what changed.'
+        );
     }
 
     /**
@@ -326,6 +423,24 @@ class PrivateMediaCharacterizationTest extends TestCase
             'settings.sitetitle' => 'Characterization Church',
             'settings.sitename' => 'Characterization Church',
         ]);
+    }
+
+    /**
+     * A REAL UploadedFile built from real bytes, so MIME detection sees actual content.
+     *
+     * `UploadedFile::fake()` derives its MIME from the FILENAME, which makes it useless —
+     * and actively misleading — for any assertion about file-type handling. See the class
+     * docblock: that shortcut produced a wrong RCE rating on 2026-08-21.
+     */
+    private function realUpload(string $filename, string $bytes): UploadedFile
+    {
+        $dir = sys_get_temp_dir().'/ifgf-upload-'.uniqid();
+        mkdir($dir);
+        $path = $dir.'/'.$filename;
+        file_put_contents($path, $bytes);
+
+        // test: true — behave as a real upload without requiring an actual POST.
+        return new UploadedFile($path, $filename, null, null, true);
     }
 
     private function makeChurch(string $name): int

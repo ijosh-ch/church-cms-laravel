@@ -10,7 +10,7 @@
 
 **Re-scored 2026-08-21: 4 of 7 criteria met, 0 partial, 3 not met — UNCHANGED from 2026-08-18.**
 
-Criterion 2 moved a long way without crossing the line (37 → 60 characterization tests, 2 → 4 of 11
+Criterion 2 moved a long way without crossing the line (37 → 62 characterization tests, 2 → 4 of 11
 suites complete) and criterion 7's owner-review pack now exists, but **no criterion changed verdict**.
 Criteria 1, 5 and 6 remain met from the 2026-08-18 CI run `32090487802`.
 
@@ -60,8 +60,8 @@ half.
 
 | | 2026-08-18 | **2026-08-21** |
 |---|---|---|
-| Characterization tests | 37 | **60** |
-| Full `Feature` suite | 48 passed / 109 assertions | **71 passed / 238 assertions / 0 failed / 0 skipped** |
+| Characterization tests | 37 | **62** |
+| Full `Feature` suite | 48 passed / 109 assertions | **73 passed / 250 assertions / 0 failed / 0 skipped** |
 | Target (`TESTING_PLAN.md` Part 1) | 80–120 | **80–120** |
 | Suites complete | 2 of 11 | **4 of 11** (roles+permissions, attendance, **exports**, **private media**) |
 | Suites partial | 2 | **3** (auth, member profile, attendance) |
@@ -73,13 +73,13 @@ throttling; member profile owes create/edit/delete/export behaviour beyond rende
 attendance owes `searchMember` and `removeAttendee`.
 
 **Closed 2026-08-21 — the two PII-bearing surfaces.** Suite 9 (exports, 11 tests) and suite 11
-(private media, 7 tests) were the two named as *wholly uncharacterized and both touching member PII*,
+(private media, 9 tests) were the two named as *wholly uncharacterized and both touching member PII*,
 which is why they were taken first. A cross-cutting regression file (5 tests) was added alongside
 them.
 
 **Why this matters more than the count suggests.** WP 0B crossed three Laravel majors with no
 behavioural baseline, by explicit owner directive mid-session (`MEMORY.md` 2026-08-10). The entire
-purpose of this criterion is to retire that risk. **At 60 tests it is reduced, not retired** — and as
+purpose of this criterion is to retire that risk. **At 62 tests it is reduced, not retired** — and as
 of 2026-08-21 that is no longer a cautious phrasing but a measured one: REG-001 below is a
 behavioural regression the traversal introduced, found by two of the four suites that exist. The
 five that do not exist have not been looked at.
@@ -90,13 +90,18 @@ AUTH-001 (registration live although disabled), WP 0C item 3 (`userprofiles` per
 rows), and as of 2026-08-21 **SEC-003**, **REG-001** and the **SEC-002 export extension** below. None
 were visible from reading the code. The method is working; there simply is not enough of it yet.
 
-**The three findings of 2026-08-21, characterized and NOT fixed:**
+**The three findings of 2026-08-21. SEC-003 was FIXED the same day by owner direction; the other
+two are characterized and NOT fixed:**
 
-- **SEC-003 — `/admin/changeavatar` is an unrestricted file upload.** No `validate()`, no FormRequest;
-  `.php`, `.zip` and `.txt` all upload with a 200 and the submitted extension is preserved, onto a
-  disk symlinked into the webroot. Whether it executes is webserver-dependent and `hosting.md` pins
-  neither way — a **deployment-dependent RCE**. Reachable by every church admin, and via SEC-001 by
-  any `usergroup_id == 3` account holding nothing.
+- **SEC-003 — `/admin/changeavatar` was an unrestricted file upload. FIXED 2026-08-21 (UP-012).**
+  No `validate()`, no FormRequest; every file type uploaded with a 200, onto a disk symlinked into
+  the webroot, reachable by every church admin and via SEC-001 by any `usergroup_id == 3` account.
+  **It was first rated a deployment-dependent RCE and that rating was WRONG** — it came from
+  `UploadedFile::fake()`, which derives MIME from the filename. A real upload of PHP source is
+  detected `text/x-php`, gets **no extension**, and could never match a `\.php$` handler. The genuine
+  vector was **stored XSS**: `.svg` and `.html` are stored under their real extensions and served
+  from `/storage/…` on the application's own origin. Fixed by owner direction by type-hinting
+  `EditUserProfileImgRequest`, which already existed and was already wired to the API twin.
 - **REG-001 — `protected $dates` was removed in Laravel 10 and this application declares it on 37
   models.** 21 date columns across 9 models silently return strings, including
   `EventAttendanceSession::attendance_date`, `EventAttendee::scanned_at` and
@@ -263,7 +268,7 @@ reviewed" needs an X that exists**, and this one had been quietly treated as sat
 | # | Criterion | Verdict (2026-08-21) |
 |---|---|---|
 | 1 | Installs reproducibly / documented blocker | ✅ **Met 2026-08-18** — proven on a clean Ubuntu checkout |
-| 2 | **Critical behavior has characterization coverage** | ❌ **Not met — still the real blocker.** 60 of 80–120; 4 of 11 suites |
+| 2 | **Critical behavior has characterization coverage** | ❌ **Not met — still the real blocker.** 62 of 80–120; 4 of 11 suites |
 | 3 | Package seam loads without changing behavior | ✅ **Met** |
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ Not met — review pack ready, owner review outstanding |
 | 5 | CI runs from a clean checkout | ✅ **Met 2026-08-18** — fully green incl. frontend build |
@@ -332,10 +337,10 @@ characterization suite and the package suite green on the merged tree.
 
 **No criterion changed verdict. The gate remains 4 of 7 met, 3 not met, ❌ NOT PASSED.**
 
-**Criterion 2 — moved substantially, still NOT MET.** 37 → 60 characterization tests; full `Feature`
-suite 48/109 → **71 passed, 238 assertions, 0 failed, 0 skipped**. Suites complete 2 → 4 of 11. The
+**Criterion 2 — moved substantially, still NOT MET.** 37 → 62 characterization tests; full `Feature`
+suite 48/109 → **73 passed, 250 assertions, 0 failed, 0 skipped**. Suites complete 2 → 4 of 11. The
 two surfaces closed were the two named as wholly uncharacterized and PII-bearing, which is why they
-were taken ahead of the medium-priority ones. **60 against a target of 80–120 is not coverage; it is
+were taken ahead of the medium-priority ones. **62 against a target of 80–120 is not coverage; it is
 more coverage.**
 
 **Criteria 4 and 7 — the review pack exists; the review does not.** `WP0A_OWNER_REVIEW.md` reduces
@@ -352,8 +357,8 @@ supporting claims decay too, not just its verdict. Both premises were reasonable
 neither had been checked against `git diff`. **Measure before classifying.**
 
 **What the new coverage found — and why it argues the remaining 5 suites are not a formality.**
-Three findings, all characterized and none fixed: **SEC-003** (unrestricted file upload into the
-webroot, deployment-dependent RCE), **REG-001** (`protected $dates` inert since Laravel 10; 21
+Three findings. **SEC-003** (unrestricted file upload; first mis-rated RCE, actually stored XSS —
+**fixed the same day, UP-012**), **REG-001** (`protected $dates` inert since Laravel 10; 21
 columns across 9 models silently uncast), and the **SEC-002 export extension**.
 
 REG-001 is the one that bears on the gate. It is **the first demonstrated case of WP 0B's 10 → 13

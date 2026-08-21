@@ -902,6 +902,106 @@ class is not exhausted — anything resolved by string path at build or autoload
 
 ---
 
+### UP-012 — SEC-003: the avatar upload endpoints accept any file type (stored XSS)
+
+| Field | Value |
+|---|---|
+| **Status** | **applied and verified 2026-08-21**, by owner direction on the day it was found |
+| **Files** | `app/Http/Controllers/Admin/UserProfileController.php` (upstream-owned), `app/Http/Controllers/Preacher/PreacherController.php` (upstream-owned). Two lines each: an import and a type-hint. **No new file, and `app/Http/Requests/EditUserProfileImgRequest.php` is UNCHANGED.** |
+| **Work package** | 0A, arising from item 6 (characterization suite 11) |
+| **Disposition** | `contribute` — a pure defect fix, IFGF-neutral, and upstream is exactly as exposed. Same class as UP-003 and UP-011. |
+| **Conflict risk** | **Low.** Two single-line changes per file (one `use`, one parameter type). Both controllers are edited rarely by upstream, and a conflict would be trivially resolvable. |
+
+**Problem**
+
+`Admin\UserProfileController::updatechangeavatar()` and `Preacher\PreacherController::updatechangeavatar()`
+both took a plain `Illuminate\Http\Request`, called no `validate()`, used no FormRequest, and passed
+`$request->avatar` straight to `Common::uploadFile()` — i.e. `Storage::disk('public')->putFile()`.
+**Any file type uploaded with a 200.**
+
+The destination is inside the webroot: `public/storage` is a live symlink to `storage/app/public`,
+and the `public` disk is `'visibility' => 'public'`. So an uploaded file is served directly by the
+webserver, unauthenticated, with no PHP in the request path.
+
+Reachable by **every church admin and sub-admin** — `/admin/changeavatar` sits in `routes/admin.php`
+behind `['web','auth','churchadmin']` but inside **no permission group** — and therefore, via
+**SEC-001**, by any `usergroup_id == 3` account holding no permissions at all.
+
+**Severity — first rated wrong, corrected the same day. Read this before citing it.**
+
+It was initially reported as a deployment-dependent **remote code execution**, because a test using
+`UploadedFile::fake()->createWithContent('shell.php', …)` stored the file as `.php`. **That measured
+the harness, not the application.** `Storage::putFile()` names files with `hashName()`, which derives
+the extension from the **detected MIME type** and never from the client filename:
+
+| Upload | Detected MIME | `guessExtension()` | Stored as |
+|---|---|---|---|
+| `UploadedFile::fake()` named `shell.php` | `application/x-php` | `php` | `….php` ← **the harness** |
+| real PHP source, named `shell.php` | `text/x-php` | *(empty)* | `…` **no extension** |
+| real PHP source, named `shell.jpg` | `text/x-php` | *(empty)* | `…` **no extension** |
+| GIF-magic + PHP polyglot | `image/gif` | `gif` | `….gif` |
+| real SVG with `<script>` | `image/svg+xml` | `svg` | `….svg` ← **the real vector** |
+| real HTML with `<script>` | `text/html` | `html` | `….html` ← **the real vector** |
+| `.htaccess` | `text/plain` | `txt` | `….txt` |
+
+**PHP source could never have executed** — it lands extensionless and matches no `\.php$` handler.
+**The genuine vector was stored XSS:** `.svg` and `.html` are stored under their real extensions and
+served from `/storage/…` on the **application's own origin**, so an SVG carrying `<script>` executes
+on navigation — session theft or admin-to-admin escalation via a lure link.
+
+**Chosen fix**
+
+Type-hint the FormRequest that **already existed** for exactly this purpose:
+
+```php
+public function updatechangeavatar(EditUserProfileImgRequest $request)
+```
+
+`App\Http\Requests\EditUserProfileImgRequest` carries `mimes:jpg,jpeg,png,bmp,webp` and was already
+wired to the API twin `Api\UserprofileController::updateprofileImg()`. It had simply never been
+attached to the two web endpoints. **Nothing new was written; an existing control was connected.**
+
+⚠ **The rule must stay an explicit `mimes:` list. Do NOT "simplify" it to Laravel's `image` rule** —
+`image` permits SVG (`ValidatesAttributes` excludes SVG only in the absence of `allow_svg`), which
+would silently reopen the one vector that actually existed.
+
+**Alternatives considered**
+
+| Option | Rejected because |
+|---|---|
+| Deny-list executable extensions inside `Common::uploadFile()` | Would cover all **47** call sites at once, which is attractive, but `uploadFile()` legitimately carries PDFs, audio and video, so an image allow-list cannot live there — and a deny-list is the weaker construction. Worth revisiting as its own entry; see "Not closed by this entry". |
+| Force the stored extension to `.jpg` regardless of content | Mislabels real PNGs and does not stop the file being stored; treats the symptom. |
+| Move member media to a private disk and serve through a controller | The correct long-term answer and what FR-11 needs, but it is a design change across 16 `disk('public')` call sites, not a defect fix. |
+| Leave characterized, fix later | Standing method, and it was overridden by explicit owner decision 2026-08-21 once the endpoint was confirmed reachable by every sub-admin. |
+
+**Regression tests**
+
+`tests/Feature/Media/PrivateMediaCharacterizationTest.php`:
+
+- [x] `test_avatar_upload_rejects_every_non_image_type` — SVG, HTML, PHP, PHP-named-`.jpg` and plain
+      text each 302 with an error bag; nothing written to the profile or the disk
+- [x] `test_avatar_upload_still_accepts_a_real_image` — the control; a real PNG uploads and stores
+- [x] `test_documents_stored_extension_comes_from_detected_mime_not_filename` — pins the property
+      that bounded the severity, independently of the fix that supersedes it
+- [x] Every case built from **real bytes** via a real `UploadedFile`, never `UploadedFile::fake()`
+
+**Not closed by this entry — the rest of SEC-003's blast radius**
+
+The two avatar endpoints are fixed. **`Common::uploadFile()` has 47 call sites** and the others are
+untouched and unvalidated. Several take a plain `Request` the same way. Nothing here establishes that
+those are safe; they have not been measured. That work needs its own entry and its own
+characterization, and it should be sized against suite 11's finding that **no private disk exists at
+all** — an allow-list on 47 call sites is a worse answer than moving member media off a public disk.
+
+**Notes**
+
+The fix is two lines per file and connects an existing control, which is why it was judged safe to
+land the same day. The **severity correction is the durable lesson**: a fake `UploadedFile` reports a
+MIME type derived from its filename, so it can neither confirm nor refute a file-type finding.
+Construct a real `UploadedFile` from real bytes whenever the conclusion depends on content.
+
+---
+
 ## Security findings — deferred, not yet entries
 
 Recorded at first successful `composer audit`, 2026-08-08. **52 advisories across 14 packages.**
