@@ -1,22 +1,29 @@
 # WP 0A exit gate review
 
-**Date:** 2026-08-17 · **Re-scored:** 2026-08-18 after CI went green · **Branch:** `contrib/laravel-supported-platform`
+**Date:** 2026-08-17 · **Re-scored:** 2026-08-18 (CI green), **2026-08-21 (suites 9 and 11)**
+**Branch:** `contrib/laravel-supported-platform`
 **Reviewed against:** `build.md` L225–228 (Work Package 0A exit gate)
 
 ---
 
-## Verdict: ❌ **NOT PASSED** — but materially closer
+## Verdict: ❌ **NOT PASSED**
 
-**Re-scored 2026-08-18: 4 of 7 criteria met, 1 partial, 2 not met** (was 1 met / 2 partial / 4 not
-met). Criteria 1, 5 and 6 closed when CI ran fully green for the first time — run `32090487802`,
-both jobs, every step, including the frontend production build on Linux.
+**Re-scored 2026-08-21: 4 of 7 criteria met, 0 partial, 3 not met — UNCHANGED from 2026-08-18.**
+
+Criterion 2 moved a long way without crossing the line (37 → 60 characterization tests, 2 → 4 of 11
+suites complete) and criterion 7's owner-review pack now exists, but **no criterion changed verdict**.
+Criteria 1, 5 and 6 remain met from the 2026-08-18 CI run `32090487802`.
+
+The honest summary of 2026-08-21: the blocking criterion is closer and better understood, and it is
+still the blocking criterion.
 
 `build.md` OPERATING CONTRACT 10 and the Step 7 instruction are both explicit: the gate is not
-marked passed if any criterion fails. **It still fails three** — criteria 2, 4 and 7, though 7's
-artifact now exists and 4 and 7 close together in one owner review.
+marked passed if any criterion fails. **It still fails three** — criteria 2, 4 and 7. Criteria 4 and
+7 both have their artifacts and both close in one owner reading session
+(`WP0A_OWNER_REVIEW.md`, 2026-08-21).
 
-The single blocking criterion is **characterization coverage**. Everything else is either met, or
-fails for a reason that is cheap to fix — most of them fail for the *same* reason, below.
+The single blocking criterion that costs *work* is **characterization coverage**. The other two cost
+a sitting.
 
 ---
 
@@ -51,31 +58,60 @@ half.
 
 **This is the real blocker, and it is not close.**
 
-| | |
-|---|---|
-| Characterization tests | **37** |
-| Target (`TESTING_PLAN.md` Part 1) | **80–120** |
-| Suites complete | **2 of 11** (roles+permissions, attendance) |
-| Suites partial | **2** (auth, member profile) |
-| Suites not started | **7** |
+| | 2026-08-18 | **2026-08-21** |
+|---|---|---|
+| Characterization tests | 37 | **60** |
+| Full `Feature` suite | 48 passed / 109 assertions | **71 passed / 238 assertions / 0 failed / 0 skipped** |
+| Target (`TESTING_PLAN.md` Part 1) | 80–120 | **80–120** |
+| Suites complete | 2 of 11 | **4 of 11** (roles+permissions, attendance, **exports**, **private media**) |
+| Suites partial | 2 | **3** (auth, member profile, attendance) |
+| Suites not started | 7 | **5** |
 
-Not started: **QR / membership card, groups, event management, birthday routes, exports, queues and
-notifications, private media and storage.** Partial gaps: auth owes password reset, email
-verification, session lifetime and throttling; member profile owes create/edit/delete/export
-behaviour beyond render and authorization.
+Still not started: **QR / membership card, groups, event management, birthday routes, queues and
+notifications.** Partial gaps: auth owes password reset, email verification, session lifetime and
+throttling; member profile owes create/edit/delete/export behaviour beyond render and authorization;
+attendance owes `searchMember` and `removeAttendee`.
+
+**Closed 2026-08-21 — the two PII-bearing surfaces.** Suite 9 (exports, 11 tests) and suite 11
+(private media, 7 tests) were the two named as *wholly uncharacterized and both touching member PII*,
+which is why they were taken first. A cross-cutting regression file (5 tests) was added alongside
+them.
 
 **Why this matters more than the count suggests.** WP 0B crossed three Laravel majors with no
 behavioural baseline, by explicit owner directive mid-session (`MEMORY.md` 2026-08-10). The entire
-purpose of this criterion is to retire that risk. At 37 tests it is reduced, not retired. Private
-media and exports are wholly uncharacterized and both touch member PII.
+purpose of this criterion is to retire that risk. **At 60 tests it is reduced, not retired** — and as
+of 2026-08-21 that is no longer a cautious phrasing but a measured one: REG-001 below is a
+behavioural regression the traversal introduced, found by two of the four suites that exist. The
+five that do not exist have not been looked at.
 
-**Honest counterweight:** the coverage that *does* exist has already found four real things —
+**Honest counterweight:** the coverage that *does* exist has already found seven real things —
 SEC-001 (`usergroup_id` bypasses all permissions), SEC-002 (attendance has no per-leader scope),
-AUTH-001 (registration live although disabled), and WP 0C item 3 (`userprofiles` permits duplicate
-rows). None were visible from reading the code. The method is working; there simply is not enough of
-it yet.
+AUTH-001 (registration live although disabled), WP 0C item 3 (`userprofiles` permits duplicate
+rows), and as of 2026-08-21 **SEC-003**, **REG-001** and the **SEC-002 export extension** below. None
+were visible from reading the code. The method is working; there simply is not enough of it yet.
 
-**To close:** 7 suites. Realistically 3–4 sessions.
+**The three findings of 2026-08-21, characterized and NOT fixed:**
+
+- **SEC-003 — `/admin/changeavatar` is an unrestricted file upload.** No `validate()`, no FormRequest;
+  `.php`, `.zip` and `.txt` all upload with a 200 and the submitted extension is preserved, onto a
+  disk symlinked into the webroot. Whether it executes is webserver-dependent and `hosting.md` pins
+  neither way — a **deployment-dependent RCE**. Reachable by every church admin, and via SEC-001 by
+  any `usergroup_id == 3` account holding nothing.
+- **REG-001 — `protected $dates` was removed in Laravel 10 and this application declares it on 37
+  models.** 21 date columns across 9 models silently return strings, including
+  `EventAttendanceSession::attendance_date`, `EventAttendee::scanned_at` and
+  `Userprofile::date_of_birth`. No error is raised. **This is a regression WP 0B introduced**, and it
+  is the first demonstrated instance of the traversal breaking working behaviour — precisely the risk
+  this criterion exists to retire. The attendance CSV export has been dead since the upgrade as a
+  direct consequence.
+- **SEC-002 extends to the export surface.** The attendance export never consults `event_managers`
+  either; assigned and unassigned leaders reach identical outcomes.
+
+**Why REG-001 matters to the scoring.** It is evidence that the remaining 5 suites are not a
+formality. Two suites found a systemic upgrade regression that four earlier suites had not touched;
+the birthday suite in particular now has a known dependency on it via `Userprofile::date_of_birth`.
+
+**To close:** 5 suites plus 3 partials. Realistically 2–3 sessions.
 
 ---
 
@@ -98,25 +134,43 @@ assert the package's `database/migrations/` is empty. The marker policy denies a
 
 ## 4. `UPSTREAM.md` and the ownership map are reviewed — ❌ **NOT MET**
 
-**Form is good; review has not happened.** UP-001 … UP-010 exist with baseline SHA, files, reason,
+**Form is good; review has not happened.** UP-001 … UP-011 exist with baseline SHA, files, reason,
 alternatives, conflict risk and disposition. But:
 
-- **UP-007 still reads "applied 2026-08-10; NOT yet verified by characterization tests"** — and that
-  is still true for the authorization-surface files it names (`User`, `Role`, `Permission`,
-  `Userprofile`, `FeedbackMessage`, `AdminOrPermission`, `UserprofilePresenter`). Criterion 2 is its
-  blocker too.
+- **UP-007 still reads "applied 2026-08-10; NOT yet verified by characterization tests"** — **now
+  only partly true, as of 2026-08-21.** `AdminOrPermission` and `User` carry direct coverage
+  (`RolePermissionCharacterizationTest`, `ExportCharacterizationTest`). `Role`, `Permission`,
+  `Userprofile`, `FeedbackMessage` and `UserprofilePresenter` still do not. Criterion 2 is its blocker
+  too. Restatement proposed as ▶ D1 in `WP0A_OWNER_REVIEW.md`.
 - **UP-008 is reserved, not landed** — and its scope changed on 2026-08-15 (8 call sites → 7).
-- **`phpunit.xml` was modified during WP 0B and appears in no entry.**
-- **`app/Providers/RouteServiceProvider.php` sits in "Not yet classified"** — and it has since been
-  read during Step 6 and confirmed to apply `['web','auth','churchadmin']` to all of
-  `routes/admin.php`, which makes it load-bearing for authorization. It should be classified.
+- **`phpunit.xml`** — **this review's premise was wrong, corrected 2026-08-21.** It does NOT "appear
+  in no entry": UP-005's Files row lists it. The real problem is that the row describes it as
+  *"additive test-isolation env only"*, which stopped being true at `f60f1a4` (WP 0A item 5,
+  disposable MySQL). Measured against the pin: **29 insertions / 31 deletions**. A stale
+  accurate-sounding conflict-risk figure is worse than a missing row.
+- **`app/Providers/RouteServiceProvider.php`** — **also corrected 2026-08-21.** It applies
+  `['web','auth','churchadmin']` to all of `routes/admin.php`, so it is load-bearing for
+  authorization. But `git diff` against **both** `d12c110` (the pin) and `800c29f` (current upstream
+  head) reports **IDENTICAL** — this fork has never modified it. "Classify it, add an entry" rests on
+  a premise that does not hold, because entries record fork *changes* to upstream-owned files and
+  there is no change here. Proposed instead: a `monitor` classification — unmodified,
+  authorization-critical, **re-read after every upstream sync**.
 - **"Reviewed" means owner-reviewed.** That has not occurred for any entry.
+
+**2026-08-21 — the review pack now exists.** `WP0A_OWNER_REVIEW.md` compresses all eleven entries to
+one line each, presents both unclassified files with a measured proposed classification, and carries
+the compatibility matrix for criterion 7 in the same sitting. It asks three explicit decisions (D1
+UP-007 restatements, D2 `RouteServiceProvider`, D3 `phpunit.xml`) and **deliberately marks neither
+criterion met** — same treatment the matrix got on 2026-08-18. The artifact existing is the
+deliverable; the owner reading it is the criterion.
 
 **One correction the rehearsal produced:** UP-007 rates its conflict risk **High**. The 2026-08-15
 rehearsal *measured* it as clean against `800c29f`. The assessment should be updated to reflect a
 measurement rather than a prediction — for the current upstream head only.
 
-**To close:** owner review; classify `RouteServiceProvider`; add or fold in `phpunit.xml`.
+**To close:** owner review. The two classification questions are prepared with measured answers in
+`WP0A_OWNER_REVIEW.md` (D2 `RouteServiceProvider` → `monitor`; D3 `phpunit.xml` → new UP-012),
+plus D1's two UP-007 restatements. Three decisions, one sitting.
 
 ---
 
@@ -161,17 +215,27 @@ defect** — `800c29f` rewrites `idcard.blade.php` and deletes the `format('png'
 documenting test behaving exactly as designed, but "the rehearsal passes" cannot be claimed over a
 red suite. It needs a deliberate decision, not a silent edit.
 
-**And:** the rehearsal has only ever run locally. The CI job that automates it has never executed —
-same root cause as criterion 5.
-
-**To close:** resolve the one documenting test, then let the CI job run.
+*(Both sentences that followed here — "the rehearsal has only ever run locally" and "To close:
+resolve the one documenting test, then let the CI job run" — were superseded on 2026-08-18 and are
+removed as of 2026-08-21. The job has executed and is green; the documenting test was rewritten
+environment-aware. Nothing remains to close on this criterion.)*
 
 ---
 
-## 7. Upgrade compatibility matrix is reviewed — 🟡 **PARTIAL** *(assembled 2026-08-18)*
+## 7. Upgrade compatibility matrix is reviewed — ❌ **NOT MET** *(artifact assembled 2026-08-18; review pack 2026-08-21)*
 
 **`UPGRADE_COMPATIBILITY_MATRIX.md` now exists** — the artifact half of this criterion is done.
-**Owner review is still outstanding**, exactly as for criterion 4, so this is not yet MET.
+**Owner review is still outstanding**, exactly as for criterion 4, so this is not MET.
+
+*(Scored 🟡 PARTIAL on 2026-08-18. Restated as ❌ NOT MET on 2026-08-21 for consistency: the gate is
+binary per `build.md` OPERATING CONTRACT 10, and a criterion whose text is "X is reviewed" is either
+reviewed or it is not. The verdict has not changed in substance — it was never counted as met.)*
+
+**2026-08-21:** carried into `WP0A_OWNER_REVIEW.md` Part 3, **presented unchanged and not
+re-verified**, with §7 flagged as the section to read first. This session's REG-001 finding makes §7
+item 1 sharper rather than softer: "verified to install, boot and build, not to behave identically"
+has now been **demonstrated** by an actual behavioural regression the traversal introduced, not merely
+hypothesised.
 
 It covers: selected targets and why (WP 0B item 1), the pinning mechanism, the four-commit traversal
 10.50.2 → 11.55.0 → 12.65.0 → 13.24.0 with the blocker resolved at each step (item 3), a per-package
@@ -196,30 +260,31 @@ reviewed" needs an X that exists**, and this one had been quietly treated as sat
 
 ## Summary
 
-| # | Criterion | Verdict |
+| # | Criterion | Verdict (2026-08-21) |
 |---|---|---|
 | 1 | Installs reproducibly / documented blocker | ✅ **Met 2026-08-18** — proven on a clean Ubuntu checkout |
-| 2 | **Critical behavior has characterization coverage** | ❌ **Not met — the real blocker** |
+| 2 | **Critical behavior has characterization coverage** | ❌ **Not met — still the real blocker.** 60 of 80–120; 4 of 11 suites |
 | 3 | Package seam loads without changing behavior | ✅ **Met** |
-| 4 | `UPSTREAM.md` + ownership map reviewed | ❌ Not met — owner review outstanding |
+| 4 | `UPSTREAM.md` + ownership map reviewed | ❌ Not met — review pack ready, owner review outstanding |
 | 5 | CI runs from a clean checkout | ✅ **Met 2026-08-18** — fully green incl. frontend build |
 | 6 | Upstream merge rehearsal passes | ✅ **Met 2026-08-18** — `merge-rehearsal` job green in CI |
-| 7 | Upgrade compatibility matrix reviewed | 🟡 **Assembled 2026-08-18**; owner review outstanding |
+| 7 | Upgrade compatibility matrix reviewed | ❌ Not met — artifact assembled, owner review outstanding |
 
 ## The shortest path to a passing gate
 
-Four of the six failures share two causes, and neither is characterization:
+Two items remain, and only one of them is work:
 
-1. **Push the branch once.** Closes criterion 5, completes criterion 1, and lets the merge-rehearsal
-   job in criterion 6 actually run. Add the frontend build step first. **Hours.**
-2. **Assemble the compatibility matrix** from material that already exists. Criterion 7. **Hours.**
-3. **Owner review of `UPSTREAM.md`**, plus classifying `RouteServiceProvider` and `phpunit.xml`.
-   Criterion 4. **Hours.**
-4. **Write the 7 remaining characterization suites.** Criterion 2, and it also unblocks UP-007's
-   status inside criterion 4. **3–4 sessions.** This is the whole cost.
+1. **One owner reading session.** `WP0A_OWNER_REVIEW.md` (2026-08-21) carries both the ledger and the
+   matrix, and asks three explicit decisions. Closes criteria 4 and 7 together. **Hours.**
+2. **Write the 5 remaining characterization suites and finish the 3 partials.** Criterion 2, and it
+   also unblocks UP-007's status inside criterion 4. **2–3 sessions.** This is the whole remaining
+   cost.
 
-Nothing here is blocked on anything else. Characterization is the long pole; the other five are a
-day's work between them.
+Neither is blocked on the other. Characterization is the long pole; item 1 is a single sitting.
+
+**Then, and only then, Step 5 — the merge of `contrib/laravel-supported-platform` into `ifgf/main`.**
+It is gated on both and is the single hardest action in WP 0A to undo. As of 2026-08-21 it has
+correctly **not** been performed.
 
 **WP 0C must not begin.** `build.md` OPERATING CONTRACT 10 prohibits starting a later work package
 while an earlier exit gate is incomplete, and WP 0C's own highest-risk items — the `usergroup_id`
@@ -260,3 +325,44 @@ characterization suite and the package suite green on the merged tree.
   `UPGRADE_COMPATIBILITY_MATRIX.md`; owner review outstanding. Closes in the same sitting as 4.
 
 **Criteria 4 and 7 are now a single reading session.** Characterization is the gate.
+
+---
+
+## Re-score, 2026-08-21 — what suites 9 and 11 settled, and what they did not
+
+**No criterion changed verdict. The gate remains 4 of 7 met, 3 not met, ❌ NOT PASSED.**
+
+**Criterion 2 — moved substantially, still NOT MET.** 37 → 60 characterization tests; full `Feature`
+suite 48/109 → **71 passed, 238 assertions, 0 failed, 0 skipped**. Suites complete 2 → 4 of 11. The
+two surfaces closed were the two named as wholly uncharacterized and PII-bearing, which is why they
+were taken ahead of the medium-priority ones. **60 against a target of 80–120 is not coverage; it is
+more coverage.**
+
+**Criteria 4 and 7 — the review pack exists; the review does not.** `WP0A_OWNER_REVIEW.md` reduces
+both to one sitting and asks three decisions. Two of this review's own premises were **measured and
+found wrong** while preparing it:
+
+| Premise (2026-08-17) | Measured 2026-08-21 |
+|---|---|
+| "`phpunit.xml` appears in no entry" | It appears in **UP-005**. The defect is that UP-005's description of it (*"additive env only"*) went stale at `f60f1a4`; it is 29 insertions / **31 deletions** against the pin |
+| "`RouteServiceProvider` should be classified [as an entry]" | It is **byte-identical** to both `d12c110` and `800c29f` — the fork never modified it. An entry would assert a change that does not exist; `monitor` is proposed instead |
+
+**The lesson, and it is the same one as the compatibility matrix on 2026-08-18:** a criterion's
+supporting claims decay too, not just its verdict. Both premises were reasonable when written and
+neither had been checked against `git diff`. **Measure before classifying.**
+
+**What the new coverage found — and why it argues the remaining 5 suites are not a formality.**
+Three findings, all characterized and none fixed: **SEC-003** (unrestricted file upload into the
+webroot, deployment-dependent RCE), **REG-001** (`protected $dates` inert since Laravel 10; 21
+columns across 9 models silently uncast), and the **SEC-002 export extension**.
+
+REG-001 is the one that bears on the gate. It is **the first demonstrated case of WP 0B's 10 → 13
+traversal breaking working behaviour** — the attendance CSV export has been dead since the upgrade
+and nobody knew. WP 0B item 6 was skipped by owner directive precisely on the bet that this class of
+thing would not happen. Criterion 2 exists to retire that bet, and it has now paid out once. Two
+suites found it; five remain unwritten.
+
+**Step 5 (merge to `ifgf/main`) correctly NOT performed.** Gated on criterion 2 being green and on
+the owner sign-off of 4 and 7. Neither holds.
+
+**WP 0C must not begin.** Unchanged. `build.md` OPERATING CONTRACT 10.

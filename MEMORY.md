@@ -6,6 +6,120 @@
 
 ---
 
+## 2026-08-21 — Session 8 — Suites 9 and 11 characterized; three new findings; 37 → 60 tests
+
+**Outcome:** the two wholly-uncharacterized PII surfaces are now covered. Characterization went
+**37 → 60 tests**; the full `Feature` suite is **71 passed, 238 assertions, 0 failed, 0 skipped**
+(2m41s), up from 48/109. Suites complete: **4 of 11**. The exit gate is **unchanged at 4 of 7** —
+criterion 2 moved a long way but is not met, and 4 and 7 still need the owner. **Step 4 (merge to
+`ifgf/main`) was correctly NOT performed** — it is gated on both.
+
+**Recorded pass/fail/skip — THIS IS THE BASELINE**
+
+| Run | Result |
+|---|---|
+| Baseline before any change | 48 passed, 109 assertions, 0 failed, 0 skipped, 3m40s |
+| `ExportCharacterizationTest` alone | 11 passed, 49 assertions, first run, **zero correction** |
+| `DateCastRegressionCharacterizationTest` alone | 5 passed, 50 assertions, first run, **zero correction** |
+| `PrivateMediaCharacterizationTest` alone | 7 passed, 30 assertions — **1 failure on first run**, see below |
+| **Full `Feature` suite, end of session** | **71 passed, 238 assertions, 0 failed, 0 skipped, 2m41s** |
+
+Characterization tests: **60** (71 minus the 11 package smoke tests). Target 80–120.
+
+**Three new findings — characterized, NOT fixed. All need an owner decision.**
+
+- **SEC-003 — `/admin/changeavatar` is an unrestricted file upload.**
+  `UserProfileController::updatechangeavatar()` takes a plain `Request`, calls no `validate()`, uses
+  no FormRequest, and hands `$request->avatar` to `Common::uploadFile()` = `Storage::disk('public')
+  ->putFile()`, which **preserves the submitted extension**. Measured: `.php`, `.zip` and `.txt` all
+  upload with a 200. `public/storage` is a live symlink to `storage/app/public`, so the file lands
+  **inside the webroot**. Whether it EXECUTES is webserver-dependent — a php-fpm block matching
+  `\.php$` across the docroot would run it — and `hosting.md` pins neither way. That makes it a
+  **deployment-dependent RCE**. Reachable by every church admin (the route sits in `routes/admin.php`
+  behind `['web','auth','churchadmin']` but inside **no** permission group), and via SEC-001 by any
+  `usergroup_id == 3` account holding nothing at all.
+- **REG-001 — `protected $dates` is inert, and 21 date columns across 9 models silently return
+  strings.** The property was removed in **Laravel 10**; this application declares it on **37 models**
+  and was carried 10 → 13 by WP 0B. `Illuminate\Database\Eloquent\Model` no longer defines it, nothing
+  reads it, and **no error is raised**. Measured on 13.24.0: 21 columns uncast, including
+  `EventAttendanceSession::attendance_date`, `EventAttendee::scanned_at` and
+  `Userprofile::date_of_birth`. `deleted_at` is rescued everywhere by `SoftDeletes` — **except on
+  `SendMail`, which lists it in `$dates` but does not use the trait at all**, a separate finding.
+  `Post` and `User` survive because they declare `$casts` as well; `Post` is the worked example of
+  the fix.
+- **SEC-002 extends to the export surface.** `EventAttendanceController::export()` guards only on the
+  permission middleware and `abort_unless($session->church_id === Auth::user()->church_id, 403)`. It
+  never consults `event_managers`; an assigned manager and an unassigned leader reach **identical**
+  outcomes. Church isolation does work (403) and is asserted on the other side.
+
+**Learned — carry forward**
+
+- **The single most valuable thing found today came from a fixture that looked broken.** The
+  attendance export 500'd with `Call to a member function format() on string`. The tempting reading
+  was "my raw DB insert produced a string" — a fixture problem. Reading the actual failing line
+  instead produced REG-001, a systemic upgrade regression across 9 models. **This is the 2026-08-15
+  MEM-001 lesson running in the opposite direction:** that time a 500 looked like an application bug
+  and was a fixture problem; this time it looked like a fixture problem and was an application bug.
+  The rule that covers both: **read the failing line before deciding which it is.**
+- **Diagnostic-first held, and the one deviation is the proof.** Three files were written after a
+  side-by-side diagnostic and needed **zero** correction across 23 tests. The single first-run failure
+  in the whole session was the one assertion I did **not** measure first — I guessed
+  `read-gallery` for `/admin/getphoto/{event_id}` from the route's name. It is `read-events`. Four
+  sessions, four confirmations: **the guessed assertion is the one that fails.**
+- **A diagnostic that disproves your hypothesis is worth as much as one that confirms it.** I expected
+  `$_SERVER['HTTP_USER_AGENT']` to make these endpoints 500 under a UA-less request. Measured with and
+  without, side by side: **no difference, 200 both ways.** Had I written that test from the hypothesis
+  it would have characterized nothing and failed on the first machine that set a default UA — the
+  exact class of error that cost CI run 2 on 2026-08-17.
+- **`League\Csv\Writer::output()` echoes to the SAPI and returns null, so the CSV never travels in the
+  Laravel response.** `$response->getContent()` is `''` and there is no `Content-Disposition` on the
+  response. Every export assertion has to capture PHP's output buffer instead. A test asserting on
+  `getContent()` here would pass forever and prove nothing — and any middleware appending to the
+  response would corrupt the download, because the CSV is already on the wire.
+- **Two routes can claim one URI and the loser fails silently.** `routes/admin.php:176` and `:574`
+  both register `GET /admin/export`. Laravel keeps the last, so the subscriber export landing page is
+  simply unreachable — no error, no warning. `route:list` shows one route, which is also why a
+  shadowed duplicate cannot explain the 731-vs-812 gap.
+- **`$log`/`$message` assigned only inside success branches is a live 500.** `ExportMemberController::
+  exportUsers()` reaches `doActivityLog(..., string $logname, string $message)` with both unset on
+  every non-success path → `TypeError`. The order is the interesting part: **`$csv->output()` has
+  already echoed the file**, so the member receives a valid CSV *and* an HTTP 500, and no activity-log
+  row is written for an export that did happen. An empty church hits this on the first click.
+  `exportGuests()` differs in one detail — it passes the `LOGNAME_EXPORT_GUEST` constant directly —
+  so it does not 500; it corrupts quietly instead, calling `output()` **twice** and writing the body
+  two times. Same bug shape, opposite symptom.
+- **"Private media" was the wrong name for suite 11 and finding that out WAS the characterization.**
+  There is no private media: all four disks are public, `uploads` is rooted at `public_path()`
+  itself, and no `temporaryUrl()`, signed route or `hasValidSignature()` call exists anywhere in
+  `app/`. Member-photo privacy rests entirely on the 40-character `hashName()` filename — obscurity,
+  not authorization. There is also **no place to put an authorization check today**: the endpoints
+  named `getPhoto` return Eloquent rows carrying paths, not bytes, so the image fetch never enters
+  PHP. FR-11 must **create** that checkpoint, not tighten one.
+- **`RouteServiceProvider.php` is byte-identical to both `d12c110` and `800c29f`.** The exit gate's
+  "classify it, add an entry" premise does not hold — `UPSTREAM.md` entries record fork *changes*, and
+  there is no change. Proposed `monitor` instead: unmodified, authorization-critical, re-read after
+  every upstream sync. **Measure before classifying; the ledger's own semantics decide the answer.**
+- **`phpunit.xml` is not unrecorded — it is recorded inaccurately.** UP-005 lists it as "additive
+  test-isolation env only", which stopped being true at `f60f1a4`. Against the pin it is 29
+  insertions / **31 deletions**. A stale accurate-sounding row is worse than a missing one: the
+  conflict-risk figure a future reader relies on is wrong.
+
+**Not done — read before assuming progress**
+
+- **5 of 11 suites still not started:** 5 QR/card, 6 Groups, 7 Event management, 8 Birthday,
+  10 Queues. **3 partial:** 1 Auth (password reset, email verification, session lifetime,
+  throttling), 3 Member profile (create/edit/delete/export behaviour), 4 Attendance (`searchMember`,
+  `removeAttendee`). At 60 of 80–120, criterion 2 is **not met**.
+- **Criteria 4 and 7 remain owner-gated.** `WP0A_OWNER_REVIEW.md` was written this session to make
+  that one sitting possible; it asks three explicit decisions (D1 UP-007 restatements, D2
+  `RouteServiceProvider` classification, D3 `phpunit.xml` entry) and **deliberately marks neither
+  criterion met**.
+- **Step 4, the merge to `ifgf/main`, was NOT performed** and must not be until criterion 2 is green
+  and the review is signed off. It remains the single hardest action here to undo.
+- **Suite 8 (birthday) now has a known dependency on REG-001** — it derives from
+  `Userprofile::date_of_birth`, which is one of the 21 uncast columns. Expect date handling there to
+  be stringly-typed and possibly wrong; characterize what it does, do not fix it.
+
 ## 2026-08-18 — Session 7 — UP-011 applied; CI fully green; exit gate re-scored 4 of 7
 
 **Outcome:** the frontend production build passes on Linux **for the first time in this project's

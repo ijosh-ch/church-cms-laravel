@@ -3,8 +3,27 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-08-15 · **Session:** WP 0A closure Step 1 (commit the baseline) · **Work package:**
-WP 0A — items 6, 11, 13, 14 and the exit gate remain. WP 0B complete.
+**Updated:** 2026-08-21 · **Session:** WP 0A closure Step 2 (characterization suites 9 and 11) ·
+**Work package:** WP 0A — item 6 and the exit gate remain. WP 0B complete.
+
+**Exit gate 2026-08-21: 4 of 7 met, 0 partial, 3 not met — UNCHANGED.** Criterion 2 moved 37 → 60
+tests (4 of 11 suites) without crossing the line. Criteria 4 and 7 have their review pack
+(`WP0A_OWNER_REVIEW.md`, three decisions) and remain owner-gated. **Step 5 (merge to `ifgf/main`)
+correctly NOT performed.**
+
+**Test counts, 2026-08-21:** full `Feature` suite **71 passed, 238 assertions, 0 failed, 0 skipped**,
+2m41s. 60 characterization + 11 package smoke. Suites done: 2 roles+permissions, 4 attendance,
+**9 exports**, **11 private media**, plus a cross-cutting date-cast regression file.
+
+**Three findings this session, characterized and NOT fixed — all need an owner decision:**
+**SEC-003** (`/admin/changeavatar` accepts any file type incl. `.php`, unvalidated, into a
+webroot-symlinked disk — deployment-dependent RCE), **REG-001** (`protected $dates` removed in
+Laravel 10; **21 columns across 9 models silently uncast**; a WP 0B regression that has left the
+attendance CSV export dead since the upgrade), and the **SEC-002 export extension** (the attendance
+export never consults `event_managers` either).
+
+**`SCHEMA_SPEC.md` appeared untracked at the repo root** (Cowork, 19 `ifgf_` tables). It is WP 0C
+material. Left untracked and unactioned.
 
 ## Git
 
@@ -65,19 +84,20 @@ Registering it permanently needs elevation and is an open owner question.
   one squashed schema instead of replaying 93 migrations. The old ~8-minute-per-class figure
   predates it. The tracked root `mysql-schema.sql` is an unrelated legacy artifact — Laravel reads
   only `database/schema/<connection>-schema.sql`, so they never compete. Question closed.
-- **Last recorded runs:** `TimezoneCharacterizationTest` — **6 passed**, 11 assertions, 1.96s.
-  **Full `tests/Feature` suite: 48 passed, 109 assertions.** Every test verified today.
-  **Coverage: 8 test files, 48 tests** — 37 characterization + 11 package smoke.
+- **Last recorded runs (2026-08-21):** full `tests/Feature` suite **71 passed, 238 assertions,
+  0 failed, 0 skipped, 2m41s**. **Coverage: 11 test files, 71 tests** — 60 characterization + 11
+  package smoke. (Was 8 files / 48 tests / 37 characterization on 2026-08-18.)
   **Package's own suite** (runs independently of the application):
   `vendor/bin/phpunit -c custompackages/ifgf/church-operations/phpunit.xml` → **3 passed**,
   10 assertions.
 
-  ⚠ **Corrected target.** `TESTING_PLAN.md` Part 1 lists **eleven** suites (its "seven" heading is
-  stale) and targets **80–120 tests**, not the 60–90 quoted in earlier notes.
-  **Done: 1 Auth (partial), 2 Roles+permissions, 3 Member profile (partial), 4 Attendance.**
-  **Not started: 5 QR/card, 6 Groups, 7 Event management, 8 Birthday, 9 Exports, 10 Queues,
-  11 Private media.** Suite 1 still owes password reset, email verification, session lifetime and
-  throttling; suite 4 owes `searchMember` and `removeAttendee`.
+  ⚠ **Target.** `TESTING_PLAN.md` Part 1 lists **eleven** suites (its "seven" heading is stale) and
+  targets **80–120 tests**, not the 60–90 quoted in earlier notes.
+  **Done: 2 Roles+permissions, 4 Attendance, 9 Exports, 11 Private media**, plus a cross-cutting
+  date-cast regression file. **Partial: 1 Auth, 3 Member profile, 4 Attendance.**
+  **Not started: 5 QR/card, 6 Groups, 7 Event management, 8 Birthday, 10 Queues.**
+  Suite 1 owes password reset, email verification, session lifetime and throttling; suite 3 owes
+  create/edit/delete/export behaviour; suite 4 owes `searchMember` and `removeAttendee`.
 
 ## ⚠ Admin view tests need `settings.*` config — read before writing one
 
@@ -216,9 +236,10 @@ permission.
 
 ## Known debt
 
-- **Characterization coverage is 2 test files against a 60–90 test target.** WP 0A item 6 / gate 5.
-  Three Laravel majors were crossed without a behavioural baseline. **The largest open risk, and the
-  reason WP 0A cannot close.** Seven suites are specified in `TESTING_PLAN.md` Part 1.
+- **Characterization coverage is 60 tests against an 80–120 target, 4 of 11 suites.** WP 0A item 6 /
+  gate 5. Three Laravel majors were crossed without a behavioural baseline, and **REG-001 is the first
+  proof that broke something** (21 date columns silently uncast). **Still the largest open risk and
+  the reason WP 0A cannot close.** Eleven suites are specified in `TESTING_PLAN.md` Part 1.
 - **0 `ifgf_` tables. 0 of 14 FRs complete.** The package seam now exists but is empty by design.
 
 ## ✅ Merge rehearsal RUN for the first time — 2026-08-15, and the merge is CLEAN
@@ -276,7 +297,7 @@ pushed). Three runs so far.
 
 | Job | Result |
 |---|---|
-| `test` | ✅ **GREEN** — every step, incl. `npm ci` + `npm run production`. 48 passed, 108 assertions. |
+| `test` | ✅ **GREEN** — every step, incl. `npm ci` + `npm run production`. 48 passed, 108 assertions *(the suite at that run; it is 71/238 as of 2026-08-21 and CI has not re-run since)*. |
 | `merge-rehearsal` | ✅ **GREEN** — clean merge against `800c29f`, characterization + package suites pass on the merged tree. |
 
 **Fully green as of run `32090487802`, 2026-08-18.** It took four runs; three failed for real
@@ -307,21 +328,20 @@ no-op — do it in two steps and verify with `git ls-files`, never a directory l
 
 ## ❌ WP 0A exit gate: REVIEWED 2026-08-17 — **NOT PASSED**
 
-Full assessment in **`WP0A_EXIT_GATE.md`**. **Re-scored 2026-08-18: 4 of 7 met, 1 partial, 2 not met.**
+Full assessment in **`WP0A_EXIT_GATE.md`**. **Re-scored 2026-08-21: 4 of 7 met, 0 partial, 3 not met — unchanged from 2026-08-18.**
 
 | # | Criterion (`build.md` L227) | Verdict |
 |---|---|---|
 | 1 | Installs reproducibly / documented blocker | ✅ **met** — proven on a clean Ubuntu checkout |
-| 2 | **Critical behavior has characterization coverage** | ❌ **the real blocker** — 37 tests, 2 of 11 suites complete |
+| 2 | **Critical behavior has characterization coverage** | ❌ **the real blocker** — 60 tests, 4 of 11 suites complete |
 | 3 | Package seam loads without changing behavior | ✅ met |
-| 4 | `UPSTREAM.md` + ownership map reviewed | ❌ owner review outstanding |
+| 4 | `UPSTREAM.md` + ownership map reviewed | ❌ review pack ready (`WP0A_OWNER_REVIEW.md`); owner review outstanding |
 | 5 | CI runs from a clean checkout | ✅ **met** — fully green incl. frontend build |
 | 6 | Upstream merge rehearsal passes | ✅ **met** — `merge-rehearsal` job green in CI |
-| 7 | Upgrade compatibility matrix reviewed | 🟡 **assembled** (`UPGRADE_COMPATIBILITY_MATRIX.md`); owner review outstanding |
+| 7 | Upgrade compatibility matrix reviewed | ❌ artifact assembled; owner review outstanding (`WP0A_OWNER_REVIEW.md` Part 3) |
 
-**Criteria 4 and 7 are now a single owner reading session** — the ledger and
-`UPGRADE_COMPATIBILITY_MATRIX.md`. **Characterization is the only remaining work** — 7 of 11 suites,
-3–4 sessions.
+**Criteria 4 and 7 are now a single owner reading session** — `WP0A_OWNER_REVIEW.md` carries both.
+**Characterization is the only remaining work** — 5 of 11 suites plus 3 partials, 2–3 sessions.
 
 **WP 0C MUST NOT BEGIN.** `build.md` OPERATING CONTRACT 10 forbids starting a later work package
 while an earlier exit gate is incomplete — and WP 0C's highest-risk items (the `usergroup_id`
@@ -330,7 +350,7 @@ characterization coverage exists to make safe.
 
 ## Open gates
 
-1. **WP 0A characterization gate** — 7 suites essentially unwritten. Blocks everything.
+1. **WP 0A characterization gate** — 5 suites unwritten, 3 partial. Blocks everything.
 2. ~~**WP 0A package gate**~~ — **CLOSED 2026-08-15.** Package scaffolded (item 11), smoke tests
    written (item 14). See UP-010.
 3. **WP 0A CI gates** — **no frontend build.** ~~merge rehearsal~~ and ~~package suite in CI~~ both

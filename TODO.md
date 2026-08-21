@@ -4,10 +4,12 @@
 > Hard cap: 1,500 tokens — archive completed items to `MEMORY.md`, do not accumulate them here.
 > Every item names its `build.md` item number and its `PRD.md` line range where relevant.
 
-**Active work package:** WP 0A closure · **Session:** 2026-08-18 — CI green, UP-011 closed
-**Exit gate:** ❌ NOT PASSED — **4 of 7 met, 1 partial, 2 not met** (`WP0A_EXIT_GATE.md`).
-Characterization is the only remaining *work*; 4 and 7 are one owner reading session.
-**WP 0C must not begin** (`build.md` OPERATING CONTRACT 10).
+**Active work package:** WP 0A closure · **Session:** 2026-08-21 — suites 9 and 11 characterized
+**Exit gate:** ❌ NOT PASSED — **4 of 7 met, 0 partial, 3 not met** (`WP0A_EXIT_GATE.md`), unchanged.
+Characterization is the only remaining *work* (60 of 80–120, 4 of 11 suites); 4 and 7 are one owner
+reading session and the pack is written (`WP0A_OWNER_REVIEW.md`).
+**WP 0C must not begin** (`build.md` OPERATING CONTRACT 10). **`SCHEMA_SPEC.md` at the repo root is
+WP 0C material — untracked, do not action it.**
 
 ---
 
@@ -24,21 +26,27 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 
 ## Now
 
-1. **Characterization — 7 of 11 suites remain.** WP 0A item 6, gate 5. **This is the only thing
-   blocking the exit gate that costs real time** (3–4 sessions). Currently **37 characterization
-   tests** (48 total incl. package smoke) against a **80–120** target, green locally and on CI.
+1. **Characterization — 5 of 11 suites remain, 3 partial.** WP 0A item 6, gate 5. **The only thing
+   blocking the exit gate that costs real time** (2–3 sessions). Currently **60 characterization
+   tests** (71 total incl. package smoke) against a **80–120** target. Last full run 2026-08-21:
+   **71 passed, 238 assertions, 0 failed, 0 skipped, 2m41s.**
 
-   **Not started:** 5 QR/card · 6 Groups · 7 Event management · 8 Birthday · 9 Exports · 10 Queues ·
-   11 Private media. **Exports and private media are wholly uncharacterized and both touch member
-   PII** — take them before the medium-priority ones.
+   **Not started:** 5 QR/card · 6 Groups · 7 Event management · 8 Birthday · 10 Queues.
    **Partial:** 1 Auth (owes password reset, email verification, session lifetime, throttling) ·
    3 Member profile (owes create/edit/delete/export behaviour) · 4 Attendance (owes `searchMember`,
    `removeAttendee`).
+   **Done 2026-08-21:** 9 Exports (11 tests) · 11 Private media (7 tests) · cross-cutting date-cast
+   regression (5 tests). Both PII surfaces are now covered.
+
+   ⚠ **Suite 8 (birthday) depends on REG-001** — it derives from `Userprofile::date_of_birth`, one of
+   the 21 columns that silently stopped casting. Expect stringly-typed date handling there.
+   Characterize what it does; do not fix it.
 
    **Method — standing, not a suggestion.** Run a diagnostic printing status, `Location` and state
-   for several inputs *side by side* before writing one assertion. Three separate times this project
-   asserted against the harness instead of the application; every file written diagnostic-first has
-   needed zero correction.
+   for several inputs *side by side* before writing one assertion. Every file written
+   diagnostic-first has needed zero correction; **2026-08-21: 23 tests, three files, zero
+   corrections**, and the session's only first-run failure was the one permission name guessed from a
+   route name rather than measured.
 
    **Traps that already cost commits:**
    - Any test rendering an admin view must seed `settings.*` first — copy
@@ -50,21 +58,31 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
    - **Check each planned suite has a subject before budgeting it.** Several `TESTING_PLAN.md`
      entries describe FR-11 behaviour that does not exist and cannot be characterized.
    - Assert environment-dependent behaviour **against the environment**, not one machine's defaults.
+   - **Never assert on `$response->getContent()` for a CSV export** — `League\Csv\Writer::output()`
+     echoes to the SAPI and returns null, so the body is always `''`. Capture the output buffer;
+     `ExportCharacterizationTest::capture()` is the pattern.
 
 2. **OWNER: one reading session closes criteria 4 and 7.** Both are review, not work.
-   - **Criterion 7** — read `UPGRADE_COMPATIBILITY_MATRIX.md` (assembled 2026-08-18). Its §7 lists
-     what it deliberately does **not** establish; read that section first.
-   - **Criterion 4** — review `UPSTREAM.md` UP-001…UP-011. While there: classify
-     `app/Providers/RouteServiceProvider.php` (in "Not yet classified"; Step 6 proved it applies
-     `churchadmin` to all of `routes/admin.php`), fold `phpunit.xml` into an entry, and restate
-     UP-007's **predicted** High conflict risk as the **measured** clean result against `800c29f`.
+   **The pack is written — read `WP0A_OWNER_REVIEW.md`.** It carries all eleven ledger entries one
+   line each, both unclassified files with measured proposed classifications, and the compatibility
+   matrix as-is. It asks exactly three decisions and deliberately marks neither criterion met:
+   - **▶ D1** — approve two UP-007 restatements: conflict risk as **measured** clean (not predicted
+     High), and status as **partially** verified (`AdminOrPermission`, `User` covered; four files
+     not).
+   - **▶ D2** — `app/Providers/RouteServiceProvider.php`: classify as **`monitor`**. Measured
+     2026-08-21 as **byte-identical to both `d12c110` and `800c29f`** — the fork never modified it,
+     so a UP-nnn entry would assert a change that does not exist. It is still authorization-critical
+     and must be re-read after every upstream sync.
+   - **▶ D3** — `phpunit.xml`: give it **UP-012** (recommended) rather than extending UP-005. It is
+     *not* unrecorded — UP-005 lists it — but that row's "additive env only" description went stale
+     at `f60f1a4`, and it is 29 insertions / **31 deletions** against the pin.
 
 ## Next — remaining WP 0A
 
 | Item | Action |
 |---|---|
 | **UP-008** | QR `format('png')` → `format('svg')`. **7 call sites, not 8** — upstream deletes `idcard.blade.php`'s call itself, so **do not hand-edit that file**. Re-derive the list before starting. Owner decision 2026-08-10 #1. |
-| **Step 5** | Merge `contrib/laravel-supported-platform` → `ifgf/main`. **Only after characterization.** The one hard-to-undo action; re-run both suites after. |
+| **Step 5** | Merge `contrib/laravel-supported-platform` → `ifgf/main`. **Only after characterization AND the owner review.** 51 commits. The one hard-to-undo action; re-run both suites after and report counts. Correctly NOT performed 2026-08-21. |
 | Route count | `route:list` = 730 vs the inventory's 812; ~70 unexplained, no pre-upgrade baseline. Check out `086f33d`, `route:list --json`, diff. Fix the inventory's "no scheduled tasks" claim while there. |
 
 ## Blocked / deferred
@@ -84,6 +102,17 @@ Accepts connections ~4s later. Registering it permanently needs elevation — ow
 | 2026-08-10 #4 | **Characterize all group access incl. `usergroup_id` bypasses**, each `test_documents_defect_*` + a written finding. |
 
 ## Decisions awaiting the owner
+
+- **SEC-003 (new 2026-08-21)** — `/admin/changeavatar` accepts **any** file type including `.php`,
+  unvalidated, extension preserved, onto a disk symlinked into the webroot. Deployment-dependent RCE;
+  `hosting.md` pins the webserver neither way. Reachable by every church admin and, via SEC-001, by
+  any `usergroup_id == 3` account. Pinned by
+  `PrivateMediaCharacterizationTest::test_documents_defect_avatar_upload_accepts_any_file_type_including_php`.
+- **REG-001 (new 2026-08-21)** — `protected $dates` was removed in Laravel 10; this app declares it
+  on 37 models and **21 columns across 9 models silently return strings**. A WP 0B regression. The
+  attendance CSV export has been dead since the upgrade because of it. Fix is mechanical (`$casts`,
+  pattern already in `app/Models/Post.php`) but it is a behaviour change and needs its own commit.
+  Pinned by `DateCastRegressionCharacterizationTest`, which includes a countdown assertion.
 
 - **Register MySQL 8.4 as a Windows service?** One elevated command; until then every session starts it by hand.
 - **SEC-001** — `usergroup_id == 3` bypasses every permission check (one middleware alias). FR-11 must map legacy groups before it can be removed.
