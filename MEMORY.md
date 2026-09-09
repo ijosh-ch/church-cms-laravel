@@ -6,6 +6,595 @@
 
 ---
 
+## 2026-09-09 — Session 12 — PostgreSQL migration, two sites, real workbook imported; five bugs MySQL had been hiding
+
+**Duration:**
+- 2026/09/07_23:35 - 23:59 (0.4h): brief, ERD and feature map against the Apps Script.
+- 2026/09/08_00:00 - 08:18 (3.0h): PostgreSQL provisioned, 11-table schema, credential service,
+  two sites, demo fixture + teardown, prototype UI, registration, real workbook import.
+- 2026/09/09_00:52 - 09:55 (0.6h): formula handling hardened; licensing.
+
+**Summary:** WP 0C-class work, opened on owner instruction while WP 0A's gate stands at 4 of 7.
+The app now runs on PostgreSQL 17 (`ifgf_cms`, 104 tables), split across `member.ifgf.site` and
+`attend.ifgf.site`, with all five Apps Script features ported and the legacy workbook imported —
+217 members, 3,318 attendance rows, 4 recorded conflicts. 218 tests, 700 assertions.
+
+---
+
+### 🔴 THE LESSON — MySQL was hiding five defects, and the test suite was green *because* of one of them
+
+Switching driver did not "reveal PostgreSQL problems". It revealed **existing** problems that MySQL's
+permissiveness had been absorbing. Each was invisible while green.
+
+**1. The test harness was never isolating anything.** `IfgfTestCase` set `database.default` and
+`$connectionsToTransact` *after* `parent::setUp()` — but `setUpTraits()` opens the
+`DatabaseTransactions` transaction *inside* it. On MySQL the default already was mysql, so the
+transaction happened to wrap the connection the writes went to, **by coincidence**. On PostgreSQL the
+transaction opened on MySQL while every write went to `pgsql_testing`: nothing rolled back, tests
+accumulated each other's rows, and fixture counts drifted (29 attendance rows became 30, six weeks
+became seven). Fix: choose the connection in `createApplication()`, which runs before the trait.
+
+**2. PostgreSQL has transactional DDL.** Migrations run inside that wrapping transaction are rolled
+back with it, so the schema would vanish after the first test. MySQL implicit-commits DDL and hides
+this entirely. Migrations now run in `createApplication()`, outside the transaction.
+
+**3. `migrate:fresh --path=X` drops EVERY table, not just X's.** The harness would have destroyed the
+93 upstream tables the WP 0A suite depends on, in the shared disposable database, surfacing as
+unrelated red in other files. Caught while writing it, before it ran. Plain `migrate` is idempotent
+and sufficient; isolation comes from the transaction.
+
+**4. A `uuid` column is type-strict.** `where('public_ref', '1')` is a TYPE ERROR on PostgreSQL, and a
+failed statement aborts the whole request transaction (SQLSTATE 25P02) — so every later query in that
+request fails too and the page 500s on input a user controls. MySQL string-compared a `char(36)` and
+said nothing. Guarded with `Str::isUuid()` plus a route pattern.
+
+**5. `DatabaseSafetyServiceProvider` only knew mysql and sqlite** — so on the driver being migrated
+*to* it offered **no protection at all**; its name and host checks were unreachable for pgsql.
+
+**The pattern:** a permissive engine does not make code correct, it makes incorrectness silent. The
+green suite was evidence about MySQL, not about the code.
+
+---
+
+### 🔴 The demo fixture contaminated the real quarterly report
+
+The fixture deliberately used the real branches and real Sunday dates so it looked like a plausible
+church. That is exactly what made it collide: a Sunday service at Taipei on 2026-09-06 is **one**
+occurrence — the unique index says so, correctly — so the import claimed the demo row, flipped
+`is_demo` to false, and **29 invented attendance rows became part of the real Q3 figures**.
+
+Found by reconciling the report total against the imported count, not by any test.
+`DemoDataService::seed()` now refuses while real members exist. Demo and imported data are not meant
+to coexist; the fixture is for an empty database.
+
+---
+
+### 🔴 A one-row discrepancy was the only symptom of a silent overwrite
+
+The importer reported 3,319 attendance rows; the database held 3,318. Chasing that single row found a
+member marked in **both** the Onsite and Online column of the same week (Absen-TPE!213, 2026-08-02,
+identical time in both). The later column was silently winning — precisely the quiet correction the
+importer's own rules forbid. Onsite now wins and the conflict is recorded. A test asserts the reported
+count equals the stored count, because that mismatch is what made the bug visible at all.
+
+**Do not round away a discrepancy of one.**
+
+---
+
+### Spreadsheet reading — three traps, one of them dangerous
+
+- **`readDataOnly(true)` returns formula TEXT, not values.** The roster's `Kategori` is a formula;
+  reading it raw produced 319 bogus "unrecognised Kategori [=IF(D14..." conflicts.
+  `getOldCalculatedValue()` returns the cached answer — what openpyxl's `data_only=True` shows.
+- **🔴 An unevaluated formula reads as `0`, not as empty.** So a workbook re-saved by a tool that
+  does not compute formulas would import every attendance cell as "absent" and complete cleanly. No
+  per-cell check can see this — `0` is legitimate there. Only the SHAPE gives it away, so
+  `assertResultIsPlausible()` checks two invariants: members but no categories, dates but no
+  attendance. The dependency is far bigger than one column: ~40,000 formula cells per grid sheet.
+- **`getHighestColumn()` returns a LETTER** ('DV'). Used numerically it yields coordinates like
+  `AAAA1`. `getHighestColumnIndex()` does not exist on `Worksheet` here; use
+  `Coordinate::columnIndexFromString()`.
+
+---
+
+### Blade compiles directives *inside* comments
+
+`{{-- ... @php ... --}}` — Blade compiled the `@php` within the comment text, destroying the comment
+and emitting broken PHP. Never write a directive name after an at-sign inside a Blade comment. Also:
+`@json()` cannot take a multi-line array of `__()` calls; build it in a `@php` block first.
+
+---
+
+### What went right, and was cheaper than feared
+
+**All 93 upstream migrations ran on PostgreSQL with zero failures.** The plan budgeted P0 as a whole
+work package on the assumption they would break; the schema half was one command. The 6
+`DATE_FORMAT()` files remain the real porting work.
+
+**Upstream is MIT, and MIT permits sublicensing** — which is what makes AGPL-3.0 lawful for the
+combined work. Checked *before* writing any licence file. Had upstream been a purchased licence,
+none of the open-sourcing would have been possible.
+
+---
+
+### Method notes
+
+- Every import figure was computed independently in Python from the workbook **before** the importer
+  ran, then compared. That is what caught the one-row discrepancy and the demo contamination.
+- The import test builds its own synthetic workbook reproducing every defect found in the real file.
+  The real one holds 217 people's personal data and is neither committed nor depended upon.
+- The AGPL text was fetched from gnu.org and **verified as AGPL rather than GPL** by confirming
+  section 13 is present — not assumed from the filename.
+
+---
+
+## 2026-08-22 — Session 11 — iCare build refused on preconditions; exit-gate drift found and mis-attributed; criterion-2 suite count found inflated since session 9
+
+**Work package:** none opened. The session's only output is a document reconciliation.
+**Result:** the iCare generation job (`tools/ICARE_PROMPTS.md` row A2) was **refused** — 3 of 3
+preconditions unmet. `WP0A_EXIT_GATE.md` reconciled end to end to session 10's numbers;
+`CONTEXT.md:93–95` de-contradicted. **No code, no migrations, no tests.** Exit gate unchanged at
+**4 of 7**. Nothing committed.
+
+---
+
+### 🔴 THE LESSON — a re-scored artifact needs a `grep` for its own superseded numbers, not a re-read
+
+Session 7 already recorded the parent of this: *"Reconcile a re-scored document end to end … Re-score
+the whole artifact or none of it."* Session 10 re-scored criterion 2 from 79 → 94 tests and updated
+`MEMORY.md`, `TODO.md` and `CONTEXT.md`. **`WP0A_EXIT_GATE.md` — the artifact the other three cite —
+kept session 9's numbers in twelve places** (`:13`, `:63–68`, `:70`, `:82`, `:154`, `:158`, `:278`,
+`:290`, `:331`, `:347–349`, `:367`, `:374`). Its **summary table and verdict were current**; only the
+narrative was stale.
+
+**That combination is what made it dangerous, and it is the actual finding.** A document whose
+headline is right and whose body is stale reads as authoritative. This session read all four files
+during orientation, correctly detected the disagreement — and then **attributed it to the wrong
+file**, calling `ICARE_PROMPTS.md` (correct, 94 / 6 of 11) the drifted one because the exit gate's
+*summary* agreed with the exit gate's *narrative*. Two stale sections corroborating each other look
+exactly like one consistent source.
+
+**Reading all four files did not catch it. Reading is what produced the inverted call.** The
+operation that would have caught it takes one command:
+
+```
+grep -rn "\b79\b\|90 passed\|\b301\b\|5 of 11\|6 of 11" *.md tools/*.md
+```
+
+**Rule, and it belongs in the session-end procedure:** when a document is re-scored, grep it for
+**every figure the re-score supersedes** before declaring it reconciled — the old number, the old
+suite count, the old pass/assertion pair. Then grep the *other* three files for the same figures.
+A re-read confirms what a document says; only a grep for the superseded value finds what it still
+says elsewhere.
+
+**Proof it works, in this session:** the first pass was assembled by reading and covered ten sites.
+Re-grepping for the superseded figures afterwards found **two more** (`:154` *"the remaining 5 suites
+are not a formality"* and `:158` *"To close: 5 suites plus 3 partials"*) that the line-by-line read
+had passed over twice — in a section already scrolled through while collecting the other ten.
+
+### The corollary — "which file is authoritative" is scoped, not global
+
+`WP0A_EXIT_GATE.md` is authoritative for the **verdict** (4 of 7, and it was correct and unchanged
+throughout). It is **not** authoritative for evidence that was never written into it. The reflex
+*"the exit gate is the gate document, therefore the exit gate wins"* is what inverted the call.
+**Authority attaches to the claim, not the filename.** The file that recorded the measurement —
+here `MEMORY.md` session 10, written by the session that ran the suite — is authoritative for the
+measurement. And where **no** file is authoritative because nobody has measured, the answer is to
+measure, not to escalate: see the suite arithmetic below.
+
+### 🔴 THE SECOND FINDING — the criterion-2 numerator had been inflated by one since session 9
+
+`CONTEXT.md`, `TODO.md`, `ICARE_PROMPTS.md` and the exit gate all said **6 of 11 suites complete**,
+and 6 + 3 partial + 3 not started = **12** against a denominator of 11. I recorded it as a `> ⚠`
+note rather than resolving it, on the reasoning that picking between "the numerator is 5" and "the
+denominator is 12" was the owner's call. **That was the wrong call — it was resolvable by
+measurement, and the owner resolved it by mapping the 13 files on disk to `TESTING_PLAN.md`:**
+
+| | suites | n |
+|---|---|---|
+| complete | 2 roles, 5 card, 6 groups, 9 exports, 11 private media | **5** |
+| partial | 1 auth, 3 member profile, 4 attendance | 3 |
+| not started | 7 events, 8 birthday, 10 queues | 3 |
+| | | **5 + 3 + 3 = 11** ✓ |
+
+**Four files on disk are outside the eleven entirely, and that is where the extra 1 came from:**
+`Regression/DateCastRegressionCharacterizationTest` (cross-cutting),
+`Attendance/TimezoneCharacterizationTest` (session 6, the UP-009 pin),
+`Admin/MemberImportCharacterizationTest` (session 2b), and `Package/PackageProviderSmokeTest`, which
+is not characterization at all. **The denominator was always right.**
+
+**The lesson is the DIRECTION, and it is why this was not a bookkeeping detail.** The inflation ran
+**upward, on the single criterion blocking the gate**, and had been there since session 9 (4
+complete, recorded as 5). It does not move the verdict — criterion 2 is unmet at 5 or at 6 — but a
+criterion-2 number that drifts upward is exactly how a gate eventually gets **scored met on a proxy
+that has run out**, which is the failure mode this session had just finished writing a warning
+about, two sections higher in the same document. **An unresolved number on a blocking criterion is
+not neutral; it decays in the direction that closes the gate.**
+
+**Corollary to "escalate, do not decide":** escalate a *judgement*; measure a *fact*. Suite
+membership was a fact — 13 files, one plan document, ten minutes. Deferring it to the owner was
+mislabelling a measurement as a decision, and it left an overstatement standing in four files for a
+further session. Corrected 2026-08-22 in `WP0A_EXIT_GATE.md`, `CONTEXT.md` and `TODO.md`;
+`ICARE_PROMPTS.md` the owner corrected directly.
+
+### Why criterion 2 stays ❌ NOT MET at 94 — the premise expired, the conclusion did not
+
+The old argument was *"79 against a target of 80–120 is not coverage; it is more coverage."* **94
+clears the count, so that premise is gone — and the verdict is unchanged.** The gate text asks that
+*critical existing behavior* have characterization coverage; `TESTING_PLAN.md`'s 80–120 is a **proxy**
+for that, and a proxy stops carrying information the moment it is satisfied. Three suites are
+unwritten (event management, birthday routes, queues and notifications) and three are partial.
+**Scoring criterion 2 met on 94 would be scoring it on a proxy that has run out.** Written into
+`WP0A_EXIT_GATE.md` §2 explicitly, in the place the old argument occupied, so the next reader cannot
+reach the count without also reaching the reason it no longer decides anything.
+
+Supporting fact, worth keeping: **every characterization suite written so far has found something no
+code reading had found** — twelve defects across six suites. Three suites remain unwritten.
+
+### The iCare refusal — 3 of 3 preconditions unmet
+
+`tools/ICARE_PROMPTS.md` row A2 refuses unless all three hold. None did:
+
+| # | Precondition | State |
+|---|---|---|
+| 1 | WP 0A exit gate 7/7 | ❌ **4 of 7** — criteria 2, 4, 7 open |
+| 2 | §25.7 D7–D10 answered in writing | ❌ all four open; searched every tracked `.md`, no answer exists |
+| 3 | Owner has said iCare is in scope (D11) | ❌ `SCHEMA_SPEC.md:2940` — *"still unanswered"*; R1b by the 2026-08-11 split |
+
+Job 1 was the applicable job — **0 `ifgf_` migrations exist**, confirmed across both migration roots
+(`database/migrations` and `custompackages/ifgf/church-operations/database/migrations`). Refusing was
+correct and the owner confirmed it stands. **D7 and D8 add columns** (`group_id` on
+`ifgf_event_definitions`, `note` on `ifgf_attendance_details`); generating before they land means a
+second migration round on tables that are free to get right while empty.
+
+### D4 closed by the owner
+
+The `"Timezone Asia/Taipei, MySQL connection +08:00"` line — the contract UP-009 rejected on
+2026-08-15 — was struck from `tools/CAMPAIGN_PROMPT.md` section B **by the owner**, with
+`SCHEMA_SPEC.md` §20.0 A0 and §24 D4 marked accordingly. **Do not re-raise it.** D7–D11 remain open.
+
+---
+
+## 2026-08-21 — Session 10 — Suite 6 (groups / GroupLink) characterized; 79 → 94 tests; the granular group permission model found to be dead code
+
+**Work package:** WP 0A closure, item 6 / exit-gate criterion 2. One work package, as required.
+**Result:** suite 6 complete, **15 tests, 44 assertions**. Full `Feature` suite **105 passed, 345
+assertions, 0 failed, 0 skipped**, 234s. Characterization **94 of an 80–120 target — the NUMERIC
+target is now met**; **6 of 11 suites** complete. **Exit gate unchanged at 4 of 7** (criterion 2 asks
+for coverage of critical behaviour, and 4 suites are still unwritten — do not score it met on the
+count alone). Nothing committed.
+
+---
+
+### 🔴 THE HEADLINE — the group permission model that the routes advertise does not exist
+
+The group surface is registered **twice**, and the loser is the one that looks designed:
+
+| file | gate |
+|---|---|
+| `routes/web.php:262` | prefix `admin`, `['permission:read-groups']`, then per-route `create-groups` / `update-groups` / `delete-groups`. **No `auth`.** |
+| `routes/admin.php:685` | `['web','auth','churchadmin']` + **`permission:read-groups` on every route**, no finer grant anywhere |
+
+`RouteServiceProvider::map()` calls `mapWebRoutes()` **then** `mapAdminRoutes()`, so admin.php
+registers last and Laravel keeps it. Confirmed against `route:list`, not inferred.
+
+**Measured: `read-groups` alone reaches the create form, the edit form, the member-add form, the
+messaging surface — and DELETES a group.** The four-level permission model in `web.php`
+(`create-groups`, `update-groups`, `delete-groups`) is **dead code on routes that never resolve**.
+An owner reading `web.php` would describe a system that does not exist. This is the third instance
+of the "two routes claim one URI and the loser fails silently" class (after `GET /admin/export`
+at `routes/admin.php:176`/`:574`) and by far the most consequential.
+
+**One URI does not collide: `GET /admin/group/showMember` (no `{id}`).** The web.php registration
+survives there — carrying `read-groups` + `update-groups` and **no auth gate**. Everyone is refused
+401 by the permission stack; the only actor that gets through is the SEC-001 bypass, and it then
+500s because `GroupLinksController::index($id)` needs an argument the route does not supply.
+Unreachable for everyone, broken for the one who reaches it.
+
+---
+
+### 🔴 SEC-001 IS ALSO A `Gate::before` BYPASS — and on this surface that is the worse half
+
+`AuthServiceProvider::boot()` registers `Gate::before(fn ($user) => $user->usergroup_id == 3 ?: null)`.
+Every note so far records SEC-001 as the `Kernel.php:74` middleware alias. It is **two** controls,
+and `Gate::allows('group', $group)` is the **only** church scope `GroupsController::show/edit/destroy`
+have. **Measured: a usergroup-3 account holding no permission reads and edits another church's group
+(200 both).** A correctly-scoped sub-admin gets 403 on the same URLs — asserted on both sides, so a
+refactor cannot delete the working control while the suite stays green.
+
+### 🔴🔴 DELETING A GROUP DESTROYS EVERY MEMBER'S PERMISSIONS — new, and the worst finding here
+
+`GroupsController::destroy()` walks the group's members and for each one deletes **every**
+`PermissionUser` row that member holds:
+
+```php
+$permissions = PermissionUser::where('user_id', $groupMember->user_id)->get();
+foreach ($permissions as $permission) { $permission->delete(); }
+```
+
+Not scoped to the group, the church, or anything group-related. **Measured: a member holding
+`read-members` — unrelated to the group — has it gone after the delete.** Deleting a youth group
+silently strips permissions from every member of it. No warning, no confirmation, and the activity
+log records only "Group Deleted Successfully", so there is **no record of what was removed**.
+
+**It is not a cascade and it is not reversible.** The group is **soft** deleted; the permission rows
+are **hard** deleted. Restoring the group does not restore the permissions, and nothing anywhere
+knows what they were. Needs an owner decision — flagged as **GRP-001**.
+
+### 🔴 The GroupLink write path — four measured defects, and they constrain iCare
+
+**This is why suite 6 was pulled ahead of 7, 8 and 10, and the reason held up.** `GroupLink` is the
+surface iCare attendance extends; every item below is a constraint on that design.
+
+1. **`store()` trusts the client's `church_id`.** `$churchId = $request->church_id;` — not
+   `Auth::user()->church_id`. Measured: actor in church 66, row written with `church_id = 67`.
+   **A GroupLink's `church_id` is not trustworthy provenance.** Anything keying attendance scope
+   off it inherits that.
+2. **`store()` has NO `Gate` check at all** — every sibling action has one. Measured: a church-A
+   admin adds a member to a **church-B group**, 200, row created.
+3. **Duplicate membership is reachable.** The duplicate guard is controller logic keyed on the
+   *client-supplied* `church_id`, so posting two different church ids for the same (group, user)
+   writes **2 rows**. `group_links` has **only a PRIMARY key** — no unique constraint.
+   **Contrast, and it is the design input: `event_attendees` carries a DATABASE UNIQUE
+   (session_id, user_id).** Attendance was given the constraint; membership was not. FR-04's
+   recorder must not assume `GroupLink` is single-valued, and WP 0C must dedupe before adding a key
+   — the same shape as the `userprofiles` duplicate-row problem.
+4. **A role change has no gate and no church scope.** `update()` does
+   `GroupLink::where('id',$id)->first()` and saves. Measured: a church-A admin promoted a **church-B**
+   membership to `group_admin`, 302 success.
+
+### Inconsistent failure shapes, pinned
+
+- **Updating a foreign group is 500, while viewing one is 403.** `update()` has no Gate; it scopes
+  the lookup by `church_id`, so a foreign id yields null and `$group->church_id = …` raises `\Error`,
+  which does not extend `\Exception` and escapes the controller's own `catch`. Isolation holds —
+  nothing is written — **but it holds by crashing**. Same `\Error`-escapes-`catch(Exception)` shape
+  as CARD-001.
+- `GET /admin/group/showMember/{id}` returns **candidates, not members** — active usergroup-5 users
+  of the church, ignoring `{id}` except for the Gate check. That query **is** church scoped, and it
+  is asserted on both sides.
+- `GroupAddRequest`'s custom `check_name` / `check_description` rules are
+  `preg_match('/\pL\pM*|./u', …)`, which matches any non-empty string. **Validators that validate
+  nothing.** Recorded, not asserted, so nobody trusts them later.
+
+---
+
+### 🔴 THE METHOD LESSON THAT COST THE ONLY FAILURE — `actingAs()` PERSISTS FOR THE WHOLE TEST METHOD
+
+Round 1's diagnostic looped actors × routes and used a bare `$this->get()` for the guest row. That
+measures a real guest **only until the first `actingAs()` call**; every later "guest" cell was
+actually the previous actor. The matrix it printed showed **guest = 403 everywhere except the first
+route, which showed 401** — and I wrote that into the class docblock as a finding: "the guest column
+is not uniform on byte-identical middleware, cause unexplained".
+
+**It was an artifact of my own harness. The application is uniform: guest is 401 across the whole
+surface**, which is exactly what `MEMORY.md` already recorded for `routes/admin.php`. The 403s were
+usergroup 5 clearing auth and being refused by `MustBeChurchAdmin`.
+
+The suite caught it — 14 of 15 passed and the one failure was that invented assertion. **The fifth
+time this project has asserted against the harness instead of the application**, after
+`UploadedFile::fake()` inflated SEC-003 into a false RCE rating. Two things worth carrying:
+
+- **Rule, now in the class docblock: in a multi-actor diagnostic, drive the guest row in its own
+  test method, or reset the guard explicitly between probes.**
+- **A diagnostic is evidence about the harness AND the application, and it does not tell you which.**
+  "Diagnostic-first" bought four clean files by measuring instead of guessing; it does not protect
+  against measuring the wrong thing. The tell was there and I missed it: a claimed asymmetry on
+  *byte-identical middleware* has no mechanism, and "cause unexplained" written into a docblock is
+  the signal to go back to the harness, not to assert it.
+
+**The diagnostic-first streak ends at four files.** Recorded accurately rather than rounded up: five
+files, four clean, one first-run failure — in the assertion that had no mechanism behind it. That is
+the same shape as session 8's single failure (the guessed `read-gallery` permission). **Five
+sessions, five confirmations: the assertion without a measured mechanism is the one that fails.**
+
+---
+
+### Not done — read before assuming progress
+
+- **4 of 11 suites still unwritten: 7 Event management, 8 Birthday, 10 Queues** — and **1 Auth,
+  3 Member profile, 4 Attendance remain partial**. 94 tests clears the 80–120 *count*, but criterion
+  2 is about critical behaviour, not the number. **Do not score it met on the count.**
+- **`/member/mygrouplist` and `/member/mygroup/{id}` are 500 and were deliberately NOT asserted.**
+  Measured 500 for a usergroup-5 member, but the cause was not read, and these render a *member*
+  view whose layout may want the same `settings.*` config the admin layout does. **This is exactly
+  the MEM-001 trap** — a 500 in a test environment is a fixture question until proven otherwise —
+  so it goes to the next session as work, not into the suite as an assertion.
+- **`GET /mygroup/{group_id}` (`routes/web.php:87`) is a second, weaker copy of the member route**,
+  carrying `['web','auth']` with **no `MustBeChurchMember`**. Measured 500 for every actor including
+  guest, cause unread. Unpicked; suspect the same fixture question. Worth a look — a duplicate of a
+  member-scoped route that skips the member gate is the shape a real bypass takes.
+- **`GET /api/v2/groups/{church_id}` has middleware `api` and nothing else** — a fully public,
+  church-enumerable group listing. Not characterized; suite 6 was scoped to the web surface.
+- **Nothing committed.** `tests/Feature/Group/` is untracked, as `tests/Feature/Card/` still is.
+- **`SCHEMA_SPEC.md` left untracked and unactioned** — WP 0C material, per instruction.
+
+---
+
+## 2026-08-21 — Session 9 — Suite 5 (membership card / QR) characterized; the suite's own flakiness root-caused; 62 → 79 tests
+
+**Work package:** WP 0A closure, item 6 / exit-gate criterion 2. One work package, as required.
+**Result:** suite 5 complete, 17 tests, **first run 17/17, zero corrections** — the fourth
+consecutive diagnostic-first file to need none. Full `Feature` suite **90 passed, 301 assertions,
+0 failed, 0 skipped**, 189s. Package suite 3 passed, 10 assertions. **Exit gate unchanged at 4 of 7.**
+
+---
+
+### 🔴 THE FINDING THAT OUTRANKS THE SUITE — the test suite is not deterministic, and never was
+
+Mid-session the full run went red with **3 failures in `MemberProfileCharacterizationTest`, a file
+this session never touched**. Running that file alone still failed — 2 tests, with the assertions
+inverted in a way that made no sense: a user holding `read-members` got **401**, and a user holding
+**no** permission got **200**.
+
+`php artisan cache:clear --env=testing` made all 3 go green. Nothing else changed.
+
+**Cause: `.env.testing` sets `CACHE_DRIVER=file`, and `config/laratrust.php` has `cache.enabled =>
+true` with an 84,000-second TTL.** Laratrust caches each user's resolved roles and permissions to
+`storage/framework/cache`, keyed by user id. `DatabaseTransactions` rolls back the *rows*; it cannot
+roll back the *filesystem*. So a permission set cached under user id N outlives the test that made
+it, outlives the PHPUnit process, and is inherited by whatever test later holds id N.
+
+**Consequences, and they reach further than one red run:**
+
+- **Every green run of this suite so far was partly luck.** The 2026-08-21 "73 passed, 0 failed"
+  baseline was recorded against a cache whose contents nobody controlled.
+- **CI has been hiding it.** A clean checkout starts with an empty cache directory, so the file
+  cache never accumulates there and CI goes green regardless. The defect is invisible in exactly the
+  environment built to catch defects — the second time this project has hit
+  passes-in-CI/fails-locally (UP-003 and UP-011 were the mirror image).
+- **Any authorization assertion is affected**, in every suite, in both directions: a stale grant
+  turns a denial test green for the wrong reason, and a stale empty set turns a grant test red.
+
+**Interim mitigation, now in `TODO.md`'s pre-flight block: `php artisan cache:clear --env=testing`
+before every run.** It is a workaround, not a fix.
+
+**The fix is one line and was deliberately NOT applied:** `<env name="CACHE_STORE" value="array"/>`
+in `phpunit.xml`. `phpunit.xml` is upstream-owned and already carries an open owner decision (D3 in
+`WP0A_OWNER_REVIEW.md`, UP-012 → renumbered UP-013). Editing it needs an `UPSTREAM.md` entry, so it
+goes to the owner rather than into this session's diff. **Recommended for approval alongside D3.**
+
+**Standing lesson, new: `DatabaseTransactions` isolates the database and nothing else.** Any state a
+test writes outside the transaction — cache, session, filesystem, `storage/app/public` — survives it.
+Before trusting a green suite, ask what it wrote that the rollback could not reach.
+
+---
+
+### Suite 5's subject, and what it turned out to be
+
+Five routes across two controllers, `Member\MembershipCardController::print()` being a
+byte-for-byte twin of the Admin one.
+
+**1. `/admin/*` card routes are NOT on the two-gate surface, and the recorded trap is wrong for
+them.** Every note in `CONTEXT.md`/`TODO.md` about `['web','auth','churchadmin']` describes
+`routes/admin.php`. These five live in `routes/web.php`, whose group (L182) declares **only**
+`['permission:read-members']` — no `auth`, no `churchadmin`. Measured:
+
+| actor | `routes/admin.php` (recorded) | these card routes (measured) |
+|---|---|---|
+| guest | 401 `AuthenticationException` | 401 **`HttpException`** — the permission gate rejects it; there is no auth gate to throw |
+| usergroup 1 | **302 → `/portal`** | **401** — no `MustBeChurchAdmin`, so no redirect |
+| usergroup 4, no permission | 401 | 401 |
+| usergroup 3, no permission | reaches controller (SEC-001) | reaches controller (SEC-001) |
+
+A test written here on the recorded model would have failed for reasons unrelated to its subject.
+**Two admin surfaces, two different denials for the same account.**
+
+`/member/print/{name}` is a third model — `['auth','churchmember']`, and `MustBeChurchMember`
+*redirects* instead of aborting: ug1 → `/portal`, ug3 and ug4 → `/admin/dashboard`, ug5 through.
+
+**2. 🔴 CARD-001 — `print()` is broken for every member without a photo, in both twins.**
+
+```php
+$avatarSource = $this->toPdfImageSrc(optional($user->userprofile)->AvatarPath)
+    ?: $toPdfImageSrc(url('images/default-user.png'));   // undefined VARIABLE, not $this->
+```
+
+`$toPdfImageSrc` evaluates to null → `Error: Value of type null is not callable`. The branch is
+taken whenever the first call returns falsy — i.e. **the default case**. The fallback that exists to
+handle "member has no photo" is the one path that cannot run. `printAll()` gets it right on both
+branches: same file, same idea, one typo.
+
+`\Error` does not extend `\Exception`, so it escapes the controller's own `catch(Exception)`. That
+is the only reason the defect is visible rather than swallowed.
+
+**3. 🔴 CARD-002 — no ownership check, no church scope, on any card route.** Both controllers do
+`User::where('name', $name)->first()` and never compare the result to `Auth::user()`, nor to
+`church_id`. Only the *letterhead* is scoped. Measured: a usergroup-5 member reaches the controller
+for another member's card, and for a **different church's** member; a church-A admin reaches it for
+a church-B member.
+
+**⚠ The two defects are entangled, and this is the part to carry forward: CARD-001 is currently the
+only thing preventing CARD-002 from being a live PII disclosure.** The card fails to render because
+the avatar fallback is broken. A member *with* a resolvable avatar takes the other branch, and on an
+imagick-bearing host that path returns another member's card as a PDF — photo, full name, QR.
+**Fixing the typo alone converts a crash into a data leak.** They must be fixed in one change, or
+not at all. Escalated.
+
+The contrast that makes CARD-002 a defect rather than house style: `POST /api/v1/attendance/scan`
+resolves the *same* username and *does* scope it — `->where('church_id', Auth::user()->church_id)`,
+foreign username → 404 "Member not found." The missing clause already exists two files away, on the
+endpoint that consumes the card's own QR payload. Both halves are asserted.
+
+**4. 🔴 CARD-003 — printed cards are written to a world-readable, enumerable path.** `putContents()`
+is `Storage::disk('public')->put()`; that disk is root `storage/app/public`, url `/storage`,
+visibility **`public`**, symlinked into the document root. Measured end to end. The path is fully
+derivable from data a member already exposes:
+
+```
+/storage/{church-slug}/membership_card/Membership_Card_{FullName}_{year}.pdf
+```
+
+Nothing deletes them, so the directory accumulates the photo, full name and QR payload of every
+member any admin ever printed a card for. **Same class as suite 11's finding that the application
+has no private disk at all** — and further evidence that the answer is moving member media off the
+public disk, not an allow-list at 47 `Common::uploadFile()` call sites.
+
+Also pinned: `putContents()` returns `Storage::put()`'s **boolean cast to string** — `'1'` — and both
+controllers assign it to `$file` as though it were a path. Nothing reads `$file` today, which is why
+it has never surfaced.
+
+**5. The card QR encodes a URL that does not resolve.** All six live `QrCode::generate()` calls in
+the four card views encode `url('/admin/attandance/'.$user->name)` — note the spelling. **No route
+containing "attandance" is registered anywhere**; measured 404 for guest, authorized admin and the
+usergroup-3 bypass alike. Scanning a printed card with a phone camera opens a 404.
+
+The payload is not useless — it is a **username carrier**. `Api\AttendanceController`'s docblock says
+the client is expected to parse the trailing segment and POST it as `member_username`. Nothing
+enforces that shape, and FR-02.7 prohibits identifiers of this kind in URLs, so the payload is due
+for redesign. Pinned so the redesign is a deliberate change to a known shape.
+
+**6. `config/app.php`'s `PDF` alias points at a class that does not exist.** L230 still holds the
+dompdf v2 target `Barryvdh\DomPDF\Facade`; in v3 that is a namespace. `class_exists()` → **false**.
+The app works only because `RegisterFacades` merges the package manifest's aliases *after* the config
+array, so the discovered `Barryvdh\DomPDF\Facade\Pdf` overwrites the stale entry. **Same silent-seam
+failure mode as UP-010:** disable dompdf's auto-discovery, or lose it in a merge, and the stale
+config becomes authoritative and every `PDF::` call fatals. Pinned.
+
+---
+
+### ⚠ A HAZARD THAT COSTS A WHOLE RUN — do not exercise `print()`'s success path here
+
+`print()` and `printAll()` wrap their bodies in `catch(Exception)` whose only statement is **`dd()`**.
+`dd()` calls `exit()`, which **terminates the PHPUnit process**: the run stops mid-suite and reports
+a failure with no test name. Both card views call `QrCode::format('png')`, which needs imagick
+(UP-008), so on this box every reachable `print()` throws inside the view, is caught, and kills the
+runner. It cost one diagnostic run before the cause was obvious.
+
+**Consequence, stated plainly rather than papered over: `print()`'s SUCCESS path is UNMEASURED.**
+Every assertion in the suite either stops before `PDF::loadView()` or is a denial. The 200, the PDF
+download, and the write to the public disk have to be measured on an imagick-bearing environment, or
+after UP-008 lands `format('svg')`. This is recorded as a gap in coverage, not glossed as done.
+
+The authorization findings do **not** depend on that gap: they are asserted at the *reachability*
+level. Reaching CARD-001's fatal proves the request cleared every middleware and entered the
+controller body, which is exactly what "not denied" needs to show — and it is
+environment-independent, unlike anything that renders.
+
+### UP-008's blast radius, re-derived on this surface
+
+Six live `QrCode::format('png')` calls across the four card views (two more sit inside Blade
+comments and must not be counted). Asserted environment-aware: without imagick both card *screens*
+500 with the imagick `ViewException`; with imagick the test asserts only that the failure is **not**
+the imagick one, because the positive behaviour there is unmeasured and is not claimed.
+
+### Method notes
+
+- **Diagnostic-first held again — four rounds, and each one paid.** Round 1 gave the authorization
+  matrix and found CARD-001; round 2 gave the member-route gate, the cross-church rows and the dead
+  QR target; round 3 tried the avatar-present path and discovered the `dd()` process kill; round 4
+  measured the mechanisms directly — `putContents`, the alias, the API scan contrast. **17 tests
+  written afterwards, 17 passed first run.**
+- **Asserting reachability instead of outcome is what made an unrenderable surface testable.** When
+  the happy path cannot be executed, a deterministic failure *inside* the controller body is still a
+  sound probe for "did authorization let this through". Worth reusing on suites 6–8.
+- Heredocs through the Bash tool truncated a ~6.5 KB file silently mid-write and `php -l` did not
+  catch it because the truncation happened to leave parseable code. Use the Write tool for anything
+  over a few hundred bytes.
+
+---
+
+
 ## 2026-08-21 — Session 8 — Suites 9 and 11 characterized; SEC-003 found, mis-rated, fixed; 37 → 62 tests
 
 **Outcome:** the two wholly-uncharacterized PII surfaces are now covered. Characterization went
@@ -813,6 +1402,63 @@ produce. This is the single largest caveat on the whole upgrade — see "Not ver
   `collision`/PHPUnit mismatch ahead of Session 13's CI workflow.
 - Did not touch `vendor/`, `node_modules/`, `yarn.lock`, or `package-lock.json` beyond what
   `composer remove`/`composer update phpoffice/phpspreadsheet`/`composer update --lock` touched.
+
+---
+
+## 2026-08-11 — Session 3i (Cowork) — Schema spec + generation manifest, three review rounds
+
+**Produced:** `SCHEMA_SPEC.md` (21 tables, column-level) · `tools/GENERATION_MANIFEST.md` ·
+`tools/UNBLOCK_PROMPT.md` · `tools/GRAPHIFY_UPDATE_PROMPT.md` · `PROJECT_STATUS.md` ·
+`TESTING_PLAN.md`.
+
+**🔴 The finding that matters most — upstream uses MIXED KEY WIDTHS**
+
+| Table | PK | Type |
+|---|---|---|
+| `users`, `userprofiles`, `events`, `church`, `groups`, `group_links` | `increments('id')` | **INT UNSIGNED** |
+| `event_attendance_sessions`, `event_attendees` | `bigIncrements('id')` | **BIGINT UNSIGNED** |
+
+**`$table->foreignId('user_id')` creates BIGINT and its FK to `users.id` fails with errno 150.**
+Nearly every `ifgf_` table has an FK to `users` or `events`, so the modern Laravel idiom would have
+failed 15+ times. Use `unsignedInteger` for FKs to upstream INT tables, `unsignedBigInteger` for the
+two BIGINT ones, `foreignId()` only between `ifgf_` tables. This is Rule 0 in `SCHEMA_SPEC.md`.
+
+**Owner decisions this session**
+
+- **Education level becomes an ordered lookup** `ifgf_education_levels` with a `rank` column in tens
+  (SD 10 → S3 70) so "at least a bachelor's" is a comparison, not a string match. All 199 filled
+  workbook rows map exactly — no `other` bucket needed.
+- **`ifgf_member_categories` added on the same argument** — 4 clean values, drives the Absen grid
+  header totals, primary reporting axis.
+- **Occupation deliberately NOT a lookup.** Its 7 values are 3 real clusters plus 4 one-off free-text
+  entries (`Gembala`, `bisnis`, `Toko`, `倉管`). A lookup forces the import to judge whether those
+  are new categories or misspellings — a call the source cannot settle. Use
+  `occupation_category` + `occupation_detail` (verbatim).
+- Table count **19 → 21**; propagated through the manifest.
+
+**Manifest survived three Claude Code review rounds — nine defects, most of them mine**
+
+1. Section 3 would have relocated 9 upstream files (`app/Services/Payment/*`,
+   `app/Support/Presenter/*`). Fixed with an allow-list.
+2. **I fixed Section 3 and did not check the siblings.** Sections 4, 5, 6 had the identical defect —
+   11 upstream policies, 15 commands, **85 request classes**. Section 4 would have broken
+   `RolePermissionCharacterizationTest`, the very test the exit gate waits on.
+3. **I then supplied a Section 4 fix without reading `policy.stub`.** It emits *two* imports; my
+   blanket `use App\Models\` replace would have rewritten `App\Models\User` to a package class that
+   will never exist. `composer dump-autoload` does **not** catch a broken import.
+4. `$SRC`/`$P` do not persist between tool calls; an empty `$SRC` creates `/Policies` at the
+   filesystem **root** and moves files out of the repo. Both are now restated per section.
+
+**Standing lesson:** when a defect is found in one section of a generated instruction set, check
+every structurally similar section *and* read the artifact the fix applies to. Twice this session I
+acted on an assumed pattern rather than a read one.
+
+**Graphify rebuilt and verified** at `7d7654b` — 7.3 MB → 6.82 MB, 6,919 → 6,121 nodes, top files
+now `User.php` 48 / `Prayer.php` 42 / `Church.php` 33. No prose or manifests in the top 5. It is a
+code index again.
+
+**State at handoff:** `ifgf_` migrations **0**, `ifgf` models **0**, `ifgf/main` still `aa8194e`,
+tests **11 files**. Nothing generated — the manifest's preconditions correctly refuse.
 
 ---
 

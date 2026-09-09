@@ -74,13 +74,36 @@ return [
             'timezone' => '+00:00',
         ],
 
+        /*
+        | Reads the machine-wide credentials in ~/.ifgf/postgres.env first (loaded by
+        | bootstrap/global-env.php), falling back to this checkout's .env. That is what
+        | lets the password be entered once per machine instead of once per clone.
+        */
         'pgsql' => [
             'driver' => 'pgsql',
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'forge'),
-            'username' => env('DB_USERNAME', 'forge'),
-            'password' => env('DB_PASSWORD', ''),
+            'host' => env('IFGF_PG_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('IFGF_PG_PORT', env('DB_PORT', '5432')),
+            'database' => env('IFGF_PG_DATABASE', env('DB_DATABASE', 'ifgf_cms')),
+            'username' => env('IFGF_PG_USERNAME', env('DB_USERNAME', 'ifgf')),
+            'password' => env('IFGF_PG_PASSWORD', env('DB_PASSWORD', '')),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'schema' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        /*
+        | The automated suite. Same role and password, DIFFERENT database — the harness
+        | truncates every table on this connection before each run, so pointing it at
+        | 'pgsql' would destroy real data.
+        */
+        'pgsql_testing' => [
+            'driver' => 'pgsql',
+            'host' => env('IFGF_PG_HOST', '127.0.0.1'),
+            'port' => env('IFGF_PG_PORT', '5432'),
+            'database' => env('IFGF_PG_TEST_DATABASE', 'ifgf_cms_test'),
+            'username' => env('IFGF_PG_USERNAME', 'ifgf'),
+            'password' => env('IFGF_PG_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
             'schema' => 'public',

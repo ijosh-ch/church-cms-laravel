@@ -10,6 +10,18 @@
   </testsuites>
   <php>
     <env name="APP_ENV" value="testing"/>
+
+    <!--
+      The ifgf_ suite (tests/IfgfTestCase) runs on PostgreSQL, which is IfgfTestCase's own
+      default ('pgsql_testing' -> ifgf_cms_test). Provisioned 2026-09-08; the temporary
+      mysql pin that lived here has been removed.
+
+      The WP 0A characterization suites are unaffected and still run against MySQL — they
+      are a MySQL baseline by design (PG_MIGRATION_PLAN.md section 0.2).
+
+      To run the ifgf_ suite against MySQL again for a comparison, set
+      IFGF_TEST_CONNECTION=mysql in the environment rather than reinstating it here.
+    -->
     <env name="BCRYPT_ROUNDS" value="4"/>
     <env name="CACHE_DRIVER" value="array"/>
     <env name="SESSION_DRIVER" value="array"/>

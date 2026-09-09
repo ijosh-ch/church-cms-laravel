@@ -14,6 +14,7 @@ for confirmation. Cost of this preamble: ~20k. Anything more is leaking budget.
 ## Never read whole
 
 `PRD.md` (~33.9k after the 2026-08-09 QR amendments), `build.md` (15.6k), `hosting.md` (5.4k),
+`PG_MIGRATION_PLAN.md` (~25k, 987 lines — read the numbered section the TODO names),
 `graphify-out/graph.json` (7.3MB),
 `composer.lock` (490KB), `package-lock.json` (630KB), `yarn.lock`, `mysql-schema.sql`,
 `public/js/app.js`. Use `Read` with `offset`/`limit`, or query the file with a script.
@@ -64,6 +65,21 @@ longer a PATH-reorder PHP rollback; see `CONTEXT.md`.
 - Global flags on every command: `-h/--help`, `--silent`, `-q/--quiet`, `-V/--version`,
   `--ansi`/`--no-ansi`, `-n/--no-interaction`, `--env=`, `-v|vv|vvv/--verbose`.
 
+## Database — PostgreSQL as of 2026-09-08
+
+`.env` is **`DB_CONNECTION=pgsql`** → `ifgf_cms` on PostgreSQL 17.10, a Windows service that
+auto-starts. **Credentials are machine-wide** in `~/.ifgf/postgres.env`, loaded by
+`bootstrap/global-env.php` before the framework reads `.env`; they are entered once per machine and
+cannot be committed. `config/database.php` prefers `IFGF_PG_*` over `DB_*`.
+
+All 93 upstream migrations run on PostgreSQL unchanged. The only MySQL coupling left in app code is
+`DATE_FORMAT(` in 6 files. MySQL 8.4 is still installed and still needs a manual start, but **only
+the WP 0A characterization suite uses it** — that suite is a MySQL baseline by design.
+
+The `ifgf_` schema lives in **`database/migrations/ifgf/`**, registered from the package provider.
+The subdirectory is load-bearing: Laravel globs a migration path non-recursively, which is what lets
+the test harness build those tables alone.
+
 ## Whether PHP runs is TOOL-DEPENDENT — settled, do not re-test
 
 Not stale — **tool-dependent**, and both halves are true. Identify your tool once, apply the row,
@@ -100,12 +116,26 @@ large refactor.
   characterization test.
 - Never run `migrate:fresh` / `db:wipe` without first printing and asserting the environment,
   driver, host, and database name. (`build.md` L517)
+- Never run `migrate:fresh --path=X` on a shared database — it drops **every** table, not X's.
+- Never move the connection/migration setup out of `IfgfTestCase::createApplication()` into
+  `setUp()`. It must run before `DatabaseTransactions` opens its transaction, or test isolation
+  silently stops working on PostgreSQL and migrations get rolled back by transactional DDL.
+- Never seed the demo fixture into a database holding real members — it shares branches and Sunday
+  dates with the imported data and contaminates the quarterly report.
+- Never remove `LICENSE.upstream-MIT`; retaining that notice is MIT's only obligation.
+- Never commit the legacy workbook, or any file containing real member data.
 - Never start a second work package in one session, or begin an exit gate that will not fit.
 
-## Ownership
+## Ownership and licence
 
-New IFGF behavior goes in `custompackages/ifgf/church-operations`. New physical tables use the
-`ifgf_` prefix. Upstream model names and paths are preserved exactly — `Events`, `Userprofile`,
+New IFGF behavior goes in `custompackages/ifgf/church-operations` (services, models, commands,
+the `CalendarGateway` contract). New physical tables use the `ifgf_` prefix and their migrations go
+in `database/migrations/ifgf/` — **not** the package, because two WP 0A gate tests assert the
+package directory holds no migrations.
+
+**Licence:** `LICENSE` is **AGPL-3.0** for IFGF-authored work (© 2026 IFGF Taipei Zhongli);
+`LICENSE.upstream-MIT` retains GegoSoft's MIT notice verbatim. New IFGF PHP files carry the AGPL
+header; upstream-owned files must **never** be given one. See `NOTICE.md`. Upstream model names and paths are preserved exactly — `Events`, `Userprofile`,
 `EventAttendanceSession`, `EventAttendee`, `GroupLink`. PRD names are aliases, not replacements.
 
 ## End of session — at 120k used, stop and hand off

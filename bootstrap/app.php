@@ -14,6 +14,12 @@ header('Access-Control-Allow-Headers: *');*/
 |
 */
 
+/*
+| Machine-wide IFGF credentials (~/.ifgf/*.env). Must run before the framework
+| reads the repository .env. Safe no-op when the directory does not exist.
+*/
+require __DIR__.'/global-env.php';
+
 $app = new Illuminate\Foundation\Application(
     realpath(__DIR__.'/../')
 );

@@ -13,7 +13,9 @@ Release 1 scope in `PRODUCTION_PATH.md`.
 
 ## Scope
 
-**In:** 19 `ifgf_` tables, their models, the import pipeline, Phase 1A member registry / portal / QR.
+**In:** **21** `ifgf_` tables *(19 + `ifgf_education_levels` and `ifgf_member_categories`, owner
+decision 2026-08-11 — see `SCHEMA_SPEC.md` §1b–1d)*, their models, the import pipeline, Phase 1A
+member registry / portal / QR.
 **Out — Release 2:** `ifgf_programs*` (6, CGSL), `ifgf_ministries*` (2), `ifgf_event_registrations`.
 **Out — needs characterization first:** expand/contract on existing tables (WP 0C items 3, 4, 5).
 
@@ -88,7 +90,7 @@ I approve. Do not start filling any file.
 
 ---
 
-## Section 1 — Package migrations (19 tables)
+## Section 1 — Package migrations (21 tables)
 
 `--path` targets the package directly, so no `git mv` is needed for these.
 
@@ -96,6 +98,8 @@ I approve. Do not start filling any file.
 $P="custompackages/ifgf/church-operations/database/migrations"
 
 php artisan make:migration create_ifgf_branches_table               --create=ifgf_branches               --path=$P
+php artisan make:migration create_ifgf_education_levels_table       --create=ifgf_education_levels       --path=$P
+php artisan make:migration create_ifgf_member_categories_table      --create=ifgf_member_categories      --path=$P
 php artisan make:migration create_ifgf_member_profiles_table        --create=ifgf_member_profiles        --path=$P
 php artisan make:migration create_ifgf_contact_points_table         --create=ifgf_contact_points         --path=$P
 php artisan make:migration create_ifgf_event_types_table            --create=ifgf_event_types            --path=$P
@@ -126,7 +130,7 @@ import.
 **These migrations are not empty.** `--create=` uses `migration.create.stub`, which emits a real
 `Schema::create()` with `$table->id()` and `$table->timestamps()`, plus `Schema::dropIfExists()` in
 `down()`. Because `ChurchOperationsServiceProvider::boot()` calls
-`loadMigrationsFrom(__DIR__.'/../database/migrations')`, **verification step (d) will create 19
+`loadMigrationsFrom(__DIR__.'/../database/migrations')`, **verification step (d) will create 21
 near-empty `ifgf_*` tables in `churchcms_test_disposable`.** That is expected, not a regression —
 the suites still pass. Cowork editing these same files afterwards is legal: they are unreleased and
 have never run against anything but the disposable test database.
@@ -137,6 +141,8 @@ Generated into `app/Models/`, then relocated. `make:model` cannot target a packa
 
 ```
 php artisan make:model Branch
+php artisan make:model EducationLevel
+php artisan make:model MemberCategory
 php artisan make:model MemberProfile
 php artisan make:model ContactPoint
 php artisan make:model EventType
@@ -163,10 +169,10 @@ Then relocate all 19 in one pass:
 $SRC = "custompackages/ifgf/church-operations/src"
 New-Item -ItemType Directory -Force -Path "$SRC/Models"
 Get-ChildItem app/Models/*.php | Where-Object {
-  'Branch','MemberProfile','ContactPoint','EventType','EventDefinition','EventOccurrence',
-  'AttendanceDetail','GroupMembership','MemberMedia','MediaVariant','AttendanceMedia','Consent',
-  'CalendarLink','CalendarViewerAccess','ImportBatch','ImportSourceRecord','SourceIdentityMap',
-  'ImportConflict','ImportException' -contains $_.BaseName
+  'Branch','EducationLevel','MemberCategory','MemberProfile','ContactPoint','EventType',
+  'EventDefinition','EventOccurrence','AttendanceDetail','GroupMembership','MemberMedia',
+  'MediaVariant','AttendanceMedia','Consent','CalendarLink','CalendarViewerAccess','ImportBatch',
+  'ImportSourceRecord','SourceIdentityMap','ImportConflict','ImportException' -contains $_.BaseName
 } | ForEach-Object { git mv $_.FullName "$SRC/Models/$($_.Name)" }
 
 Get-ChildItem "$SRC/Models/*.php" | ForEach-Object {

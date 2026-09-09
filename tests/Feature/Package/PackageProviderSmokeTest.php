@@ -97,10 +97,19 @@ class PackageProviderSmokeTest extends TestCase
         );
     }
 
+    /**
+     * The version moved from '0.1.0-seam' to '0.2.0-prototype' on 2026-09-08, when the
+     * package stopped being a bare loading seam and gained real behaviour: the credential,
+     * demo-data, birthday-sync, attendance and reporting services.
+     *
+     * Still asserted against a literal rather than "not empty" — the point of this test is
+     * that mergeConfigFrom actually ran, and a null-safe assertion would pass whether it
+     * did or not.
+     */
     public function test_package_config_is_merged(): void
     {
         $this->assertSame(
-            '0.1.0-seam',
+            '0.2.0-prototype',
             config('church-operations.version'),
             'The package config was not merged, so mergeConfigFrom did not run.'
         );

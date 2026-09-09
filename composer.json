@@ -8,7 +8,7 @@
         "laravel",
         "ministry"
     ],
-    "license": "MIT",
+    "license": "AGPL-3.0-or-later",
     "type": "project",
     "require": {
         "php": "^8.3",

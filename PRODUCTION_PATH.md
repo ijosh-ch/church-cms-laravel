@@ -48,6 +48,62 @@ lose nothing on cutover day that they have today.
 
 ---
 
+## ⚠ Re-cut 2026-08-11 — Release 1 splits into R1a and R1b
+
+**Owner decision.** Ship the weekly Sunday workflow first; iCare and Calendar follow.
+
+### Correction to my earlier estimate
+
+I said this split was "roughly 30 sessions" and would "halve time-to-something-usable."
+**That was wrong.** I counted only the feature phases (1A + 1B) and ignored the foundation and
+production work they sit on. Nothing ships without WP 0C schema, WP 0D privacy, the member import,
+and Phase 1E readiness.
+
+| | Sessions |
+|---|---:|
+| **R1a — corrected** | **44–57** |
+| Full Release 1 | 57–73 |
+| **Actual saving** | **~13–16 sessions, about 20%** |
+
+Still worth doing, but for a different reason than speed: **it puts the QR scan flow in front of a
+real Sunday congregation months earlier.** That is the assumption I would least like to discover is
+wrong at cutover, and no amount of testing substitutes for 200 people arriving at once.
+
+### R1a — "replace the Sunday spreadsheet"
+
+| Package | Sessions |
+|---|---:|
+| Close WP 0A exit gate | 3–4 |
+| WP 0C schema + import pipeline | 10–13 |
+| WP 0D privacy gates | 3–4 |
+| Phase 1A member registry, portal, QR | 10–12 |
+| Phase 1B events + attendance | 7–9 |
+| **Phase 1D.4 member import only** | 3–4 |
+| Phase 1E production readiness | 8–11 |
+| **Total** | **44–57** |
+
+**1D.4 is not optional in R1a.** Without importing the 217 members there is nobody to scan.
+
+### R1b — "the rest of Release 1"
+
+Phase 1C iCare · Phase 1D.1 birthday Calendar · Phase 1D.3 reports · Phase 1D.5 historical
+attendance import. **13–19 sessions**, on top of R1a.
+
+### The schema does NOT split
+
+All **21 `ifgf_` tables** are still created in WP 0C, including the three R1b-only ones —
+`ifgf_calendar_links`, `ifgf_calendar_viewer_access`, `ifgf_attendance_media`. Empty tables cost
+nothing; a second migration round costs a session and risks a schema change after data exists.
+**`tools/GENERATION_MANIFEST.md` needs no edit.**
+
+### What the church keeps using through R1a
+
+The Apps Script continues doing birthdays and iCare exactly as it does today. Nothing switches off.
+The parallel run gets longer, which is the real cost of this split — and it is acceptable because
+the Sunday workflow is the highest-volume, highest-risk piece.
+
+---
+
 ## Proposed releases
 
 ### Release 1 — "Replace the spreadsheet" · production target

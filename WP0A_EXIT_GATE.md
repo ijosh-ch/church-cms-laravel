@@ -1,6 +1,6 @@
 # WP 0A exit gate review
 
-**Date:** 2026-08-17 · **Re-scored:** 2026-08-18 (CI green), **2026-08-21 (suites 9 and 11)**
+**Date:** 2026-08-17 · **Re-scored:** 2026-08-18 (CI green), 2026-08-21 (suites 9 and 11), **2026-08-21 (suite 6)**
 **Branch:** `contrib/laravel-supported-platform`
 **Reviewed against:** `build.md` L225–228 (Work Package 0A exit gate)
 
@@ -10,8 +10,10 @@
 
 **Re-scored 2026-08-21: 4 of 7 criteria met, 0 partial, 3 not met — UNCHANGED from 2026-08-18.**
 
-Criterion 2 moved a long way without crossing the line (37 → 62 characterization tests, 2 → 4 of 11
-suites complete) and criterion 7's owner-review pack now exists, but **no criterion changed verdict**.
+Criterion 2 has cleared its **numeric** target without crossing the line that matters
+(37 → 62 → 79 → **94** characterization tests against a target of 80–120; **5 of 11** suites complete,
+corrected from 6 on 2026-08-22 — see §2) and criterion 7's owner-review pack now exists, but **no
+criterion changed verdict**.
 Criteria 1, 5 and 6 remain met from the 2026-08-18 CI run `32090487802`.
 
 The honest summary of 2026-08-21: the blocking criterion is closer and better understood, and it is
@@ -56,19 +58,35 @@ half.
 
 ## 2. Critical existing behavior has characterization coverage — ❌ **NOT MET**
 
-**This is the real blocker, and it is not close.**
+**This is the real blocker. The count no longer says so; the coverage still does.**
 
-| | 2026-08-18 | **2026-08-21** |
-|---|---|---|
-| Characterization tests | 37 | **62** |
-| Full `Feature` suite | 48 passed / 109 assertions | **73 passed / 250 assertions / 0 failed / 0 skipped** |
-| Target (`TESTING_PLAN.md` Part 1) | 80–120 | **80–120** |
-| Suites complete | 2 of 11 | **4 of 11** (roles+permissions, attendance, **exports**, **private media**) |
-| Suites partial | 2 | **3** (auth, member profile, attendance) |
-| Suites not started | 7 | **5** |
+| | 2026-08-18 | 2026-08-21 (suites 9/11) | **2026-08-21 (suite 6)** |
+|---|---|---|---|
+| Characterization tests | 37 | 79 | **94 — numeric target MET** |
+| Full `Feature` suite | 48 passed / 109 assertions | 90 passed / 301 assertions | **105 passed / 345 assertions / 0 failed / 0 skipped**, 234s |
+| Target (`TESTING_PLAN.md` Part 1) | 80–120 | 80–120 | **80–120** |
+| Suites complete | 2 of 11 | 4 of 11 *(recorded as 5 — inflated)* | **5 of 11** (roles+permissions, membership card/QR, **groups / `GroupLink`**, exports, private media) |
+| Suites partial | 2 | 3 | **3** (auth, member profile, attendance) |
+| Suites not started | 7 | 4 | **3** (event management, birthday routes, queues and notifications) |
 
-Still not started: **QR / membership card, groups, event management, birthday routes, queues and
-notifications.** Partial gaps: auth owes password reset, email verification, session lifetime and
+> ⚠ **Suite arithmetic, corrected 2026-08-22 — the figure was 6 of 11 and it was wrong.**
+> Resolved against `TESTING_PLAN.md` and the 13 test files on disk, not by picking a reading:
+> **complete are suites 2, 5, 6, 9 and 11 — five**; partial 1, 3, 4; not started 7, 8, 10.
+> **5 + 3 + 3 = 11.** The previous figure gave 6 + 3 + 3 = 12 against a denominator of 11.
+>
+> Four files on disk sit **outside the eleven altogether**, which is where the extra 1 came from:
+> `Regression/DateCastRegressionCharacterizationTest` (cross-cutting),
+> `Attendance/TimezoneCharacterizationTest` (session 6, the UP-009 pin),
+> `Admin/MemberImportCharacterizationTest` (session 2b), and `Package/PackageProviderSmokeTest`,
+> which is not characterization at all.
+>
+> **The numerator was inflated by one and had been since session 9** (4 complete, recorded as 5).
+> **Note the direction: it overstated progress on the single criterion blocking this gate.** The
+> verdict does not move — criterion 2 is unmet at 5 or at 6 — but *a criterion-2 number that drifts
+> upward is exactly how a gate eventually gets scored met on a proxy that has run out.* The
+> denominator was always right.
+
+Still not started: **event management, birthday routes, queues and notifications.** Partial gaps: auth owes password reset, email verification, session lifetime and
 throttling; member profile owes create/edit/delete/export behaviour beyond render and authorization;
 attendance owes `searchMember` and `removeAttendee`.
 
@@ -77,18 +95,48 @@ attendance owes `searchMember` and `removeAttendee`.
 which is why they were taken first. A cross-cutting regression file (5 tests) was added alongside
 them.
 
-**Why this matters more than the count suggests.** WP 0B crossed three Laravel majors with no
-behavioural baseline, by explicit owner directive mid-session (`MEMORY.md` 2026-08-10). The entire
-purpose of this criterion is to retire that risk. **At 62 tests it is reduced, not retired** — and as
-of 2026-08-21 that is no longer a cautious phrasing but a measured one: REG-001 below is a
-behavioural regression the traversal introduced, found by two of the four suites that exist. The
-five that do not exist have not been looked at.
+**Closed 2026-08-21, later the same day — suite 6 (groups / `GroupLink`), 15 tests, 44 assertions.**
+It was the largest unwritten suite and it is the one that carried the count past 80. What it found is
+in the counterweight below; the short version is that the granular group permission model the routes
+advertise **does not resolve at all**.
 
-**Honest counterweight:** the coverage that *does* exist has already found seven real things —
+**Why the count is met and the criterion is not — read this before scoring criterion 2.** WP 0B
+crossed three Laravel majors with no behavioural baseline, by explicit owner directive mid-session
+(`MEMORY.md` 2026-08-10). The entire purpose of this criterion is to retire that risk.
+
+Until 2026-08-21 this section argued that **79 against a target of 80–120 is not coverage, it is more
+coverage.** *That premise expired at 94, and the conclusion did not move.* The gate text asks that
+*critical existing behavior* have characterization coverage. It does not ask for a number;
+`TESTING_PLAN.md`'s 80–120 is a **proxy** for that, and a proxy stops informing the moment it is
+satisfied. **Three suites are unwritten — event management, birthday routes, queues and
+notifications — and three more are partial. Scoring criterion 2 met on 94 would be scoring it on a
+proxy that has run out.**
+
+**At 94 tests the WP 0B risk is reduced, not retired**, and that is measured rather than cautious:
+REG-001 below is a behavioural regression the traversal introduced, found by two of the six suites
+that exist. Suite 6 then found three more defects plus the second half of SEC-001, on a surface
+nobody had flagged. **Every suite written so far has found something no code reading had found.
+Three have not been written.**
+
+**A second, harder caveat, measured 2026-08-21: until now the suite was not deterministic.**
+Laratrust caches permissions to the file cache, `DatabaseTransactions` cannot roll that back, and a
+stale entry inverted three assertions in a file that session never touched. A clean CI checkout
+never accumulates the cache, so CI has been green regardless. Every count recorded before this was
+partly luck. `cache:clear` is the interim; `CACHE_STORE=array` in `phpunit.xml` is the fix and is
+owner-gated with D3.
+
+**Honest counterweight:** the coverage that *does* exist has already found **twelve** real things —
 SEC-001 (`usergroup_id` bypasses all permissions), SEC-002 (attendance has no per-leader scope),
 AUTH-001 (registration live although disabled), WP 0C item 3 (`userprofiles` permits duplicate
-rows), and as of 2026-08-21 **SEC-003**, **REG-001** and the **SEC-002 export extension** below. None
-were visible from reading the code. The method is working; there simply is not enough of it yet.
+rows), and as of 2026-08-21 **SEC-003**, **REG-001** and the **SEC-002 export extension** below,
+plus suite 6's five: **GRP-001** (deleting a group hard-deletes every member's permission rows,
+unscoped, with nothing recording what they were), **GRP-002** (`GroupLinkController::store()` takes
+`church_id` from the request body with no `Gate` check — measured writing into another church's
+group), **GRP-003** (`group_links` permits duplicate membership), the **dead granular group
+permission model** (`routes/web.php`'s `create-/update-/delete-groups` never resolve; `admin.php`
+registers last, and `read-groups` alone deletes a group), and the **`Gate::before` half of SEC-001**,
+which is the only church scope `GroupsController::show/edit/destroy` have. None were visible from
+reading the code. The method is working; there simply is not enough of it yet.
 
 **The three findings of 2026-08-21. SEC-003 was FIXED the same day by owner direction; the other
 two are characterized and NOT fixed:**
@@ -112,11 +160,13 @@ two are characterized and NOT fixed:**
 - **SEC-002 extends to the export surface.** The attendance export never consults `event_managers`
   either; assigned and unassigned leaders reach identical outcomes.
 
-**Why REG-001 matters to the scoring.** It is evidence that the remaining 5 suites are not a
+**Why REG-001 matters to the scoring.** It is evidence that the remaining 3 suites are not a
 formality. Two suites found a systemic upgrade regression that four earlier suites had not touched;
 the birthday suite in particular now has a known dependency on it via `Userprofile::date_of_birth`.
+Suite 6 then repeated the pattern on a surface nobody had flagged.
 
-**To close:** 5 suites plus 3 partials. Realistically 2–3 sessions.
+**To close:** 3 suites plus 3 partials. Realistically 1–2 sessions — **not** more tests toward
+80–120, which is already met at 94.
 
 ---
 
@@ -268,7 +318,7 @@ reviewed" needs an X that exists**, and this one had been quietly treated as sat
 | # | Criterion | Verdict (2026-08-21) |
 |---|---|---|
 | 1 | Installs reproducibly / documented blocker | ✅ **Met 2026-08-18** — proven on a clean Ubuntu checkout |
-| 2 | **Critical behavior has characterization coverage** | ❌ **Not met — still the real blocker.** 62 of 80–120; 4 of 11 suites |
+| 2 | **Critical behavior has characterization coverage** | ❌ **Not met — still the real blocker.** 94 of 80–120 (**count met**); **5 of 11** suites, 3 unwritten, 3 partial |
 | 3 | Package seam loads without changing behavior | ✅ **Met** |
 | 4 | `UPSTREAM.md` + ownership map reviewed | ❌ Not met — review pack ready, owner review outstanding |
 | 5 | CI runs from a clean checkout | ✅ **Met 2026-08-18** — fully green incl. frontend build |
@@ -281,9 +331,9 @@ Two items remain, and only one of them is work:
 
 1. **One owner reading session.** `WP0A_OWNER_REVIEW.md` (2026-08-21) carries both the ledger and the
    matrix, and asks three explicit decisions. Closes criteria 4 and 7 together. **Hours.**
-2. **Write the 5 remaining characterization suites and finish the 3 partials.** Criterion 2, and it
-   also unblocks UP-007's status inside criterion 4. **2–3 sessions.** This is the whole remaining
-   cost.
+2. **Write the 3 remaining characterization suites and finish the 3 partials.** Criterion 2, and it
+   also unblocks UP-007's status inside criterion 4. **1–2 sessions.** This is the whole remaining
+   cost. The 80–120 count is already met at 94; closing it is **not** what remains.
 
 Neither is blocked on the other. Characterization is the long pole; item 1 is a single sitting.
 
@@ -321,8 +371,8 @@ characterization suite and the package suite green on the merged tree.
 
 ## What still fails, and it is the same three
 
-- **2 — characterization coverage.** 4 of 11 suites. Unchanged, and still the long pole at 3–4
-  sessions.
+- **2 — characterization coverage.** **5 of 11** suites; **the 80–120 count is met at 94, the
+  coverage is not.** Verdict unchanged, and still the long pole — 3 suites, now 1–2 sessions.
 - **4 — `UPSTREAM.md` and ownership map reviewed.** Owner review; classify `RouteServiceProvider`;
   fold in `phpunit.xml`. UP-007's "High" conflict risk should also be restated as the *measured*
   clean result. Hours.
@@ -333,15 +383,20 @@ characterization suite and the package suite green on the merged tree.
 
 ---
 
-## Re-score, 2026-08-21 — what suites 9 and 11 settled, and what they did not
+## Re-score, 2026-08-21 — what suites 9, 11 and 6 settled, and what they did not
 
 **No criterion changed verdict. The gate remains 4 of 7 met, 3 not met, ❌ NOT PASSED.**
 
-**Criterion 2 — moved substantially, still NOT MET.** 37 → 62 characterization tests; full `Feature`
-suite 48/109 → **73 passed, 250 assertions, 0 failed, 0 skipped**. Suites complete 2 → 4 of 11. The
-two surfaces closed were the two named as wholly uncharacterized and PII-bearing, which is why they
-were taken ahead of the medium-priority ones. **62 against a target of 80–120 is not coverage; it is
-more coverage.**
+**Criterion 2 — the numeric target is now MET and the criterion is NOT.** 37 → 62 → 79 → **94**
+characterization tests; full `Feature` suite 48/109 → **105 passed, 345 assertions, 0 failed, 0
+skipped**, 234s. Suites complete 2 → 4 → 5 → **6** of 11.
+
+This paragraph previously read **"79 against a target of 80–120 is not coverage; it is more
+coverage."** **The premise changed on 2026-08-21 and the conclusion did not.** 94 clears 80–120;
+criterion 2 asks for coverage of *critical behaviour*; three suites are unwritten and three partial;
+it remains ❌ NOT MET. The count was always the weaker half of the claim — suite 5 showed the counts
+themselves were cache-dependent until 2026-08-21 — and now that it is satisfied it carries no weight
+at all. **Do not score this criterion from the number.**
 
 **Criteria 4 and 7 — the review pack exists; the review does not.** `WP0A_OWNER_REVIEW.md` reduces
 both to one sitting and asks three decisions. Two of this review's own premises were **measured and
@@ -356,16 +411,18 @@ found wrong** while preparing it:
 supporting claims decay too, not just its verdict. Both premises were reasonable when written and
 neither had been checked against `git diff`. **Measure before classifying.**
 
-**What the new coverage found — and why it argues the remaining 5 suites are not a formality.**
-Three findings. **SEC-003** (unrestricted file upload; first mis-rated RCE, actually stored XSS —
-**fixed the same day, UP-012**), **REG-001** (`protected $dates` inert since Laravel 10; 21
-columns across 9 models silently uncast), and the **SEC-002 export extension**.
+**What the new coverage found — and why it argues the remaining 3 suites are not a formality.**
+Eight findings across the day. From suites 9 and 11: **SEC-003** (unrestricted file upload; first
+mis-rated RCE, actually stored XSS — **fixed the same day, UP-012**), **REG-001** (`protected $dates`
+inert since Laravel 10; 21 columns across 9 models silently uncast), and the **SEC-002 export
+extension**. From suite 6: **GRP-001**, **GRP-002**, **GRP-003**, the **dead granular group
+permission model**, and the **`Gate::before` half of SEC-001**.
 
 REG-001 is the one that bears on the gate. It is **the first demonstrated case of WP 0B's 10 → 13
 traversal breaking working behaviour** — the attendance CSV export has been dead since the upgrade
 and nobody knew. WP 0B item 6 was skipped by owner directive precisely on the bet that this class of
 thing would not happen. Criterion 2 exists to retire that bet, and it has now paid out once. Two
-suites found it; five remain unwritten.
+suites found it; **three remain unwritten**.
 
 **Step 5 (merge to `ifgf/main`) correctly NOT performed.** Gated on criterion 2 being green and on
 the owner sign-off of 4 and 7. Neither holds.

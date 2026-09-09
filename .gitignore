@@ -72,3 +72,10 @@ public/uploads/files/*
 composer.phar
 .env_churchcms
 /graphify-out
+
+# Environment backups. `.env` itself is ignored above, but a copy taken before a
+# migration is not, and it carries the same credentials. One was created on
+# 2026-09-08 when the app moved from MySQL to PostgreSQL.
+.env.backup-*
+.env.*.backup
+*.env.bak

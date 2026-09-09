@@ -58,6 +58,10 @@ class DatabaseSafetyServiceProvider extends ServiceProvider
      */
     private const FORBIDDEN_DATABASE_NAMES = [
         'churchcms',
+        // The PostgreSQL development database. It holds seeded demo data and, once the
+        // import lands, real imported members - never disposable. Its test twin is
+        // ifgf_cms_test, which carries the 'test' marker and is allowed.
+        'ifgf_cms',
     ];
 
     /**
@@ -145,11 +149,16 @@ class DatabaseSafetyServiceProvider extends ServiceProvider
             $failures[] = "environment is '{$environment}', not 'testing'";
         }
 
-        if ($driver !== 'mysql' && $driver !== 'sqlite') {
-            $failures[] = "driver '{$driver}' is not mysql or sqlite";
+        // pgsql added 2026-09-08 with the PostgreSQL migration. Without it this guard
+        // both blocked legitimate use of the new driver AND, far worse, offered no
+        // protection at all to a PostgreSQL database - the name and host checks below
+        // were reachable only for mysql.
+        if (! in_array($driver, ['mysql', 'pgsql', 'sqlite'], true)) {
+            $failures[] = "driver '{$driver}' is not mysql, pgsql or sqlite";
         }
 
-        if ($driver === 'mysql') {
+        // sqlite is exempt: it is a file, usually :memory:, with no host or shared server.
+        if ($driver === 'mysql' || $driver === 'pgsql') {
             if (in_array($database, self::FORBIDDEN_DATABASE_NAMES, true)) {
                 $failures[] = "database '{$database}' is on the forbidden (real) database list";
             }
