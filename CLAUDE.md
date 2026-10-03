@@ -1,145 +1,115 @@
 # CLAUDE.md — repository operating rules
 
 > Read in full every session. Hard cap: 2,000 tokens. These rules are stricter than defaults and
-> override them. Method lives in `build.md`; scope in `PRD.md`; session budgeting in
-> `EXECUTION_PLAN.md`.
+> override them. Scope lives in `PRD.md` (3.0); build order in `EXECUTION_PLAN.md`; the quality
+> bar every work package must pass — tests, databases, security, privacy — in `STANDARDS.md`.
+
+## What this repository is
+
+A **clean Laravel 13 app** for IFGF Taipei–Zhongli — members, teams, attendance. PHP 8.4,
+PostgreSQL 17, Blade + Tailwind + Alpine through Vite. No SPA, no API, no passwords.
+
+**Until WP1 lands, the working tree is still the GegoSoft ChurchCMS fork.** Do not build on it and
+do not repair it — WP1 replaces it. Afterwards the fork exists only as a read-only reference on
+`feat/postgresql-multisite`.
+
+Run on **Opus 5.5, effort `high`**.
+
+## Branch — `dev` only
+
+All work happens on `dev`. **Never create, switch, rebase or delete a branch.** `main` is the
+owner's release branch; never push to it. If `git branch --show-current` is not `dev`, stop.
 
 ## Start of session — exactly this, nothing more
 
-`git status --short --branch` → `git log -1` → `CONTEXT.md` → `TODO.md` → last 5 entries of
-`MEMORY.md` → this file → **only** the `build.md` / `PRD.md` line ranges the active TODO item
-names (`EXECUTION_PLAN.md` Appendix A). Then state the work package, step, and exit gate, and ask
-for confirmation. Cost of this preamble: ~20k. Anything more is leaking budget.
+`git branch --show-current` → `git status --short` → `git log -1` → `CONTEXT.md` → `TODO.md` →
+the newest entry of `MEMORY.md` (top of the file) → this file → `STANDARDS.md` → the section of `EXECUTION_PLAN.md` for the work
+package in TODO item 1 (plus its "Rules for every session") → the PRD sections that WP names.
+Then state the work package, steps and exit gate in ten lines or fewer, and wait for "go".
 
 ## Never read whole
 
-`PRD.md` (~33.9k after the 2026-08-09 QR amendments), `build.md` (15.6k), `hosting.md` (5.4k),
-`PG_MIGRATION_PLAN.md` (~25k, 987 lines — read the numbered section the TODO names),
-`graphify-out/graph.json` (7.3MB),
-`composer.lock` (490KB), `package-lock.json` (630KB), `yarn.lock`, `mysql-schema.sql`,
-`public/js/app.js`. Use `Read` with `offset`/`limit`, or query the file with a script.
-
-The everyday `build.md` load is L28–92 + L114–201 ≈ 6.1k tokens. That is the whole preamble.
+`MEMORY.md` (top entry only) · `composer.lock` · `package-lock.json` · `graphify-out/graph.json` ·
+anything under `vendor/` or `node_modules/` · the legacy workbook · `GAS_INVENTORY.md` and
+`WORKBOOK_INVENTORY.md` beyond the section a WP names. `PRD.md` is under 7k tokens and may be read
+whole once.
 
 ## Generate, do not hand-write
 
-Owner preference and the largest single token saving. Anything Artisan can scaffold, scaffold.
+Owner preference and the largest token saving. Anything Artisan can scaffold, scaffold — then fill
+the generated file in. Each WP lists its commands; run them first, in the order given.
 
 ```
-php artisan make:model Foo --all      # model + migration + factory + seeder
-                                      # + controller + requests + policy
-php artisan make:migration add_x_to_y --table=y
-php artisan make:test Foo/BarTest     # --unit for the unit layer
-php artisan make:policy FooPolicy --model=Foo
-php artisan make:{job,command,observer,notification,rule,enum,middleware,provider}
+make:model Foo -mf[s]          migration, factory, [seeder]      (-a adds policy, controller, requests)
+make:migration add_x_to_y --table=y   |   create_x_table --create=x
+make:controller A/B [--invokable] [--model=Foo --requests]
+make:request · make:policy --model=Foo · make:middleware · make:observer --model=Foo
+make:mail Foo --markdown=mail.foo · make:job · make:command Foo --command=ifgf:foo
+make:class Services/Foo · make:interface Contracts/Foo · make:enum Enums/Foo --string
+make:view a.b · make:component · make:test A/FooTest [--unit]
 ```
 
-Hand-writing that file set costs ~6–8k tokens; the command costs ~40. For
-`custompackages/ifgf/church-operations`, generate into `app/`, then `git mv` and fix the namespace
-with one `sed`.
+Laravel conventions throughout: model `Member` → table `members`, pivot `member_team`. No table
+prefix, no `$table` overrides. Fixed lists are string columns backed by PHP enums — never a
+database enum, never a lookup table.
 
-**Verified Laravel 13 generator flags — Session 2, 2026-08-09.** Confirmed against a real
-`composer create-project laravel/laravel "^13.0"` skeleton (Laravel 13.24.0), not documentation.
-This repo is now **Laravel 13.24.0** (WP 0B landed 2026-08-10) — these generators are available on
-`HEAD`. PHP is pinned to 8.4.24 in `composer.json` and bare `php` **resolves to 8.4.24** —
-`C:\php\8.4` is first on the Machine PATH and `C:\php\8.3` was deleted 2026-08-10. There is no
-longer a PATH-reorder PHP rollback; see `CONTEXT.md`.
+## Old code is a reference
 
-- `make:model Foo -a/--all` → migration, seeder, factory, policy, resource controller, form
-  request classes. **Does not include a test** — add `--test`/`--pest`/`--phpunit` explicitly.
-  Other flags: `-c` controller, `-f` factory, `-m` migration, `-p`/`--pivot`, `--morph-pivot`,
-  `--policy`, `-s`/`--seed`, `-r`/`--resource`, `--api`, `-R`/`--requests`, `--force`.
-- `make:migration name --create=table|--table=table [--path=] [--realpath]` (`--fullpath`
-  deprecated).
-- `make:test name [-u/--unit] [--pest] [--phpunit] [-f/--force]`.
-- `make:policy name [-m/--model=] [-g/--guard=] [-f/--force]`.
-- `make:controller name [-r/--resource] [--api] [-i/--invokable] [-m/--model=] [-p/--parent=]
-  [-R/--requests] [-s/--singleton] [--creatable] [--type=] [--test|--pest|--phpunit] [--force]`.
-- `make:factory name [-m/--model=]`. `make:seeder name` (no options besides the global ones).
-- `make:job|make:command|make:observer|make:notification|make:rule|make:middleware|make:provider`
-  all take `-f/--force`; `make:job` adds `--sync`/`--batched`; `make:command` adds
-  `--command=`; `make:observer`/`make:request` are otherwise bare; `make:notification` adds
-  `-m/--markdown=`; `make:rule` adds `-i/--implicit`; `make:enum` adds `-s/--string`/`-i/--int`.
-- Every generator above also accepts `--test`/`--pest`/`--phpunit` (except `make:policy`,
-  `make:factory`, `make:seeder`, `make:provider`, `make:rule`, `make:enum` — no test flags there).
-- Global flags on every command: `-h/--help`, `--silent`, `-q/--quiet`, `-V/--version`,
-  `--ansi`/`--no-ansi`, `-n/--no-interaction`, `--env=`, `-v|vv|vvv/--verbose`.
+`git show feat/postgresql-multisite:<path> | sed -n 'A,Bp'` — one named file at a time, only the
+files the WP lists. Never check that branch out. Never copy an upstream (GegoSoft) file.
 
-## Database — PostgreSQL as of 2026-09-08
+## Database — PostgreSQL
 
-`.env` is **`DB_CONNECTION=pgsql`** → `ifgf_cms` on PostgreSQL 17.10, a Windows service that
-auto-starts. **Credentials are machine-wide** in `~/.ifgf/postgres.env`, loaded by
-`bootstrap/global-env.php` before the framework reads `.env`; they are entered once per machine and
-cannot be committed. `config/database.php` prefers `IFGF_PG_*` over `DB_*`.
+Credentials are **machine-wide** in `~/.ifgf/postgres.env`, loaded by `bootstrap/global-env.php`
+before the framework reads `.env`; `config/database.php` prefers `IFGF_PG_*`. Databases:
+**`ifgf_app`** (development) and **`ifgf_app_test`** (tests). `ifgf_cms` belongs to the retired
+fork — leave it alone. PostgreSQL 17 is a Windows service and starts by itself.
 
-All 93 upstream migrations run on PostgreSQL unchanged. The only MySQL coupling left in app code is
-`DATE_FORMAT(` in 6 files. MySQL 8.4 is still installed and still needs a manual start, but **only
-the WP 0A characterization suite uses it** — that suite is a MySQL baseline by design.
+## Whether PHP runs is tool-dependent — settled, do not re-test
 
-The `ifgf_` schema lives in **`database/migrations/ifgf/`**, registered from the package provider.
-The subdirectory is load-bearing: Laravel globs a migration path non-recursively, which is what lets
-the test harness build those tables alone.
+| Tool | php / composer / artisan |
+|---|---|
+| **Claude Code**, Windows host | Runs directly; bare `php` is 8.4. Verify inline. |
+| **Cowork** | Does not run. Write and analyse freely; hand every command to the owner, batched. |
+| **Codex** in this workspace | Use `C:\php\8.4\php.exe` explicitly. |
 
-## Whether PHP runs is TOOL-DEPENDENT — settled, do not re-test
-
-Not stale — **tool-dependent**, and both halves are true. Identify your tool once, apply the row,
-do not re-verify.
-
-| Tool | php / composer / artisan | Consequence |
-|---|---|---|
-| **Claude Code**, Windows host | **Runs directly.** Verified Sessions 2 and 4 — three Laravel majors and a MySQL 8.4 upgrade. Packagist reachable. | `EXECUTION_PLAN.md` §3.4 Rule T2 ("2 round-trips per session") is **obsolete here** — verify inline. |
-| **Cowork** | **Does not run.** Linux sandbox, no PHP, no Composer, no root; packagist off-allowlist. Re-verified 2026-08-10. But `Read`/`Write`/`Edit`/`Glob`/`Grep` reach all selected Windows folders, and `git` reads work. | Read, analyse, design and write freely; **hand every** php/artisan/test command to the owner. **Batch them** — §3.4's budget binds. |
-| **Codex desktop/CLI in this workspace** | **Runs by explicit host path.** Verified 2026-08-11: bare `php` is absent from the Codex shell PATH, while `C:\php\8.4\php.exe` runs Artisan and tests. Composer command resolution remains unverified. | Use `C:\php\8.4\php.exe` explicitly and pipe output through `Select-Object -Last 60`. Do not repeat PATH diagnosis. |
-
-Always pipe output (`2>&1 | tail -60` / `Select-Object -Last 60`) regardless of tool.
+Always pipe output: `2>&1 | tail -40`.
 
 ## Search order
 
-1. `graphify query "<≤12 vocabulary tokens>" --budget 2500`, then open only the returned
-   `source_location` lines.
-2. Targeted `Grep` with a `glob` filter.
-3. Never a blind sweep — 668 PHP files and 317 Blade templates cost 20k+ tokens per answer.
-
-`.graphifyignore` landed 2026-08-09 and the graph was rebuilt: **15 MB → 7.3 MB**, compiled
-`public/js/app.js` no longer indexed. Graph results now return source. Re-run the build after any
-large refactor.
+1. `graphify query "<≤12 words>" --budget 2500`, then open only the returned lines.
+2. `Grep` with a `glob` filter.
+3. Never a blind sweep. Rebuild the graph after WP1 and after any large move.
 
 ## Hard prohibitions
 
-- **Never commit.** Stage named files, show the proposed message, wait. (`build.md` CONTRACT 7)
-- Never amend published commits, force-push, or skip hooks.
-- Never use `--ignore-platform-reqs`, `--no-verify`, or forced dependency resolutions.
-- Never edit a historical upstream migration. Expand → backfill → verify → contract.
-- Never touch `deploy`, production, live Google Calendar, real members, or biometric data.
-- Never commit real member data, secrets, or Graphify output.
-- Never edit an upstream-owned file without an approved `UPSTREAM.md` entry and a
-  characterization test.
-- Never run `migrate:fresh` / `db:wipe` without first printing and asserting the environment,
-  driver, host, and database name. (`build.md` L517)
-- Never run `migrate:fresh --path=X` on a shared database — it drops **every** table, not X's.
-- Never move the connection/migration setup out of `IfgfTestCase::createApplication()` into
-  `setUp()`. It must run before `DatabaseTransactions` opens its transaction, or test isolation
-  silently stops working on PostgreSQL and migrations get rolled back by transactional DDL.
-- Never seed the demo fixture into a database holding real members — it shares branches and Sunday
-  dates with the imported data and contaminates the quarterly report.
-- Never remove `LICENSE.upstream-MIT`; retaining that notice is MIT's only obligation.
-- Never commit the legacy workbook, or any file containing real member data.
-- Never start a second work package in one session, or begin an exit gate that will not fit.
+- **Never stage or commit without the owner's yes.** Show the message, wait. Never amend a pushed
+  commit, force-push, or skip hooks. Never `--ignore-platform-reqs` or `--no-verify`.
+- Never start a second work package in a session, or build something the PRD does not list —
+  that is a question for the owner. `ROADMAP.md` is future modules, not scope; do not read it
+  during a work package and never build from it.
+- Never add a public route beyond PRD §5.1, never add `routes/api.php`, never put a sequential
+  id in a URL or QR.
+- Never output with `{!! !!}` except a generated QR SVG.
+- Never add a Composer or npm package the WP does not name without asking.
+- Never run `migrate:fresh` or `db:wipe` without first printing and asserting the environment,
+  driver, host and database name — and never against `ifgf_cms`.
+- Never point tests or this machine at a production database, and never copy production data
+  into another environment. Test, development, staging and production each have their own
+  database and role (`STANDARDS.md` §1).
+- Never touch production, the live Google Calendar, the live Apps Script, or send real mail.
+  Outside production the mailer is `log` and the calendar driver is the fake.
+- Never commit member data, the workbook, LINE recaps, secrets, `.env*`, or Graphify output.
+- Never remove `LICENSE.upstream-MIT`.
 
-## Ownership and licence
+## Licence
 
-New IFGF behavior goes in `custompackages/ifgf/church-operations` (services, models, commands,
-the `CalendarGateway` contract). New physical tables use the `ifgf_` prefix and their migrations go
-in `database/migrations/ifgf/` — **not** the package, because two WP 0A gate tests assert the
-package directory holds no migrations.
+`LICENSE` is **AGPL-3.0** (© 2026 IFGF Taipei Zhongli); `LICENSE.upstream-MIT` keeps GegoSoft's
+notice because this repository's history derives from their fork. New PHP files carry one line,
+`// SPDX-License-Identifier: AGPL-3.0-or-later`, added by script at the gate — not typed by hand.
 
-**Licence:** `LICENSE` is **AGPL-3.0** for IFGF-authored work (© 2026 IFGF Taipei Zhongli);
-`LICENSE.upstream-MIT` retains GegoSoft's MIT notice verbatim. New IFGF PHP files carry the AGPL
-header; upstream-owned files must **never** be given one. See `NOTICE.md`. Upstream model names and paths are preserved exactly — `Events`, `Userprofile`,
-`EventAttendanceSession`, `EventAttendee`, `GroupLink`. PRD names are aliases, not replacements.
+## End of session — at the gate or at 120k tokens, whichever is first
 
-## End of session — at 120k used, stop and hand off
-
-Append to `MEMORY.md` (what was learned and what failed) → rewrite `TODO.md` so item 1 is the
-literal next action → update `CONTEXT.md` → emit the report fields from `build.md` L585–599.
-A session that runs to 100% without this costs the next session ~30k in rediscovery.
+Add an entry at the top of `MEMORY.md` (what was learned, what failed) → rewrite `TODO.md` so item 1 is the literal
+next action → rewrite `CONTEXT.md` → show the commit message in the owner's daily-log format →
+wait. A session that runs out without this costs the next one ~30k tokens of rediscovery.

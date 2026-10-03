@@ -1,8 +1,92 @@
 # MEMORY
 
 > Append-only. Newest entry at the top. One entry per session.
-> Sessions read the **last 5 entries only** — never the whole file.
+> Sessions read the **newest entry only** — the one at the top — never the whole file.
 > Record what was learned and what failed, not what was written. `git log` already has the diff.
+
+---
+
+## 2026-10-04 — Session 13 — Security review; re-scope to PRD 3.0; `dev` becomes a clean Laravel 13 app
+
+**Duration:**
+- 2026/09/24_08:25 - 08:27 (0.1h): security review of the fork for a self-hosted,
+  Cloudflare-fronted deployment.
+- 2026/10/04_01:20 - 02:20 (1.0h): workbook, Apps Script and live form re-read; owner decisions;
+  PRD 3.0, execution plan, standards, roadmap and session prompts.
+
+**Summary:** Planning only — no application code changed. The security review found every critical
+hole inside the inherited GegoSoft code, and none of the owner's re-stated requirements use that
+code, so the owner chose to rebuild `dev` as a clean Laravel 13 app with a 12-table schema. PRD 3.0
+(5k tokens, was 34k), a ten-package execution plan, a reusable quality bar, a roadmap of future
+modules, and the prompt for the next sessions were written. `dev` was created from
+`feat/postgresql-multisite` @ `51613f8`.
+
+---
+
+### Decisions (owner, 2026-10-04)
+
+- **Clean app.** `dev` becomes a fresh Laravel 13 skeleton with only IFGF code. The fork is retired
+  from `dev`; it stays readable on `feat/postgresql-multisite`.
+- **Sign-in:** email link **and** Google. No passwords, no `users` table — `Member` is the
+  authenticatable model.
+- **Birthday table:** iCare leaders only (default added: IT admin sees church-wide — PRD D3).
+- **Households:** family can be added during registration **and** linked afterwards.
+- **Teams:** iCare groups and ministry divisions share `teams` + `member_team`; access comes only
+  from team membership (`ability = scan | admin`, or `leader` of an iCare team).
+- **Branch discipline:** everything on `dev`; no session may create or switch a branch. `main` is
+  the owner's release branch.
+- **Scope cut-off:** execution covers the 17 points plus teams/divisions. Everything said after
+  that is future and lives in `ROADMAP.md` (M2–M10: photo and camera attendance, Snipe-IT assets,
+  integration, analytics, discipleship, ticketing, offerings, event photo finder). That includes
+  the **required profile photo at registration** — parked as the first step of M10; it can be
+  pulled into WP3 on the owner's word. GD is already in PHP 8.4, so it needs no image package.
+- **Quality bar for this and every later module** (`STANDARDS.md`): four environments, each with
+  its own PostgreSQL database and role; tests written with the code at three levels (automated,
+  local run-through, smoke check through Cloudflare); security and privacy checklists plus
+  `/security-review` at every gate.
+- **Deployment target:** a self-hosted Ubuntu PC behind a Cloudflare Tunnel. New **WP2S** builds
+  staging there right after sign-in, so later packages can be tried through Cloudflare.
+
+### Learned — evidence that was not in the older inventories
+
+- `Kategori` is a **formula over occupation and education**, not age (PRD FR-5).
+- **The weekly grids are derived from the scan log**, not typed: branch = scan time before/after
+  13:00, online = `Online = Ya`. `WORKBOOK_INVENTORY.md` finding 8 was wrong; its §6 corrects it.
+  The legacy import therefore needs only `Daftar Absensi`, not the grid pivot — most of the
+  1,021-line importer disappears.
+- The ten year sheets are a **manual headcount ledger** fed from LINE reports (434 rows). The
+  quarterly review is `ROUNDUP(AVERAGE(weekly))` per month and `INT(AVERAGE(3 months))` per
+  quarter.
+- The live form has **13 fields on two pages**; "just visiting" ends after page 1; 27 iCare groups.
+- The IFGF code never referenced an upstream model — 85 files, tied to the fork only through the
+  login table and Laratrust roles. That is what made the clean-app decision cheap.
+- Security review: every critical finding was upstream — a live `/installer`, an unauthenticated
+  `/api/users`, register-as-admin (AUTH-001/SEC-001), stored XSS in the admin feedback views,
+  debugbar in `require`, `TrustProxies` not trusting Cloudflare and dropping `X-Forwarded-Proto`.
+
+### 🔴 Hazard — one sheet prints personal data when you dump its formulas
+
+The workbook's `URLs Absensi` sheet stores one member's contact details as the cached fallback
+inside a formula string. A "structure only" dump of formulas from that sheet printed them. Read
+structure from the other sheets; never print formula text from that one.
+
+### What failed
+
+- **This entry was first appended at the bottom.** The file is newest-first; an entry at the
+  bottom is never read. `CLAUDE.md` now says "newest entry, top of the file".
+- A Bash heredoc holding a Python script with triple-quoted strings failed to parse and ran
+  nothing. Write the script to the scratchpad and run the file instead.
+- Multi-file edits by script: collect every replacement, check them all, then write — otherwise a
+  mismatch half-way leaves the documents inconsistent.
+
+### Method notes
+
+- Reading a public Google Form: `window.FB_PUBLIC_LOAD_DATA_` on the form page holds every
+  question, option and page branch — no need to fill the form in.
+- The old PRD (137 KB), `build.md`, `SCHEMA_SPEC.md` (172 KB) and the WP 0A gate documents are
+  superseded and are removed from `dev` by WP1. Do not read them.
+- Session clock times come from the transcript:
+  `~/.claude/projects/<project>/<session-id>.jsonl`, `timestamp` per line, UTC.
 
 ---
 

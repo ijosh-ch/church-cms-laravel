@@ -197,3 +197,35 @@ this is the legacy identity rule WP 0C must reproduce or deliberately supersede.
 | Weekly insert mechanics | Phase 1D.5 historical grid pivot |
 | `Absen-TPE_ZL` unmaintained | Exclude from import |
 | Config holds live IDs | WP 0D secret inventory — never commit |
+
+---
+
+## 7. Registration form as it is live — read 2026-10-04
+
+Two pages. Question 9 branches: "Ya" continues to page 2, "Tidak" submits (a visitor).
+
+| # | Title | Type | Required |
+|---|---|---|---|
+| 1 | Email (collected by Google Forms) | email | yes |
+| 2 | Full Name — as on passport / ARC | short text | yes |
+| 3 | Chinese Name | short text | no |
+| 4 | Tanggal Lahir | date | yes |
+| 5 | Domisili Taiwan — e.g. "Taipei - Da'an" | short text | yes |
+| 6 | Line ID | short text | no |
+| 7 | WhatsApp Number | short text | yes |
+| 8 | Domisili Gereja IFGF — `IFGF Taipei / 台北`, `IFGF Zhongli / 中壢` | radio | yes |
+| 9 | Apakah Anda berencana untuk menghadiri kembali Sunday Gathering…? | radio | yes |
+| 10 | Profesi saat ini — Pekerja, Siswa/Mahasiswa, Ibu Rumah Tangga, other | radio | yes |
+| 11 | Tingkat Pendidikan — SD, SMP, SMA/SMK, Diploma (D1-D4), S1, S2, S3 | radio | no |
+| 12 | Sekolah / Kampus / Perusahaan — place of study or work in Taiwan | short text | yes |
+| 13 | iCare | dropdown | yes |
+
+**iCare options (27 groups + "Belum mengikuti"):** 3D, BMI, Fuzhong, Liming, Home, Hsinchu, Joys,
+Immanuel, Jinshan, Keelung, Kuy, Linkou, Papa, TMS, U, Freshcare, Weekend, TY, NTOU, Tamkang,
+Grace, Penari, Wenhua, Revival, Harmony, Mingshin, CYCU — each shown as `iCare <name>`.
+
+**Other entry points confirmed:** `doGet` portal (enter email → edit link is mailed, plus social
+links), `editMember`, `syncAllBirthdays`, `addWeeklyAttendanceColumns`, form open/close schedule.
+Birthday event: all-day, yearly until birth year + 99, popup reminders at 10,080 and 1,440
+minutes; title `🎂 {english} ({chinese})'s Birthday`; description lists English name, Chinese
+name, year of birth, iCare.

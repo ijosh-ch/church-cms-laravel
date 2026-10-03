@@ -188,3 +188,45 @@ that every imported member starts with it unset.
 | `Absen-TPE_ZL` date mismatch | Resolve before import |
 | `Absensi iCare` empty | Phase 1C.1 is new build, not a port |
 | Follow-up preference never captured | `PRD.md` L973 correction |
+
+---
+
+## 6. Addendum — `Jemaat & Absensi (4).xlsx`, read 2026-10-04 (structure and formulas only)
+
+Counts now: roster 233 rows (Taipei 111, Zhongli 122; 9 answered "just visiting"), 24 distinct
+iCare values, scan log 3,693 rows (2025-10-04 → 2026-09-27; 3,682 on a Sunday), headcount ledger
+434 rows across the ten year sheets.
+
+**`Kategori` (roster column F) is a formula, not typed data:**
+
+```
+SD                                              → Kids
+Siswa/Mahasiswa and (SMP or SMA/SMK)            → Teens and Youth
+Siswa/Mahasiswa and (S1 or Diploma (D1-D4))     → College
+anything else                                   → Adult
+```
+
+**The weekly grids ARE derived from the scan log** — this corrects finding 8. Each cell is a
+`FILTER` over `Daftar Absensi` by date and email, and shows the scan time:
+
+```
+Absen-TPE   time > 13:00     Absen-ZL   time < 13:00
+Onsite      Online <> "Ya"   Online     Online =  "Ya"
+```
+
+So the branch of a historical scan comes from its time of day: 2,025 scans fall before 13:00
+(Zhongli) and 1,668 after (Taipei). `Lokasi` is still filled on only 40 rows.
+Rows 1–5 count, per category, the members whose cell is not 0.
+
+**Year sheets (`Absen-20xx-TPE/ZL`) are a manual headcount ledger**, one row per Sunday:
+`Date, Status (OK|Missing), Inferred, Adult, College, Youth/TY, Kids, Online, Total, SourceTime,
+Reporter` — the figures ushers report in the LINE group. Above it:
+
+```
+monthly   = ROUNDUP(AVERAGE(weekly values of that month))     per category
+quarterly = INT(AVERAGE(the three monthly values))            per category
+Sub-Total = sum of the four categories;  one "Goal" column per year
+```
+
+`Missing` weeks are rows of zeros and are inside the average. `Summary Absen` applies the same
+monthly/quarterly arithmetic to the scan-derived grid.

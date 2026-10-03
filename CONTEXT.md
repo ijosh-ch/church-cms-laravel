@@ -3,92 +3,67 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-09-09 · **Session 12** · **Branch:** `feat/postgresql-multisite`
-**Work package:** WP 0C-class, opened on owner instruction. **WP 0A's gate is still 4 of 7** and
-its 94 characterization tests remain a **MySQL** baseline — see the hazard below.
+**Updated:** 2026-10-04 · **Branch:** `dev` (created 2026-10-04 from `feat/postgresql-multisite`
+at `51613f8`) · **Stage:** planning finished, no code of PRD 3.0 written yet.
 
 ---
 
-## What this application now is
+## Where things stand
 
-A Laravel 13.24 app on **PostgreSQL 17**, replacing the `church-member-management` Google Apps
-Script. Two sites, one codebase:
+The owner re-scoped the project on 2026-10-04. `PRD.md` 3.0 lists the only features in scope;
+`EXECUTION_PLAN.md` splits them into ten work packages, one per session. `STANDARDS.md` is the
+quality bar for all of them and for every later module: four separate databases (test,
+development, staging, production), tests written with the code, a security and privacy
+checklist at every gate. Deployment target: a self-hosted Ubuntu PC behind a Cloudflare Tunnel.
 
-| Site | Local | For |
-|---|---|---|
-| `member.ifgf.site` | `/app` | register, own QR, own attendance |
-| `attend.ifgf.site` | `/usher` | scan, tick a roster, quarterly report |
+**The working tree is still the GegoSoft ChurchCMS fork** (Laravel 13.24, 93 upstream tables, 13
+`ifgf_` tables, about 1,000 PHP and Blade files). WP1 replaces it with a fresh Laravel 13 skeleton
+and a 12-table schema. The fork then survives only as a reference on `feat/postgresql-multisite`.
 
-All five Apps Script features are ported: registration, birthday → Google Calendar, QR/NFC
-attendance, two-branch weekly attendance, quarterly report. Three languages (`id` default, `en`,
-`zh_TW`).
+## Why the fork is being retired
 
-## Database
+A security review on 2026-09-24 found every critical problem inside the upstream code: a live web
+installer, an unauthenticated `/api/users`, open registration that creates a full admin, stored
+XSS in the admin feedback pages, the debug bar in `require`. None of the features in PRD 3.0 uses
+upstream code — the IFGF part was about 85 files whose only tie to upstream was the login table.
 
-**`ifgf_cms` on PostgreSQL 17** — 104 tables: 93 upstream + **11 `ifgf_`** (plus
-`ifgf_import_batches` / `ifgf_import_conflicts` = 13). `.env` is `DB_CONNECTION=pgsql`; the MySQL
-config is backed up at `.env.backup-mysql-20260908`.
+## What the target app is
 
-**Credentials are machine-wide**, in `~/.ifgf/postgres.env`, loaded by `bootstrap/global-env.php`
-*before* the framework reads `.env`. Entered once per machine, not per clone; cannot be committed.
-`config/database.php` prefers `IFGF_PG_*` over `DB_*`.
+One website, phone first. Everyone is a `Member`; sign-in is an email link or Google; there are no
+passwords. Access comes only from team membership: a team with `ability = scan` (ushers), one with
+`ability = admin` (IT), or the `leader` role in an iCare team.
 
-**Live data:** 217 members, 21 iCare groups, 102 Sunday services (2025-09-28 → 2026-09-13), 3,318
-attendance rows, 217 calendar links, 3,516 raw log rows, 217 QR credentials. 4 unresolved import
-conflicts in `ifgf_import_conflicts`.
+Twelve tables: `branches, teams, member_team, households, institutions, members, events,
+occurrences, attendances, headcounts, change_requests, import_batches`.
 
-**Test database:** `ifgf_cms_test`. `tests/IfgfTestCase` builds only `database/migrations/ifgf`,
-asserts the name contains "test", and chooses the connection in `createApplication()` — before
-`DatabaseTransactions` opens its transaction. Do not move that back into `setUp()`.
+## Facts a session will need
 
-## Where IFGF code lives
-
-`custompackages/ifgf/church-operations/src/` — models, services (`MemberCredentialService`,
-`AttendanceRecorder`, `BirthdaySyncService`, `QuarterlyReportService`, `MemberRegistryService`,
-`WorkbookImporter`, `PhoneNormalizer`, `DemoDataService`), the `CalendarGateway` contract and its
-fake, and the artisan commands.
-
-Schema is in **`database/migrations/ifgf/`** (application, not package — two WP 0A gate tests assert
-the package holds no migrations). The path is registered from the package provider; the
-subdirectory is load-bearing, because Laravel globs a migration path non-recursively.
-
-Controllers: `app/Http/Controllers/{Usher,MemberApp,Ifgf}/`. Views: `resources/views/ifgf/`.
-
-## Commands
-
-```
-ifgf:import:workbook <path> [--commit]   # dry run by default
-ifgf:credentials:issue                    # QR for anyone lacking one
-ifgf:demo:seed | ifgf:demo:purge          # fixture; seed refuses if real members exist
-ifgf:calendar:sync | ifgf:calendar:purge-demo
-ifgf:demo:preview                         # render pages to static HTML
-db:seed --class=IfgfDevArenaSeeder        # usher@ifgf.test / member@ifgf.test
-```
-
-## 🔴 Standing hazards
-
-- **AUTH-001 + SEC-001 are unfixed** and now gate **two** public hostnames.
-  `routes/web.php:71` reopens the registration `:68` disabled; `RegisterController` hard-codes
-  `usergroup_id = 3`, the value `Gate::before` grants every ability. **`EnsureUsher` deliberately
-  does not use `Gate`** for that reason — it is containment, not a fix.
-- **Prototype mode** (`IFGF_PROTOTYPE_MODE`) opens the usher site with no login. Two locks: the flag
-  *and* `APP_ENV=local`, re-checked in the middleware.
-- **The WP 0A suite still runs on MySQL** and is a MySQL baseline. The ifgf_ suite runs on
-  PostgreSQL. They are deliberately separate.
-- **Google Calendar is the in-memory fake** unless `IFGF_CALENDAR_DRIVER=google`. Tests force the
-  fake regardless of environment.
-- **Every member's old Google-Form QR is dead.** 217 new credentials issued; nobody has been told.
-
-## Licensing
-
-`LICENSE` = **AGPL-3.0** (IFGF-authored work, © 2026 IFGF Taipei Zhongli).
-`LICENSE.upstream-MIT` = GegoSoft's MIT notice, byte-identical, **must never be removed** — it is
-MIT's only obligation and what makes the AGPL choice lawful. `NOTICE.md` explains the split.
+- **Category** is a formula over occupation and education, not age (PRD FR-5).
+- **Legacy branch rule:** a scan before 13:00 is Zhongli, after is Taipei. Used only by the import;
+  from now on the usher picks the branch.
+- **Quarterly review:** monthly = average of weekly, rounded up; quarterly = average of the three
+  months, rounded down.
+- **Registration form:** 13 fields on two pages, "just visiting" ends after page 1
+  (`GAS_INVENTORY.md` §7). 27 iCare groups.
+- **Workbook (4):** 233 members, 3,693 scans, 434 headcount rows (`WORKBOOK_INVENTORY.md` §6).
+- The legacy system (Google Form + Apps Script) is still the live one. Nothing here is deployed.
 
 ## Environment
 
-PHP 8.4.24 · Laravel 13.24.0 · PostgreSQL 17.10 (Windows service, auto-start) · `pdo_pgsql` enabled
-in `C:\php\8.4\php.ini` (backup `php.ini.bak-20260907`). MySQL 8.4 is still installed for the WP 0A
-suite and needs a manual start.
+Windows 11 · PHP 8.4.24 (`php` on PATH) · Composer · Node 22 · PostgreSQL 17.10 as a service ·
+credentials machine-wide in `~/.ifgf/postgres.env`. Databases to create in WP1: `ifgf_app`,
+`ifgf_app_test`. `ifgf_cms` and `ifgf_cms_test` belong to the fork — untouched.
 
-**218 tests, 700 assertions, 0 failed.**
+## Standing hazards
+
+- The fork's holes are real but **not deployed**. Do not spend a session fixing them.
+- The workbook holds real member data. It is read from `Downloads`, never copied into the repo.
+  Its `URLs Absensi` sheet caches contact details inside formula text — never print formula
+  fallbacks from that sheet.
+- An untracked `database/seeders/LaratrustSeeder.php` (an upstream stub) sits in the tree; WP1
+  asks before removing it.
+
+## Licensing
+
+`LICENSE` = AGPL-3.0 (© 2026 IFGF Taipei Zhongli). `LICENSE.upstream-MIT` stays — the repository's
+history derives from GegoSoft's MIT fork. `NOTICE.md` explains the split.

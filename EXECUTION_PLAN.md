@@ -1,447 +1,310 @@
-# Execution Plan and Session Token Budget
+# Execution plan — PRD 3.0
 
-**Project:** IFGF Church Member and Activity Management
-**Repository:** `church-cms-laravel`
-**Plan date:** 2026-08-08
-**Governs:** how `build.md` is executed across multiple LLM sessions without losing state
-**Does not govern:** product scope (`PRD.md`), production topology (`hosting.md`), or method (`build.md`)
+**Date:** 2026-10-04 · **Branch:** `dev` only · **Model:** Opus 5.5, effort `high`
+**Replaces:** the 2026-08 plan (`git show feat/postgresql-multisite:EXECUTION_PLAN.md`).
 
-This file answers two questions: *are the requirements installed*, and *how many steps and
-tokens does the remaining work take*. It exists so that a session ending at 100% context can be
-resumed by the next session at an exact, verifiable checkpoint.
+> Read only the section for the work package in `TODO.md` item 1, plus "Rules for every session".
+> One work package (WP) per session. Ten WPs. Hard cap for this file: 6,000 tokens.
+> The quality bar every WP must pass is `STANDARDS.md`.
 
 ---
 
-## Part 1 — Requirements audit
+## Rules for every session
 
-### 1.1 Verdict — SUPERSEDED 2026-08-10
+1. **Branch.** `git branch --show-current` must print `dev`. If not, stop and ask. Never create,
+   switch, rebase or delete a branch. `main` is the owner's release branch — never push to it.
+2. **Generate first.** Run every `make:*` line of the WP before writing code, then fill the
+   generated files in. Hand-write only what Artisan cannot scaffold (routes, lang lines, config).
+3. **Old code is a reference, not a base.** Read it one file at a time with
+   `git show feat/postgresql-multisite:<path> | sed -n 'A,Bp'`. Only the files the WP names.
+4. **Reads.** `CLAUDE.md`, `CONTEXT.md`, `TODO.md`, this WP's section, the PRD sections it names.
+   Nothing else unless the WP says so. Search with `graphify query` before `Grep`.
+5. **Verify inline, quietly.** `php artisan test --compact 2>&1 | tail -40`. Run one test file
+   while building (`--filter`), the whole suite once at the gate.
+6. **Tests are written with the code, in the same session** (`STANDARDS.md` §2): a unit test per
+   rule, a feature test per requirement, three access tests per route. A requirement without a
+   test is not done. Every WP then passes the gate in `STANDARDS.md` §5 — suite, audits, the
+   security and privacy checklists, `/security-review`, the local run-through, and the
+   Cloudflare smoke check once WP2S has landed. The **Gate** line of each WP adds to that.
+7. **Views.** If `design/stitch/` has a file for the screen, convert that HTML to Blade and keep
+   its classes. If not, build on the layout and keep it plain. Never redesign.
+8. **Stop at the gate or at 120k tokens, whichever is first.** Update `TODO.md`, `CONTEXT.md`,
+   `MEMORY.md`; show the commit message; wait. Never stage or commit without the owner's yes.
+9. **No scope growth.** Something missing from the PRD is a question for the owner, not a feature.
 
-The original 2026-08-08 verdict was **"nothing is installed."** That is no longer true; the
-toolchain landed in Sessions 1b–4. Current state:
+Budget per WP: about 100k tokens. If a WP will not fit, finish the sub-step that leaves the suite
+green, hand off, and let `TODO.md` item 1 name the rest.
 
-| Requirement | Declared | Found 2026-08-10 | Status |
-|---|---|---|---|
-| PHP | `^8.3` (composer.json), `8.4.24` (`config.platform`) | 8.4.24, first on Machine PATH | **OK** |
-| Composer | 2.x | 2.10.2 | **OK** |
-| MySQL | 8.4 LTS (hosting.md) | 8.4.11 LTS | **OK** |
-| Node | unpinned — no `engines`, no `.nvmrc` | v22.15.0 | **WRONG LINE** — laravel-mix 4 wants 16.20.2; unresolved, and moot if Vite lands |
-| npm | — | present | OK |
-| `vendor/` | 152 prod + 36 dev packages | installed | **OK** |
-| `node_modules/` | 1,286 packages | installed; `npm run production` exits 0 | **OK**, 166 advisories |
-| `.env` / `.env.testing` | from `.env.example` | both present, `.env.testing` gitignored | **OK** |
-| `tests/` | characterization suite (WP 0A item 6) | **4 files, 1 real test** | **STILL MISSING — the one open blocker** |
+---
 
-Everything in this table except the last two rows is closed. **Do not re-plan installation work.**
+## WP1 — Clean skeleton and schema
 
-### 1.1a Original verdict, 2026-08-08 — historical
+**PRD:** §4, FR-5. **Old files:** `bootstrap/global-env.php`, `bootstrap/app.php` (first 30
+lines), `config/database.php` L78–110, `custompackages/ifgf/church-operations/src/Services/PhoneNormalizer.php`,
+`tests/Unit/Ifgf/PhoneNormalizerTest.php`.
 
-"**Nothing is installed.** This is a source checkout only." PHP, Composer, MySQL, `vendor/`,
-`node_modules/`, `.env` and `tests/` were all absent. Retained so the Session 1 estimates below
-remain interpretable.
+1. Pre-flight: branch is `dev`; `git status --short` shows nothing but
+   `database/seeders/LaratrustSeeder.php` (an untracked upstream stub — ask before deleting it).
+2. Skeleton, outside the repo:
+   `composer create-project laravel/laravel "$TEMP/ifgf-skel" "^13.0" --no-interaction`
+3. Clear the tree. Keep: `CLAUDE.md CONTEXT.md MEMORY.md TODO.md PRD.md EXECUTION_PLAN.md
+   ROADMAP.md STANDARDS.md SESSION_PROMPT.md GAS_INVENTORY.md WORKBOOK_INVENTORY.md LICENSE LICENSE.upstream-MIT NOTICE.md
+   design/ .claude/`. `git rm -rq` everything else that is tracked. Then **list** what is left
+   untracked or ignored (`git status --short --ignored`) and delete only `vendor/ node_modules/
+   storage/ bootstrap/ public/ graphify-out/`. Rename the old `.env` to `.env.backup-fork`
+   (ignored). Anything else unexpected → ask before deleting.
+4. Copy the skeleton in (all but `.git`). Append to `.gitignore`: `/graphify-out`, `.env.backup-*`,
+   `*.xlsx`, `/storage/app/imports`.
+5. Carry over `bootstrap/global-env.php` and its `require` line; the `IFGF_PG_*` block in
+   `config/database.php` with databases **`ifgf_app`** and **`ifgf_app_test`**. `.env`:
+   `DB_CONNECTION=pgsql`, `SESSION_DRIVER=database`, `QUEUE_CONNECTION=database`,
+   `MAIL_MAILER=log`. If the role cannot create the two databases, stop and give the owner the
+   two `createdb` commands.
+6. Generate, in this order (it is the foreign-key order):
+   ```
+   php artisan make:model Branch -mfs
+   php artisan make:model Team -mfs
+   php artisan make:model Household -mf
+   php artisan make:model Institution -mf
+   php artisan make:model Member -mf
+   php artisan make:migration create_member_team_table --create=member_team
+   php artisan make:model Event -mfs
+   php artisan make:model Occurrence -mf
+   php artisan make:model Attendance -mf
+   php artisan make:model Headcount -mf
+   php artisan make:model ChangeRequest -mf
+   php artisan make:model ImportBatch -m
+   for e in MemberCategory MemberStatus HouseholdRole EducationLevel TeamType TeamAbility \
+            TeamRole EventType Recurrence AttendanceMode AttendanceMethod; do
+     php artisan make:enum Enums/$e --string; done
+   php artisan make:class Support/PhoneNormalizer
+   php artisan make:test SchemaTest
+   php artisan make:test MemberCategoryTest --unit
+   php artisan make:test PhoneNormalizerTest --unit
+   php artisan make:test Security/RouteAuditTest
+   php artisan make:test Security/DatabaseGuardTest
+   ```
+7. Fill in: columns exactly as PRD §4; casts and relations; `Member` extends
+   `Illuminate\Foundation\Auth\User` and becomes the auth provider model. Remove `User`, its
+   factory, and the `users` / `password_reset_tokens` tables from the skeleton migration (keep
+   `sessions`). `MemberCategory::for($occupation, $education, $birthday)` holds FR-5.
+8. Seeders: two branches; iCare teams (the 27 names on the form — `GAS_INVENTORY.md` §7); ministry
+   teams Usher (`scan`), IT (`admin`), Praise and Worship, Multimedia, Sound, Publication,
+   Documentation; Sunday Service per branch; one weekly iCare event per iCare team.
+9. `tests/TestCase.php`: `RefreshDatabase`, and `beforeRefreshingDatabase()` fails unless the
+   database name ends in `_test`. `AppServiceProvider` calls
+   `DB::prohibitDestructiveCommands($this->app->isProduction())`. `.env.example` documents the
+   four environments of `STANDARDS.md` §1 with empty values. `RouteAuditTest` holds the public
+   allow-list of PRD §5.1 and fails on any other route without `auth`.
 
-### 1.2 Why the assistant cannot install this itself — TOOL-DEPENDENT, see `CLAUDE.md`
+**Gate:** environment, driver, host and database printed, then `migrate:fresh --seed` on
+`ifgf_app` succeeds · 12 domain tables · `SchemaTest` (tables, unique indexes), `MemberCategoryTest`
+(every branch of FR-5), `PhoneNormalizerTest` green · `route:list` shows only `/` and `up` ·
+`composer audit` clean · `RouteAuditTest` and `DatabaseGuardTest` green · graph rebuilt with
+`/graphify`.
 
-**This section is true for Cowork and false for Claude Code.** `CLAUDE.md` § "Whether PHP runs is
-TOOL-DEPENDENT" carries the settled matrix; Sessions 2 and 4 ran `php`, `composer`, `artisan` and
-the full upgrade directly on the Windows host. The table below describes the **Cowork / sandboxed**
-case only, which remains accurate as re-verified 2026-08-10.
+## WP2 — Sign-in, gates, app shell
 
-The assistant's sandbox is Linux with no root and a network allowlist. Verified:
-
-| Endpoint | Result |
-|---|---|
-| `github.com`, `registry.npmjs.org` | 200 |
-| `repo.packagist.org`, `packagist.org` | blocked |
-| `getcomposer.org`, `php.net` | blocked |
-| `api.github.com`, `codeload.github.com` | blocked |
-| `apt-get`, `sudo` | no privileges |
-
-PHP cannot be installed and Composer cannot resolve metadata. **All PHP-side work runs on the
-Windows host and its output is pasted back into the session.** Budget for this — see §3.4.
-
-Run `tools\setup-windows.ps1` from an elevated PowerShell, then paste the version report back.
-
-### 1.3 Version decisions this audit forces
-
-| Decision | Choice | Reason |
-|---|---|---|
-| PHP for WP 0A | **8.3** | Only line satisfying both Laravel 10 (supports 8.1–8.3) and Laravel 13 (requires ≥8.3). Avoids installing PHP twice. |
-| PHP for production (WP 0B) | **8.4**, pending extension audit | Active support to 2026-12-31, security to 2028-12-31. 8.3 loses active support 2026-11-23. Do not pick 8.5 by default (`build.md` TECHNICAL BASELINE 14). |
-| Laravel target | **13.x** — confirmed newest stable on 2026-08-08 | `build.md` requires rechecking at execution time. Done. Minimum PHP 8.3. |
-| MySQL | **8.4 LTS** | 8.0 reached EOL April 2026; it is migration-source only. |
-| Node for the legacy build | **16.20.2** via nvm-windows | laravel-mix 4 / webpack 4 will not build on Node 22. Pin in `.nvmrc` once proven. |
-
-### 1.4 Blockers visible in `composer.lock` — RESOLVED 2026-08-10 except the frontend
-
-Every prediction below was actioned in WP 0B. Outcomes recorded so nothing is re-litigated.
-
-| Package | Predicted | Outcome 2026-08-10 |
-|---|---|---|
-| `laravel/legacy-factories` | **Hard blocker.** Laravel 10 max. | **Removed** in `086f33d`, before the framework was touched. Correct call. |
-| `botman/botman` + `botman/driver-web` | **High.** Isolation candidate. | **Removed** — UP-006 found zero call sites; there was nothing to isolate. |
-| `spatie/laravel-medialibrary` | **High.** Needs v11/v12. | **11.23.5.** |
-| `laravel/sanctum` | Needs `^4`. | **4.3.3.** |
-| `nunomaduro/collision` | Needs `^8`. | **8.9.5** — and it forced PHPUnit 10 → **11.5.56**, which this table did not predict. |
-| `santigarcor/laratrust` | Needs v8+. Cannot be dropped. | **8.5.5.** Its entire public API was renamed; four authorization call sites aliased on import. See UP-007. |
-| `custompackages/brozot/laravel-fcm` | Local fork, needs audit. | **Removed** — orphaned path repo, never in `require`, never autoloaded (UP-006). |
-| `doctrine/annotations` | Abandoned upstream. | **Still present at 2.0.2**, still abandoned, still transitive. Not yet traced to its parent. Open. |
-| **`laracasts/presenter`** | **NOT PREDICTED** | **The actual sole hard blocker for Laravel 13.** 0.2.8 stops at `illuminate/support ^12.0`. Replaced in-house (UP-007). The lesson: constraint-scanning `composer.lock` missed it because 0.2.8 is the *newest* release — a package can be current and still be a dead end. |
-| Frontend: Vue 2.6 / laravel-mix 4 / webpack 4 | Vue 2 EOL; drives the Vite decision. | **Unresolved and deferred by approval.** Build still exits 0; 166 npm advisories stand. WP 0B item 8. |
-
-### 1.5 Required PHP extensions
-
-Derived from every `ext-*` in the 183 locked packages, plus the Laravel/MySQL runtime baseline:
+**PRD:** §2, FR-2, §5 items 1, 2, 5, 6. **Old files:** `resources/views/ifgf/layout.blade.php`,
+`resources/lang/*/ifgf.php`, `app/Http/Controllers/Ifgf/LocaleController.php`.
+**Owner input:** Google OAuth client id and secret (into `~/.ifgf/`).
 
 ```
-bcmath ctype curl dom exif fileinfo filter gd hash iconv json libxml mbstring
-openssl pcre pdo pdo_mysql phar session simplexml sodium tokenizer xml
-xmlreader xmlwriter zip zlib
+composer require laravel/socialite
+php artisan lang:publish
+php artisan make:controller Auth/EmailLinkController
+php artisan make:controller Auth/GoogleController
+php artisan make:controller LocaleController --invokable
+php artisan make:mail SignInLink --markdown=mail.sign-in-link
+php artisan make:middleware SetLocale
+php artisan make:command GrantAdmin --command=ifgf:admin:grant
+php artisan make:view layouts.app && php artisan make:view auth.sign-in
+php artisan make:test Auth/EmailLinkTest && php artisan make:test Auth/GoogleSignInTest
+php artisan make:test Auth/GateTest && php artisan make:test Security/ProxyAndCookieTest
 ```
-
-`tools\setup-windows.ps1` checks these against `php -m` and reports the gap.
-
----
-
-## Part 2 — Step count
-
-`build.md` is counted at three resolutions. All three are used by the session map.
-
-### 2.1 Approval units — 30
-
-An approval unit is a scope that requires owner confirmation *before* the first code change.
-
-| Group | Units |
-|---|---|
-| Phase 0 work packages (0A, 0B, 0C, 0D) | 4 |
-| Phase 1A subpackages (1A.1 – 1A.5) | 5 |
-| Phase 1B subpackages (1B.1 – 1B.5) | 5 |
-| Phase 1C subpackages (1C.1 – 1C.4) | 4 |
-| Phase 1D subpackages (1D.1 – 1D.5) | 5 |
-| Phase 1E work packages (1E.1 – 1E.3) | 3 |
-| Phase 2 subpackages (2A, 2B, 2C) | 3 |
-| Phase 3 | 1 |
-| **Total** | **30** |
-
-### 2.2 Exit gates — 15
-
-`0A · 0B · 0C · 0D · 1A · 1B · 1C · 1D · 1E-repository · 1E-staging · 1E-production · 2A · 2B · 2C · 3`
-
-A gate is never split across sessions. If a session cannot finish a gate, it stops *before*
-starting it and hands off. `build.md` is explicit: do not mark a gate complete because time ran out.
-
-### 2.3 Discrete required steps — 426
-
-| Scope | Steps | Source |
-|---|---|---|
-| WP 0A | 15 | `build.md` L207–224 |
-| WP 0B | 14 | L236–251 |
-| WP 0C | 19 | L262–282 |
-| WP 0D | 5 | L294–299 |
-| **Phase 0 subtotal** | **53** | |
-| Phase 1 (22 subpackages × 16-step slice loop, L183–200) | 352 | |
-| Phase 2 (2A 6, 2B 3, 2C 4, other 3) | 16 | L448–484 |
-| Phase 3 | 5 | L492–496 |
-| **Total** | **426** | |
-
-Every Phase 1+ subpackage runs the same 16-step loop: map to PRD → fetch upstream SHA → query
-Graphify → classify file ownership → inspect migrations → failing tests → smallest schema change →
-domain service → policies → controllers/routes/UI → focused then full tests → 360px mobile check →
-PRD traceability → UPSTREAM.md + CONTEXT.md + MEMORY.md + TODO.md → `graphify update` → merge
-rehearsal → present for approval.
-
----
-
-## Part 3 — Token budget model
-
-### 3.1 Measured document costs
-
-These are real counts from this repository, not estimates:
-
-| File | Tokens | Lines |
-|---|---:|---:|
-| `PRD.md` | 32,809 | 1,758 |
-| `build.md` | 15,590 | 653 |
-| `hosting.md` | 5,387 | 287 |
-| **All three, read whole** | **53,786** | |
-
-**Reading all three governing documents consumes 36% of a 150k session before any work
-starts.** This is the single largest controllable cost in the project. The rule below exists
-because of this number.
-
-> **Rule T1 — never read `PRD.md`, `build.md`, or `hosting.md` in full.**
-> Read only the line ranges in Appendix A, using `Read` with `offset` and `limit`.
-
-### 3.2 Session budget
-
-Window 200k. Usable 150k (25% reserved for tool output and reasoning headroom).
-
-| Component | Budget | Notes |
-|---|---:|---|
-| System prompt + tool schemas | ~12k | fixed |
-| `CLAUDE.md` | ≤2k | hard cap, enforced |
-| `CONTEXT.md` | ≤1.5k | hard cap |
-| `TODO.md` (active slice only) | ≤1.5k | archive completed items |
-| `MEMORY.md` (last 5 entries only) | ≤2k | read the tail, not the file |
-| `build.md` targeted sections | 6–8k | contract + baseline + invariants + one work package |
-| `PRD.md` targeted sections | 3–10k | see Appendix A |
-| **Preamble subtotal** | **~32k** | |
-| **Working budget** | **~118k** | code, tools, tests, iteration |
-| Handoff reserve | 20k | **hard stop at 118k used** |
-| **Effective work per session** | **~98k** | |
-
-### 3.3 The 80% rule
-
-At **120k tokens used (80% of 150k)** the session stops taking new work, regardless of how it
-feels. It then, in this order:
-
-1. Writes the `MEMORY.md` entry for what was completed.
-2. Rewrites `TODO.md` so the top item is the exact next action.
-3. Updates `CONTEXT.md` (branch, SHA, work package, session number).
-4. Emits the end-of-work-package report fields from `build.md` L585–599.
-
-A session that runs to 100% without doing this is a lost session — the next one re-derives state
-at ~30k tokens of waste.
-
-### 3.4 Windows round-trip cost — applies to Cowork only
-
-**Tool-dependent.** In **Claude Code on the Windows host** PHP runs inline and Rule T2's
-"2 round-trips per session" budget does not apply — verify freely, still piping output. In
-**Cowork** every figure below is live and binding. See `CLAUDE.md` § "Whether PHP runs is
-TOOL-DEPENDENT". Do not re-test this at session start.
-
-Where the assistant cannot run PHP, each verification cycle costs tokens:
-
-| Round-trip | Typical cost |
-|---|---:|
-| `composer install` output (success) | 3–5k |
-| `composer install` output (failure with conflict tree) | 8–15k |
-| `php artisan test` full suite | 5–20k |
-| `php artisan migrate:fresh --seed` | 2–4k |
-| `npm ci` / `npm run production` | 4–10k |
-
-> **Rule T2 — always request piped output.** `php artisan test 2>&1 | Select-Object -Last 60`,
-> `composer install 2>&1 | Select-Object -Last 40`. Never paste a full unfiltered log. Budget
-> **2 verification round-trips per session, ~12k total.**
-
-### 3.5 Token-reduction rules
-
-> **Rule T3 — generate, never hand-write.** Owner preference and the largest single saving.
-> Every file that Artisan can scaffold is scaffolded, then edited. Writing a model + migration +
-> factory + seeder + controller + form request + policy + test by hand costs ~6–8k tokens.
-> One `make:model` command costs ~40 tokens and produces the same seven files.
->
-> ```
-> php artisan make:model Foo --all          # model, migration, factory, seeder,
->                                           # controller, requests, policy
-> php artisan make:migration add_x_to_y --table=y
-> php artisan make:test  Foo/BarTest        # --unit for unit layer
-> php artisan make:policy FooPolicy --model=Foo
-> php artisan make:job / :command / :observer / :notification / :rule / :enum
-> ```
->
-> In **Session 2**, run `php artisan make:model --help` once and record the exact flags Laravel 13
-> supports in `CLAUDE.md`. Do not guess flags across sessions — a failed command costs more than
-> the lookup.
->
-> For `custompackages/ifgf/church-operations`: generate into `app/`, then `git mv` into the package
-> and fix the namespace with a single `sed`. Cheaper than writing package stubs by hand.
-
-> **Rule T4 — query Graphify, do not grep the tree.** `graphify-out/graph.json` is 15MB.
-> Never read it. Use `graphify query "<≤12 vocabulary tokens>" --budget 2500`, then open only the
-> exact `source_location` files and lines it returns. A blind `Grep` across 668 PHP files and 317
-> Blade templates can cost 20k+ tokens for one answer.
-
-> **Rule T5 — `.graphifyignore` before anything else.** The graph currently indexes compiled
-> `public/js/app.js`, which makes every architecture query return generated bundles instead of
-> source. This is WP 0A item 15 and is scheduled early (Session 5) precisely because it lowers the
-> cost of every session after it.
-
-> **Rule T6 — one work package per session.** Never carry two work packages in one context.
-> `build.md` OPERATING CONTRACT 10 forbids it anyway; the token model makes it impossible.
-
-> **Rule T7 — `_ai/` and `_code_reference/` are reference, not context.** Read on demand only.
-
----
-
-## Part 4 — Session map
-
-`E` = estimated sessions. Phase 0A is enumerated concretely because it starts now; later phases are
-scoped at work-package resolution and re-enumerated when their approval gate opens.
-
-### 4.1 Work Package 0A — baseline and safety net (E: 12–14)
-
-**Progress 2026-08-10:** sessions 1–6 and 12 are **done**; 13 is **half done** (CI green, merge
-rehearsal never run); 14 is **half done** (`ifgf/main` created locally and unpushed, `deploy`
-correctly absent, exit gate never formally reviewed). Sessions **7 (package scaffold)** and
-**9–11 (characterization)** are **not started** and are the whole remaining critical path.
-
-| # | Session | `build.md` items | Preamble | Work | Exit condition |
-|---|---|---|---|---:|---:|
-| 1 | Toolchain + doc baseline commit | 1, 2 | 30k | 40k | Versions recorded; PRD/hosting/build committed; SHA in `CONTEXT.md` |
-| 2 | Dependency inventory | 3 | 32k | 70k | 183 packages classified: keep / upgrade / replace / remove |
-| 3 | Route + migration inventory | 4a | 32k | 90k | 5 route files and 93 migrations mapped |
-| 4 | Runtime inventory | 4b | 32k | 90k | Auth, roles, attendance, cards, exports, media, storage, queues, schedule |
-| 5 | `.graphifyignore` + graph rebuild | 15 | 30k | 50k | Queries return source, not `public/js/app.js` |
-| 6 | Upstream pin + `UPSTREAM.md` | 9, 10 | 32k | 60k | Baseline SHA, divergence counts, ownership map |
-| 7 | Package scaffold | 11 | 32k | 80k | `custompackages/ifgf/church-operations` loads, zero behavior change |
-| 8 | Provider smoke tests | 14 | 32k | 70k | Routes, migrations, views, translations, commands, policies from clean checkout |
-| 9 | Characterization: auth + roles | 6a | 32k | 95k | Auth, existing roles, direct permissions |
-| 10 | Characterization: member + groups + events | 6b | 32k | 95k | Profile, group access, event management, session opening |
-| 11 | Characterization: QR + attendance + media | 6c | 32k | 95k | Member QR, check-in, birthday routes, exports, queues, private media |
-| 12 | Testing DB + fixtures | 5, 8 | 30k | 60k | Disposable MySQL 8.4, anonymized fixtures, zero real data |
-| 13 | CI + merge rehearsal | 7, 13 | 32k | 80k | CI green from clean checkout; upstream rehearsal passes |
-| 14 | Branch topology + exit gate | 12, gate | 32k | 60k | `main`/`ifgf/main`/`deploy` protected; compatibility matrix reviewed |
-
-### 4.2 Remaining scope
-
-**Revised 2026-08-10.** WP 0B is spent — it cost **1 session**, not the 14–16 estimated. That is
-the single largest estimate error in this plan and is worth understanding rather than celebrating:
-the upgrade was fast because item 6 (characterization tests) was skipped by owner directive, and
-that work has not disappeared, it has moved. The ±40% confidence band on WP 0B was also wrong in
-the wrong direction — dependency resolution turned out to be the *easy* part; the unpredictable
-part was a single abandoned 60-line package no constraint scan flagged.
-
-| Scope | Approval units | Steps | E (sessions) | Dominant cost |
-|---|---:|---:|---:|---|
-| ~~WP 0B — platform upgrade~~ | ~~1~~ | ~~14~~ | **SPENT — 1** | Done 2026-08-10. Items 6 and 8 carried forward below, not re-estimated here |
-| WP 0A closeout — package seam, provider smoke tests, merge rehearsal, exit gate | 0 (already approved) | 4 | 2–3 | Merge rehearsal is the unknown |
-| **WP 0A item 6 — characterization tests (carried from 0B)** | 0 (already approved) | 1 | **3–5** | 8-minute suite until `schema:dump` lands; 7 behaviour surfaces; every run is an owner round-trip in Cowork |
-| Vite migration (WP 0B item 8, deferred) | 1 | 1 | 4–6 | Separate approved decision; must not mix with a framework upgrade |
-| WP 0C — schema + migration foundation | 1 | 19 | 14–18 | 93 legacy migrations, `usergroup_id` removal, import pipeline |
-| WP 0D — privacy gates | 1 | 5 | 3–4 | Documentation-heavy, low tool cost |
-| **Phase 0 remaining** | **2** | **34** | **26–36** | Was 43–52 including WP 0B |
-| Phase 1A — member registry + portal | 5 | 80 | 12–15 | |
-| Phase 1B — events + attendance | 5 | 80 | 14–18 | Largest Phase 1 epic |
-| Phase 1C — iCare, CGSL, ministries | 4 | 64 | 10–13 | |
-| Phase 1D — calendar, reports, imports | 5 | 80 | 13–16 | Google Calendar adapter + import commit |
-| Phase 1E — production readiness | 3 | 48 | 8–11 | Two gates need external authorization |
-| **Phase 1 total** | **22** | **352** | **57–73** | |
-| **MVP remaining (Phase 0 + 1)** | **24** | **386** | **83–109** | Was 100–125 |
-| Phase 2 — hardening + recognition | 3 | 16 | 22–28 | Separate Python edge repository |
-| Phase 3 — ticketing | 1 | 5 | 7–9 | |
-| **Full programme remaining** | **28** | **407** | **112–146** | Was 129–162 |
-
-These are full-PRD figures. `PRODUCTION_PATH.md` carries the Release-1-scoped numbers, which are
-lower and are the ones to plan against.
-
-**Estimate basis:** 668 PHP files · 172 controllers · 79 models · 93 migrations · 317 Blade
-templates · **1 existing test** (`MemberImportCharacterizationTest`) · 188 Composer packages ·
-52 npm packages. The near-zero-test baseline
-is the biggest driver: Phase 0A writes characterization coverage from nothing, and every Phase 1
-slice writes its tests before its code.
-
-**Confidence:** WP 0A ±15%. WP 0B ±40% — dependency resolution across three Laravel majors is the
-least predictable work in the plan. Phase 1 ±30%. Phase 2 ±60%, and it should be re-estimated at
-its approval gate rather than trusted now.
-
----
-
-## Part 5 — Resume protocol
-
-### 5.1 Every session starts with exactly this
-
-1. `git status --short --branch` and `git log -1 --format="%H %ai"`
-2. Read `CONTEXT.md` — full (capped at 1.5k)
-3. Read `TODO.md` — full (capped at 1.5k)
-4. Read the **last 5 entries** of `MEMORY.md` (`tail`, not the whole file)
-5. Read `CLAUDE.md` — full (capped at 2k)
-6. Read only the `build.md` and `PRD.md` line ranges named by the active TODO item (Appendix A)
-7. State the work package, the step being resumed, and the exit gate — then ask for confirmation
-
-Steps 1–6 cost ~20k. Anything beyond this before doing work is budget leaking.
-
-### 5.2 Every session ends with exactly this
-
-At 120k used, or when the current step completes and the next does not fit:
-
-1. `MEMORY.md` — append one dated entry: what was done, what was learned, what surprised you
-2. `TODO.md` — rewrite so item 1 is the literal next action, with its `build.md` item number
-3. `CONTEXT.md` — branch, HEAD SHA, upstream SHA, work package, session number, gate status
-4. Report: files changed with ownership, tests run (pass/fail/skip), migrations and rollback,
-   upstream status, remaining gate items, proposed commit message
-5. **Do not commit.** `build.md` OPERATING CONTRACT 7 — stage named files, present, wait
-
-### 5.3 Handoff smell tests
-
-A handoff is bad if the next session has to ask any of these:
-
-- *Which branch?* → `CONTEXT.md` is stale
-- *What was I doing?* → `TODO.md` item 1 was not specific enough
-- *Did this already fail?* → `MEMORY.md` entry omitted the negative result
-- *Which PRD section?* → the TODO item omitted its line range
-
----
-
-## Appendix A — Targeted read index
-
-Never read these files whole. Read the range.
-
-### `PRD.md` (~34,100 tokens total) — **line map re-derived 2026-08-10 after the WP 0B reconciliation**
-
-| Lines | ~Tokens | Section |
-|---|---:|---|
-| 22–75 | 1,374 | 1. Executive Summary |
-| 76–216 | 3,203 | 2. Evidence and Existing-System Inventory |
-| 217–263 | 780 | 3. Product Scope and Personas |
-| 264–952 | 9,582 | 4. Domain Model — **split by subsection; never read whole** |
-| 953–1183 | 7,418 | 5. Functional Requirements (FR-01 … FR-14) |
-| 1184–1323 | 1,130 | 6. Key Workflows |
-| 1324–1496 | 3,009 | 7. Application Architecture |
-| 1497–1528 | 1,007 | 8. Non-Functional Requirements |
-| 1529–1594 | 771 | 9. Migration Plan |
-| 1595–1630 | 940 | 10. Delivery Plan |
-| 1631–1681 | 1,860 | 11. Acceptance Test Matrix |
-| 1682–1707 | 776 | 12. Engineering Rules for the Implementing LLM |
-| 1708–1758 | 1,663 | 13. Decisions and Open Questions |
-| 1759–1783 | 560 | 14. External References |
-
-> **Re-derive this table after every `PRD.md` edit.** A stale line map sends sessions to the wrong
-> range, which costs more than the edit saved. One command:
-> `python3 -c "..."` on `^## ` headings — see `MEMORY.md` 2026-08-09 Session 3g.
-
-### `build.md` (15,914 tokens total) — **line map re-derived 2026-08-10**
-
-| Lines | Section | Read when |
-|---|---|---|
-| 28–45 | Operating Contract | every session |
-| 46–92 | Required Startup Sequence | every session |
-| 114–140 | Technical Baseline | every session |
-| 141–178 | Architectural Invariants | every session |
-| 179–201 | Implementation Strategy | every Phase 1+ session |
-| 202–228 | Work Package 0A | 0A only |
-| 229–256 | Work Package 0B — **marked complete 2026-08-10**; read for the exit-gate checklist only | 0A/0B closeout |
-| 257–287 | Work Package 0C | 0C only |
-| 288–304 | Work Package 0D | 0D only |
-| 305–332 | Phase 1A | 1A only |
-| 333–359 | Phase 1B | 1B only |
-| 360–382 | Phase 1C | 1C only |
-| 383–407 | Phase 1D | 1D only |
-| 408–439 | Phase 1E | 1E only |
-| 440–485 | Phase 2 | 2A/2B/2C only |
-| 486–501 | Phase 3 | 3 only |
-| 502–535 | Test and Quality Commands | any session running tests |
-| 536–550 | Production Release to `deploy` | 1E.3 only |
-| 585–599 | End-of-Work-Package Report | every session end |
-| 611–623 | Laravel 13 upgrade instruction — **spent, do not issue** | never |
-| 549–566 | Security and Data Rules | any session touching data or media |
-| 567–582 | Decision and Blocker Policy | when blocked |
-| 583–598 | End-of-Work-Package Report | every session end |
-
-The everyday preamble — L28–92, L114–201 — is about **6.1k tokens**. That is the correct
-`build.md` load. Reading all 653 lines instead costs 15.6k and buys nothing.
-
-### `hosting.md` (5,387 tokens total)
-
-Small enough to read whole, but only in WP 0D, Phase 1E, and any session touching backups,
-secrets, storage, or capacity.
-
----
-
-## Appendix B — Immediate next actions
-
-1. Run `tools\setup-windows.ps1` elevated; paste the version report back. *(blocks everything)*
-2. Commit the documentation baseline — `PRD.md`, `hosting.md`, `build.md`, `.gitignore`,
-   and this plan — and record the SHA in `CONTEXT.md`. *(`build.md` OPERATING CONTRACT 6)*
-3. Confirm Work Package 0A scope, then start Session 2.
-
-`graphify-out/` stays untracked (`build.md` OPERATING CONTRACT 9). Already handled in `.gitignore`.
+Build: one-time link (hash in cache, 15 min, single use, identical response for any email);
+Google (verified email only, matched to `members.email`); Gates `scan`, `lead-team`, `admin` in
+`AppServiceProvider`; trusted proxies for Cloudflare and forced HTTPS in production; locale switch;
+responsive layout with role-based navigation; `npm i alpinejs`.
+
+**Gate:** link reuse and expiry fail · unknown email gets the same answer · unverified Google
+email rejected · gate matrix (member, usher, leader of A vs team B, admin) · only the public
+routes of PRD §5.1 are reachable signed out.
+
+## WP2S — Staging through Cloudflare
+
+**Reads:** `STANDARDS.md` §1–2, PRD §5. Comes straight after WP2, so every later work package can
+be tried on a real phone through Cloudflare, not only on the developer machine.
+**Owner input:** the Ubuntu PC reachable over SSH, the domain already on Cloudflare, and a
+hostname for staging (for example `staging.<domain>`).
+
+```
+php artisan make:command SmokeCheck --command=ifgf:smoke
+php artisan make:middleware SecurityHeaders
+php artisan make:test Security/SecurityHeadersTest
+php artisan make:test Console/SmokeCheckTest
+```
+Build:
+- `SecurityHeaders` middleware (HSTS, no-sniff, frame and referrer policy, a content security
+  policy that fits the app's own scripts) and `ifgf:smoke <url>` with the checks of `STANDARDS.md`
+  Level 3. Against a host behind Cloudflare Access it sends a service token read from `~/.ifgf/`.
+- `deploy/` — scripts the owner runs on the Ubuntu PC, and `docs/DEPLOY.md` that explains them:
+  nginx + PHP-FPM serving only `public/`; PostgreSQL on localhost with one role per environment;
+  `cloudflared` as a service (a tunnel — no port is opened on the router, the home address stays
+  hidden); `ufw` denying all inbound; SSH by key only; unattended security updates; queue worker
+  and scheduler as systemd units that start on boot; a `deploy.sh` that pulls `dev`, installs
+  without dev packages, migrates and restarts.
+- Because it is a PC in a room, not a data centre: disk encryption, a nightly encrypted backup
+  copied off the machine, a restore rehearsal, and an uptime check that notices when power or
+  internet drops.
+- Cloudflare side, written as a checklist for the owner: Access policy on the whole staging
+  hostname (named testers only), WAF managed rules on, a rate-limit rule on the sign-in and
+  registration paths, "Full (strict)" not needed with a tunnel but HTTPS-only enforced.
+
+**Gate:** `SecurityHeadersTest` green · `ifgf:smoke http://localhost:8000` passes its local checks
+· once the owner has run the scripts, `ifgf:smoke https://staging.<domain>` passes all of them ·
+staging uses `ifgf_app_staging` with demo data only · `docs/DEPLOY.md` followed once, start to end.
+
+## WP3 — Registration, QR, member pages, households
+
+**PRD:** FR-1, FR-3, FR-5, FR-7 (QR part). **Old files:**
+`app/Http/Controllers/MemberApp/RegistrationController.php`, `…/Services/MemberRegistryService.php`,
+`…/Services/MemberCredentialService.php` L60–130 and L250–299, `resources/views/ifgf/member/register.blade.php`.
+**Owner input:** mail provider.
+
+```
+composer require simplesoftwareio/simple-qrcode
+php artisan make:controller RegistrationController
+php artisan make:request RegisterMemberRequest
+php artisan make:controller Member/HomeController
+php artisan make:controller Member/ProfileController
+php artisan make:request UpdateProfileRequest
+php artisan make:controller Member/HouseholdController
+php artisan make:class Services/MemberRegistrar
+php artisan make:class Services/QrIssuer
+php artisan make:mail WelcomeWithQr --markdown=mail.welcome
+php artisan make:job SyncBirthdayEvent
+php artisan make:observer MemberObserver --model=Member
+php artisan make:test RegistrationTest && php artisan make:test HouseholdTest
+php artisan make:test QrIssuerTest --unit && php artisan make:test Member/ProfileTest
+```
+Build: the two-step form with the visitor branch; family rows; duplicate rule (email or phone, no
+disclosure); QR issue and replace; welcome mail; member home (QR, history, household); profile
+edit; observer recomputes the category and dispatches `SyncBirthdayEvent` (fake gateway for now).
+
+**Gate:** all 13 fields validated · visitor path stores `status=visitor` and skips step 2 ·
+duplicate by email and by re-formatted phone · household of three gets three QRs · a member cannot
+open another member's page or QR.
+
+## WP4 — Sunday attendance and the attendance table
+
+**PRD:** FR-7, FR-8, FR-11. **Old files:** `app/Http/Controllers/Usher/ScanController.php`,
+`…/Usher/RosterController.php`, `…/Services/AttendanceRecorder.php`,
+`resources/views/ifgf/usher/scan.blade.php`.
+
+```
+npm i jsqr
+php artisan make:controller Usher/BranchController
+php artisan make:controller Usher/ScanController
+php artisan make:controller Usher/RosterController
+php artisan make:controller AttendanceTableController
+php artisan make:class Services/AttendanceRecorder
+php artisan make:test Usher/ScanTest && php artisan make:test Usher/RosterTest
+php artisan make:test AttendanceTableTest
+```
+**Gate:** scan records once and reports a repeat · short code throttled harder than scan · branch
+choice decides the occurrence · occurrence created on first use · category snapshot stored · a
+plain member gets 403 on every usher route · totals block matches hand-counted fixtures.
+
+## WP5 — iCare leader workspace
+
+**PRD:** FR-9, FR-10, FR-6 (group table), FR-14.
+
+```
+php artisan make:policy TeamPolicy --model=Team
+php artisan make:controller Icare/AttendanceController
+php artisan make:controller Icare/MemberController
+php artisan make:controller Icare/BirthdayController --invokable
+php artisan make:controller ChangeRequestController
+php artisan make:controller Admin/TeamController --model=Team --requests
+php artisan make:mail ChangeRequestMail --markdown=mail.change-request
+php artisan make:test Icare/AttendanceTest && php artisan make:test Icare/ChangeRequestTest
+php artisan make:test Icare/BirthdayTableTest && php artisan make:test Admin/TeamTest
+```
+**Gate:** tick, re-save, guest and a back-filled date · status toggle is immediate and logged ·
+confirm applies, reject and expiry do not, a link works once · mail goes to the household head when
+the member has no email · leader of A gets 403 on team B · birthday table hides the year ·
+leaving a team sets `left_at` and keeps the row; rejoining adds a new one.
+
+## WP6 — Birthday calendar and institutions
+
+**PRD:** FR-4, FR-6. **Old files:** `…/src/Contracts/CalendarGateway.php`,
+`…/src/Calendar/FakeCalendarGateway.php`, `…/src/Services/BirthdaySyncService.php`;
+`calendar.js` L48–62 and L301–360 in the Apps Script repo.
+**Owner input:** calendar service account JSON in `~/.ifgf/`; the MoE CSV.
+
+```
+composer require google/apiclient
+php artisan make:interface Contracts/CalendarGateway
+php artisan make:class Calendar/FakeCalendarGateway
+php artisan make:class Calendar/GoogleCalendarGateway
+php artisan make:command SyncCalendar --command=ifgf:calendar:sync
+php artisan make:command ImportInstitutions --command=ifgf:institutions:import
+php artisan make:controller InstitutionSearchController --invokable
+php artisan make:controller Admin/BirthdayController --invokable
+php artisan make:test Calendar/BirthdaySyncTest && php artisan make:test InstitutionSearchTest
+```
+**Gate:** create, in-place update, delete-and-recreate fallback and reconcile-all all pass against
+the fake · tests can never reach the Google driver · search matches English and Chinese names and
+is throttled. **The live calendar is not touched before WP9.**
+
+## WP7 — Legacy workbook import
+
+**PRD:** FR-13, §5.9. **Old files:** `…/Services/WorkbookImporter.php` L120–260 (reading and type
+coercion only — the stages are rewritten for the new schema), `WORKBOOK_INVENTORY.md`.
+
+```
+composer require phpoffice/phpspreadsheet
+php artisan make:command ImportWorkbook --command=ifgf:import:workbook
+php artisan make:class Services/WorkbookImporter
+php artisan make:test Import/WorkbookImportTest
+```
+Tests build a tiny workbook in code; no real file enters the repo.
+
+**Gate:** dry run writes nothing · second `--commit` adds nothing · time rule puts 12:59 in
+Zhongli and 13:01 in Taipei · unresolved rows listed in `summary` · on the real file the batch
+summary is shown to the owner (workbook (4): 233 members, 3,693 scans, 434 headcount rows).
+
+## WP8 — Reports, headcount, LINE import
+
+**PRD:** FR-12, FR-13. **Old files:** `…/Services/QuarterlyReportService.php`.
+**Owner input:** two or three real LINE recaps, pasted in chat, never committed.
+
+```
+php artisan make:class Services/QuarterlyReport
+php artisan make:controller Reports/QuarterlyController --invokable
+php artisan make:controller HeadcountController
+php artisan make:request StoreHeadcountRequest
+php artisan make:controller Imports/LineImportController
+php artisan make:class Services/LineRecapImporter
+php artisan make:test Reports/QuarterlyReportTest && php artisan make:test Imports/LineImportTest
+```
+**Gate:** monthly rounds up, quarterly rounds down, on fixtures copied from the sheet's formulas ·
+both sources side by side · unmatched names are offered, not guessed · re-upload adds nothing ·
+`docs/LINE_IMPORT_PROMPT.md` written and tried on the owner's samples.
+
+## WP9 — Hardening and production cutover
+
+**Reads:** `STANDARDS.md` whole, PRD §5 in full, `docs/DEPLOY.md`.
+
+Build: a test for every PRD §5 and `STANDARDS.md` §3–4 item still untested, including member
+deletion (anonymise the row, remove the QR and the calendar event) and the audit log; the
+production half of `docs/DEPLOY.md` — its own database `ifgf_app_prod` and role, its own hostname,
+Cloudflare Access on `/admin`; the cutover checklist — final import with `--commit`, adopt calendar
+event ids, mail every member their new QR, switch off the Apps Script trigger; a translation pass
+for `id`, `en`, `zh_TW`.
+
+**Gate:** every checklist item has a passing test · `composer audit` and `npm audit` clean ·
+`ifgf:smoke` passes against staging **and** the production hostname · a backup restored once into
+a scratch database · the staging role proven unable to open the production database. After this
+the owner merges `dev` into `main`.
