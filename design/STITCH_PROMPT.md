@@ -5,14 +5,17 @@ designs and exports them as HTML with Tailwind classes, which is what this app's
 
 **How to use it**
 
-1. Start a new project in *Web* mode. Paste **Part A** as the first prompt.
+1. Start a new project in *Web* mode. Paste **Part A** as the first prompt, then **Part A2**
+   (the colours, type and shapes of `design/DESIGN.md`) as the second.
 2. Paste the **Part B** prompts one at a time — one prompt, one screen (or one short flow). Ask for
    the phone layout first, then "now the desktop layout of the same screen".
 3. When a screen looks right, export it as **HTML + Tailwind** and save it as
-   `design/stitch/<screen-name>.html`, using the names in Part B. Export the design rules Stitch
-   keeps (`DESIGN.md`) to `design/DESIGN.md`.
-4. Commit the `design/` folder on `dev`. The development sessions convert these files to Blade
-   and keep the classes; they do not redesign.
+   `design/stitch/<screen-name>.html`, with a screenshot beside it as `<screen-name>.png`, using
+   the names in Part B. **Do not overwrite `design/DESIGN.md` with Stitch's own export** — that
+   file is the source of truth. If Stitch's result is better than a rule in it, change the rule.
+4. Commit the `design/` folder on `dev`. The development sessions treat these files as a picture
+   of the target and rebuild each screen from the components in `design/DESIGN.md` §5
+   (`design/RESTYLE_PROMPT.md` is the prompt for that).
 
 Use placeholder people only ("Maria Tan", "iCare U"). Never paste real member data into Stitch.
 
@@ -49,6 +52,39 @@ Design rules:
 - Status colours carry meaning and are always paired with an icon and a word:
   green "recorded", amber "already recorded", red "not found".
 - No stock photos. No marketing sections. This is a tool.
+```
+
+## Part A2 — the design system (paste second)
+
+```
+Use exactly this design system on every screen. Do not invent other colours, sizes or radii.
+
+Style: modern, minimal, calm. Lots of white space. One accent colour. Borders instead of
+shadows. No gradients, no illustrations, no decorative icons.
+
+Colours (light theme): page background #F8FAFC; cards and inputs #FFFFFF; headings #0F172A;
+body text #334155; secondary text #475569; dividers #E2E8F0; input borders #64748B;
+accent #1D4ED8 with white text, hover #1E40AF, soft accent background #EFF6FF.
+Success #166534 on #F0FDF4. Warning #92400E on #FFFBEB. Error #991B1B on #FEF2F2.
+Birthday markers #9D174D on #FDF2F8.
+Dark theme: page #0F172A; cards #1E293B; text #F1F5F9; secondary #CBD5E1; accent #60A5FA with
+dark text. QR codes always sit on a white card, in both themes.
+
+Type: Instrument Sans. Page title 22px semibold; section title 18px semibold; body 16px;
+labels 14px medium; captions 13px. Nothing smaller than 13px. Sentence case, never all caps.
+
+Shape and space: controls 48px high with 10px corners; cards with a 1px border and 14px corners;
+badges are pills. Spacing steps 4, 8, 12, 16, 24, 32, 48. Page gutter 16px on phones.
+Forms are one column, at most 560px wide. One primary button per screen, full width on phones.
+
+Components to reuse everywhere: button (primary, secondary, quiet, danger); form field with the
+label above, help text and an error line; radio cards for two to five choices; alert (info,
+success, warning, error) with an icon and a sentence; card; pill badge; table that becomes a
+list of cards on a phone; empty state with one action; step indicator; month navigation
+(previous, month name, next, Today); bottom sheet.
+
+Phones: a 56px top bar and a bottom navigation bar with at most four items.
+Desktop: a 240px left sidebar, content centred. Focus ring: 2px accent with a 2px gap.
 ```
 
 ---
@@ -139,9 +175,17 @@ changes." Below it, a list of requests with status badges: waiting, confirmed, r
 
 **`birthdays`**
 ```
-Birthday table: a month selector (twelve chips, current month selected), then a list sorted by
-day: day number large on the left, name, iCare group. Today's birthdays highlighted. No birth
-year anywhere.
+Birthdays screen for a small-group leader. Header: month navigation (previous, "October 2026",
+next, a "Today" button) and a two-way switch "List | Calendar".
+Above both views, a strip "This week": small cards with day and month, name and iCare group.
+List view: grouped by day, the day number large on the left, then name and iCare group; today's
+group has a soft pink background and the word "Today".
+Calendar view: a month grid, Monday first. On desktop each day cell shows up to three names as
+small pink pills and "+2 more". On a phone each day cell shows only the day number and a pink
+dot with a count; tapping a day lists that day's birthdays under the grid. Today has an accent
+ring. Under the grid a small line "Synced with Google Calendar · 2 minutes ago".
+Also design the empty month: "No birthdays in November" with a link to the next month that has
+one. No birth year, age, phone or email anywhere. Design phone and desktop.
 ```
 
 **`attendance-table`**
