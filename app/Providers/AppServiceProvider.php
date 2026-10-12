@@ -4,7 +4,13 @@
 
 namespace App\Providers;
 
+use App\Calendar\FakeCalendarGateway;
+use App\Calendar\GoogleAccessToken;
+use App\Calendar\GoogleCalendarGateway;
+use App\Contracts\CalendarGateway;
+use App\Exceptions\CalendarException;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -17,7 +23,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(CalendarGateway::class, function (Application $app): CalendarGateway {
+            $calendar = $app['config']['ifgf.calendar'];
+
+            // The test suite never gets a real calendar, whatever this machine's settings say.
+            if ($app->runningUnitTests() || $calendar['driver'] !== 'google') {
+                return new FakeCalendarGateway;
+            }
+
+            if (empty($calendar['id']) || empty($calendar['key'])) {
+                throw new CalendarException('The google calendar driver needs IFGF_CALENDAR_ID and IFGF_CALENDAR_KEY.');
+            }
+
+            return new GoogleCalendarGateway($calendar['id'], (new GoogleAccessToken($calendar['key']))(...));
+        });
     }
 
     /**

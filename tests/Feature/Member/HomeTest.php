@@ -28,7 +28,7 @@ class HomeTest extends TestCase
             ->assertOk()
             ->assertSee($member->full_name)
             ->assertSee($member->short_code)
-            ->assertSee('<svg', false);
+            ->assertSee('data-testid="qr"', false);
     }
 
     public function test_the_page_never_shows_another_members_code_or_the_token_itself(): void
@@ -69,7 +69,7 @@ class HomeTest extends TestCase
             ->get('/me')
             ->assertOk()
             ->assertSee('You do not have a QR yet.')
-            ->assertDontSee('<svg', false);
+            ->assertDontSee('data-testid="qr"', false);
     }
 
     public function test_a_new_qr_replaces_the_old_one(): void

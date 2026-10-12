@@ -5,8 +5,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Controllers\RegistrationController;
-use App\Support\PhoneNormalizer;
-use Closure;
+use App\Rules\PhoneNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -50,7 +49,7 @@ class RegisterStepOneRequest extends FormRequest
             'birthday' => ['required', 'date', 'after:1900-01-01', 'before:today'],
             'domicile_taiwan' => ['required', 'string', 'max:255'],
             'line_id' => ['nullable', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:32', $this->aPhoneNumber()],
+            'phone' => ['required', 'string', 'max:32', new PhoneNumber],
             'branch' => ['required', 'string', Rule::exists('branches', 'code')->where('is_active', true)],
             'attend_again' => ['required', Rule::in(['yes', 'no'])],
         ];
@@ -73,19 +72,5 @@ class RegisterStepOneRequest extends FormRequest
             'branch' => __('Domisili Gereja IFGF'),
             'attend_again' => __('Sunday Gathering'),
         ];
-    }
-
-    /**
-     * A number that still has between 10 and 15 digits once written internationally.
-     */
-    private function aPhoneNumber(): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail): void {
-            $digits = strlen((new PhoneNormalizer)->normalize((string) $value));
-
-            if ($digits < 10 || $digits > 15) {
-                $fail(__('Enter a valid WhatsApp number, for example 0912 345 678.'));
-            }
-        };
     }
 }

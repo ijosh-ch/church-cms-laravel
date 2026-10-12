@@ -129,6 +129,26 @@ green on `ifgf_app_test`, and `migrate --seed` succeeded on the empty `ifgf_app`
   restarted after a `php.ini` change. The same gap would have broken the calendar client in WP6.
   The owner then completed a real Google sign-in.
 
+**2026-10-13 — profile page, header menu, birthday calendar sync (owner's request).**
+- Owner's event format: title `🎂 {first name} (iCare {iCare}) Birthday`; description lines
+  `English Name`, `Chinese Name`, `Year of Birth`, `iCare`. PRD FR-6 amended. The two date lines
+  in the owner's example are Google's own display of the date and the repeat rule, not text.
+- **No `google/apiclient`**, although WP6 names it: the gateway is about 100 lines over Laravel's
+  HTTP client with a JWT signed by `openssl_sign`, which lets `Http::fake()` test every request.
+  The owner may overrule. The signing class itself is covered only by the live call.
+- `php artisan test` boots Artisan first, so `~/.ifgf/*.env` is already in the child's `$_SERVER`,
+  and Laravel's `env()` reads `$_SERVER` before `$_ENV`: a `<env force>` in `phpunit.xml` is
+  **not** enough to override a machine-level value. It needs a matching `<server force>` line.
+  The container binding also returns the fake whenever `runningUnitTests()`.
+- Observer on `created` and `updated`, not `saved`: the QR save right after `create` would
+  otherwise queue a second sync. It handles events after commit.
+- Test instances go stale: the job writes `calendar_event_id` on its own copy — use `fresh()`.
+- The header menu is a native `<details>`: no script. It put two `<svg>` icons on every signed-in
+  page, so tests look for `data-testid="qr"`, not for any `<svg`.
+- A read check of the calendar proves nothing about writing: the dev calendar was shared
+  read-only and Google answers `requiredAccessLevel` (403) on create.
+- `CLAUDE.md` now allows the dev calendar on the owner's development PC; tests always fake.
+
 Still not done: `/security-review` on the pending changes · graph rebuild (`/graphify` is not a
 skill in Claude Code desktop sessions, and the `graphify` CLI has no build command) · the commit.
 

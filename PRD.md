@@ -143,8 +143,10 @@ One addition for family members who have no education level: age under 13 → Ki
 
 - **Calendar sync (legacy behaviour kept).** One all-day event per member in the church birthday
   calendar, repeating yearly until birth year + 99, reminders at 1 week and 1 day.
-  Title `🎂 {full_name} ({chinese_name})'s Birthday`; description: English name, Chinese name,
-  year of birth, iCare. The event id lives in `members.calendar_event_id`. A change to birthday,
+  Title `🎂 {first name} (iCare {iCare}) Birthday` — the first word of the full name; the bracket
+  is left out for a member with no iCare (owner, 2026-10-13). Description, one per line:
+  `English Name:`, `Chinese Name:`, `Year of Birth:`, `iCare:`. The event id lives in
+  `members.calendar_event_id`. A change to birthday,
   name or iCare updates the same event; if that fails, delete and recreate.
   `ifgf:calendar:sync` reconciles everyone. A `CalendarGateway` contract with a fake keeps tests
   offline; the real driver uses a service account kept in `~/.ifgf/`.

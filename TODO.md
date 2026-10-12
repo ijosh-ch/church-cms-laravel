@@ -9,10 +9,13 @@
 
 ## Now
 
-1. **Start a new session.** Committed on 2026-10-12, all at the owner's request and ahead of the
-   plan's order: WP1 (`fd25235`); registration with QR and `/me`, plus the sign-in page with
-   Google sign-in and sign-out (one commit); the design files (one commit). 130/130 tests. The
-   owner signed in with a real Google account on this PC and confirmed it works.
+1. **Commit (owner's yes):** the profile page, the header menu, the birthday calendar sync, and
+   the amended `PRD.md` FR-6 and `CLAUDE.md`. 166/166 tests. Verified live on 2026-10-13 against
+   the **dev** calendar once the owner gave the service account "Make changes to events":
+   `ifgf:calendar:sync` created three events (22 → 25), retried jobs updated them in place with no
+   duplicates, and an event read back from Google matches the owner's format. Calendar jobs need
+   `php artisan queue:work` running.
+   Already committed: WP1 (`fd25235`), registration + Google sign-in (`3e4ff14`), design (`62f6b7a`).
 2. **Run `/security-review`** on WP1 and the registration slice — never run. Rebuild the graph
    (the `graphify` CLI has no build command; the `/graphify` skill is not in the desktop session).
 3. **Rest of WP2** (`EXECUTION_PLAN.md` § WP2), a new session. Done already: `/sign-in`, Google

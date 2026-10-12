@@ -35,7 +35,16 @@ Google" and "Register without Google". Google (`Auth/GoogleController`): a verif
 matches a member signs them in; an unknown one goes to `/register` with the email fixed and the
 name filled in, and the new member's email is stored as verified. `/sign-out` ends the session.
 There is no email sign-in link yet. Google's client comes from the JSON named in
-`~/.ifgf/google.env`. Run `npm run build` once for the CSS (`public/build` is not committed).
+`~/.ifgf/google.env`.
+
+**Profile and birthday calendar (uncommitted):** `/profile` edits every registration field except
+the email; the header has a menu (My QR, Profile, Sign out). `MemberObserver` queues
+`SyncBirthdayEvent` when a member is created or their name, Chinese name, birthday or iCare
+changes; `Services/BirthdaySync` writes through `Contracts/CalendarGateway`. Drivers: `fake`
+(default, and always in tests) or `google` (`Calendar/GoogleCalendarGateway`, plain HTTP — no
+`google/apiclient`). This PC is set to `google` and the **dev** calendar in `~/.ifgf/calendar.env`,
+but that calendar is shared read-only with the service account, so every write is refused (403).
+Calendar jobs run on the database queue: `php artisan queue:work`. Run `npm run build` once for the CSS (`public/build` is not committed).
 Dev server: `php artisan serve --port=8080` (`.claude/launch.json`); `APP_URL` is 8080.
 
 `wp1-salvage/` is an untracked duplicate of the WP1 files, kept until the commit.

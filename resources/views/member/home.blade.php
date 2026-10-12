@@ -26,11 +26,7 @@
         <p class="text-base text-stone-700">{{ __('You do not have a QR yet.') }}</p>
     @endif
 
-    <form method="POST" action="{{ route('sign-out') }}" class="mt-8">
-        @csrf
-        <button type="submit"
-            class="min-h-12 w-full rounded-md border border-stone-400 bg-white px-4 py-3 text-base font-medium text-stone-900 hover:bg-stone-100 focus:outline-2 focus:outline-offset-2 focus:outline-sky-700">
-            {{ __('Sign out') }}
-        </button>
-    </form>
+    <p class="mt-6 text-center text-sm">
+        <a href="{{ route('profile.edit') }}" class="text-sky-800 underline">{{ __('Edit my profile') }}</a>
+    </p>
 @endsection

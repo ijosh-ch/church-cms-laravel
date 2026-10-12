@@ -8,9 +8,11 @@ use App\Enums\EducationLevel;
 use App\Enums\HouseholdRole;
 use App\Enums\MemberCategory;
 use App\Enums\MemberStatus;
+use App\Observers\MemberObserver;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -47,6 +49,7 @@ use Illuminate\Support\Str;
     'status',
 ])]
 #[Hidden(['qr_token_hash', 'qr_token_enc', 'remember_token'])]
+#[ObservedBy(MemberObserver::class)]
 class Member extends Authenticatable
 {
     /** @use HasFactory<MemberFactory> */

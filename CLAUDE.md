@@ -98,7 +98,9 @@ Always pipe output: `2>&1 | tail -40`.
   into another environment. Test, development, staging and production each have their own
   database and role (`STANDARDS.md` §1).
 - Never touch production, the live Google Calendar, the live Apps Script, or send real mail.
-  Outside production the mailer is `log` and the calendar driver is the fake.
+  Outside production the mailer is `log`, and the calendar driver is the fake — or, on the
+  owner's development PC only, the **dev** calendar named in `~/.ifgf/calendar.env`. Tests always
+  get the fake. The live calendar is never named on a development machine.
 - Never commit member data, the workbook, LINE recaps, secrets, `.env*`, or Graphify output.
 - Never remove `LICENSE.upstream-MIT`.
 
