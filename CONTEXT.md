@@ -4,8 +4,8 @@
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
 **Updated:** 2026-10-12 · **Branch:** `dev` (created 2026-10-04 from `feat/postgresql-multisite`
-at `51613f8`) · **Stage:** WP1 landed in the working tree and green, **not yet committed**
-(`TODO.md` item 1).
+at `51613f8`) · **Stage:** WP1 committed (`fd25235`); the registration part of WP3 is
+built and green but **uncommitted**; WP2 (sign-in) not started (`TODO.md`).
 
 ---
 
@@ -24,8 +24,19 @@ on 2026-10-12 (2,197 tracked files) and survives only on `feat/postgresql-multis
 the auth model (no `users` table, no passwords); 11 enums; `Support/PhoneNormalizer`; 10
 factories; 3 seeders (2 branches, 27 iCare and 7 ministry teams, 29 events); 6 test files.
 65/65 tests on `ifgf_app_test`; `ifgf_app` rebuilt and seeded; only `/` and `up` are routed;
-`composer audit` and `npm audit` clean. No screen of the app exists yet — `/` is still Laravel's
-welcome page. Sign-in is WP2, the registration form WP3.
+`composer audit` and `npm audit` clean.
+
+**Screens that exist:** `/register` (page one, 9 fields) → `/register/details` (page two, 4
+fields; skipped by a visitor) → `/me` (the member's QR and short code, signed in) or
+`/register/done` (someone already registered). `Services/MemberRegistrar` creates the member,
+`Services/QrIssuer` issues the QR (256-bit token; hash + encrypted copy + 8-character code),
+`Mail/WelcomeWithQr` is queued. `/` redirects to **`/sign-in`**, which offers "Continue with
+Google" and "Register without Google". Google (`Auth/GoogleController`): a verified email that
+matches a member signs them in; an unknown one goes to `/register` with the email fixed and the
+name filled in, and the new member's email is stored as verified. `/sign-out` ends the session.
+There is no email sign-in link yet. Google's client comes from the JSON named in
+`~/.ifgf/google.env`. Run `npm run build` once for the CSS (`public/build` is not committed).
+Dev server: `php artisan serve --port=8080` (`.claude/launch.json`); `APP_URL` is 8080.
 
 `wp1-salvage/` is an untracked duplicate of the WP1 files, kept until the commit.
 

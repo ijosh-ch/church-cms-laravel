@@ -12,6 +12,14 @@ abstract class TestCase extends BaseTestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Pages must render in a checkout that has never run `npm run build`.
+        $this->withoutVite();
+    }
+
     /**
      * RefreshDatabase wipes and rebuilds whatever database the app points at, so it must
      * never be anything but the test database (STANDARDS.md §1).

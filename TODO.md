@@ -9,17 +9,25 @@
 
 ## Now
 
-1. **Commit WP1** — it is landed in the tree and uncommitted. Before the owner's yes: run
-   `/security-review` on the pending changes (not run yet) and rebuild the graph (the `graphify`
-   CLI has no build command; the `/graphify` skill is not installed in the desktop session).
-   Stage by path — never `git add -A` — and leave out `wp1-salvage/`; delete that folder and the
-   leftover `custompackages/` (one PHPUnit cache file) after the commit, with the owner's yes.
-   State on 2026-10-12: Laravel 13.35.0 · 65/65 tests on `ifgf_app_test` · `migrate:fresh --seed`
-   clean on `ifgf_app` · `route:list` shows only `/` and `up` · both audits clean.
+1. **Start a new session.** Committed on 2026-10-12, all at the owner's request and ahead of the
+   plan's order: WP1 (`fd25235`); registration with QR and `/me`, plus the sign-in page with
+   Google sign-in and sign-out (one commit); the design files (one commit). 130/130 tests. The
+   owner signed in with a real Google account on this PC and confirmed it works.
+2. **Run `/security-review`** on WP1 and the registration slice — never run. Rebuild the graph
+   (the `graphify` CLI has no build command; the `/graphify` skill is not in the desktop session).
+3. **Rest of WP2** (`EXECUTION_PLAN.md` § WP2), a new session. Done already: `/sign-in`, Google
+   (`Auth/GoogleController`, Socialite), `/sign-out`, guest and signed-in redirects. Still to do:
+   the email sign-in link (`EmailLinkController`, `SignInLink` mail) — until then a member who has
+   no Google account for their registered email cannot sign in again; Gates `scan`, `lead-team`,
+   `admin`; `ifgf:admin:grant`; locale switch and `lang/` (labels are already in `__()`); trusted
+   proxies; the real layout; `Auth/EmailLinkTest`, `Auth/GateTest`, `Security/ProxyAndCookieTest`.
+4. **Rest of WP3:** family rows and households (FR-3) · profile edit · attendance history on
+   `/me` · `MemberObserver` + `SyncBirthdayEvent` · an already-registered person is mailed a
+   sign-in link (needs WP2) · `HouseholdTest`, `Member/ProfileTest`.
 
 ## Next — one work package per session, in this order
 
-2. WP2 — sign-in (email link, Google), gates, app shell
+- WP2 and the rest of WP3 are items 3 and 4 above
    - then **WP2S — staging through Cloudflare** (security headers, `ifgf:smoke`, deploy scripts)
 3. WP3 — registration, QR, member pages, households
 4. WP4 — Sunday attendance and the attendance table
@@ -33,7 +41,16 @@
 
 - **Before WP2:** screens from Google Stitch, exported to `design/stitch/` (`design/STITCH_PROMPT.md`).
   Without them WP2–WP5 build plain screens that can be restyled later.
+  - `design/DESIGN.md` (draft 1, 2026-10-12) is the design system; the owner still decides its
+    §11: brand colour and logo, dark theme now or later, the birthday calendar grid (needs a line
+    in PRD FR-6), required marks. `design/RESTYLE_PROMPT.md` is the prompt for a restyle session.
+    `EXECUTION_PLAN.md` rule 7 ("keep Stitch's classes") now disagrees with both and needs fixing.
 - **Before WP2:** a Google OAuth client (id and secret into `~/.ifgf/`).
+  - Done 2026-10-12 for development: `~/.ifgf/client-secret-dev.json` (web client, project
+    `ifgf-site-dev`, redirect `http://localhost:8080/auth/google/callback`), and
+    `~/.ifgf/google.env` sets `IFGF_GOOGLE_CLIENT_JSON` to its path. WP2 reads the client id and
+    secret from that JSON in `config/services.php`. The owner's test Google account must be on
+    the consent screen's test-user list.
 - **Before WP2S:** SSH access to the self-hosted Ubuntu PC, and a staging hostname on the
   Cloudflare domain. The session writes the scripts; the owner runs them on the PC.
 - **Before WP3:** choose a mail provider for sign-in links, the welcome QR and confirmations.
@@ -60,6 +77,14 @@
   before WP9.
 
 ## Waiting on the owner's yes
+
+- **Registration reveals membership.** A new registrant lands on `/me` with a QR; someone already
+  registered lands on `/register/done`. PRD FR-1 asks for both ("show their QR" and "the same
+  success page"); they cannot both hold. Decide which wins.
+- **The privacy notice wording** on page one of the form is the session's draft.
+- **`simplesoftwareio/simple-qrcode` 4.2** raises three PHP 8.4 deprecation notices (it and
+  `bacon/bacon-qr-code` 2). It works; replacing it means naming another package.
+- Delete `wp1-salvage/` and `custompackages/`?
 
 - **Real member data in development.** On 2026-10-12 the owner said the development database may
   hold the current church member data. `STANDARDS.md` §1 and `CLAUDE.md` forbid exactly that, so

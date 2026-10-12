@@ -90,6 +90,45 @@ green on `ifgf_app_test`, and `migrate --seed` succeeded on the empty `ifgf_app`
   current church member data. This contradicts `STANDARDS.md` §1 and `CLAUDE.md`.
 - FR-13 gained the live sheet sync (PRD amended, WP7, D11, D12).
 
+**2026-10-12, later — the registration form, built ahead of WP2 at the owner's request.**
+- WP1 committed as `fd25235` (plain message: this is the owner's church project, not part of the
+  lab daily log — no `work duration:` block).
+- Two real pages instead of one page with JavaScript: `POST /register` validates page one, keeps
+  it in the session, and either finishes (visitor) or redirects to `/register/details`. No script
+  is needed, which keeps the WP2S content security policy simple.
+- `withoutVite()` in `tests/TestCase.php`, or every page test needs a built manifest. `@fonts`
+  goes through the same fake.
+- `Write` to a generated stub works without reading it first when the file is in the repository.
+- The welcome mail attaches the QR as SVG, but **not** when the mailer is `log` or `array`: the
+  QR is a secret and the log mailer would write it to `laravel.log`. Checked: token not in the log.
+- The database queue needs `php artisan queue:work` for the welcome mail to go out in development.
+- Rate limit `registration`: 20 a minute per address, shared by both POSTs — a Sunday row of
+  people registers from one Wi-Fi address.
+- Page-one answers sit unencrypted in the `sessions` table until page two is submitted or the
+  session expires. WP2 should decide on `SESSION_ENCRYPT=true`.
+- The accessibility tree names the radios by value (`TPE`, `yes`), not by their label text.
+- `public/favicon.ico` is the skeleton's empty file; the browser logs a 404 for it.
+
+**2026-10-12, later still — Google sign-in, also at the owner's request.**
+- `config/services.php` reads the client id and secret from the OAuth JSON that
+  `IFGF_GOOGLE_CLIENT_JSON` (in `~/.ifgf/google.env`) points at; the secret is copied nowhere.
+- Socialite's Google user carries the flag as raw `email_verified` (mapped also to
+  `verified_email`); the controller reads the raw array and refuses when it is absent.
+- Tests mock `Socialite::driver('google')` with a `Contracts\Provider`; the facade has no `fake()`
+  in 5.31 although `src/Testing` exists.
+- After Google, the registration email is taken from the session, not from the posted field, and
+  only then is `email_verified_at` set. `/register?manual=1` drops the Google email.
+- Google Cloud: the callback goes under "Authorized redirect URIs"; putting it under "JavaScript
+  origins" gives "URIs must not contain a path". The owner hit this.
+- `design/DESIGN.md` written (tokens with computed contrast, 16 components, birthdays list and
+  calendar). The owner wants a calendar view of birthdays; it reads the database, not an embed.
+
+- **PHP on Windows had no CA bundle**, so the token exchange with Google failed with `cURL error
+  60` while the redirect to Google worked. Fixed machine-wide by the owner: `curl.cainfo` in
+  `C:\php\8.4\php.ini` points at Git's `usr\ssl\certs\ca-bundle.crt`; `artisan serve` must be
+  restarted after a `php.ini` change. The same gap would have broken the calendar client in WP6.
+  The owner then completed a real Google sign-in.
+
 Still not done: `/security-review` on the pending changes · graph rebuild (`/graphify` is not a
 skill in Claude Code desktop sessions, and the `graphify` CLI has no build command) · the commit.
 

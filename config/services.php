@@ -35,4 +35,22 @@ return [
         ],
     ],
 
+    /*
+    | Google sign-in (PRD FR-2). The client id and secret are read from the OAuth client file
+    | that Google Cloud lets you download; ~/.ifgf/google.env names it in IFGF_GOOGLE_CLIENT_JSON.
+    | Nothing secret lives in this repository or its .env.
+    */
+    'google' => (static function (): array {
+        $path = env('IFGF_GOOGLE_CLIENT_JSON');
+        $client = is_string($path) && is_readable($path)
+            ? (json_decode((string) file_get_contents($path), true)['web'] ?? [])
+            : [];
+
+        return [
+            'client_id' => env('GOOGLE_CLIENT_ID', $client['client_id'] ?? null),
+            'client_secret' => env('GOOGLE_CLIENT_SECRET', $client['client_secret'] ?? null),
+            'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+        ];
+    })(),
+
 ];
