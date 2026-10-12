@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Support\Str;
+use Pdo\Mysql;
+
 return [
 
     /*
@@ -8,26 +11,22 @@ return [
     |--------------------------------------------------------------------------
     |
     | Here you may specify which of the database connections below you wish
-    | to use as your default connection for all database work. Of course
-    | you may use many connections at once using the Database library.
+    | to use as your default connection for database operations. This is
+    | the connection which will be utilized unless another connection
+    | is explicitly specified when you execute a query / statement.
     |
     */
 
-    'default' => env('DB_CONNECTION', 'mysql'),
+    'default' => env('DB_CONNECTION', 'sqlite'),
 
     /*
     |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |
-    | Here are each of the database connections setup for your application.
-    | Of course, examples of configuring each database platform that is
-    | supported by Laravel is shown below to make development simple.
-    |
-    |
-    | All database work in Laravel is done through the PHP PDO facilities
-    | so make sure you have the driver for your particular database of
-    | choice installed on your machine before you begin development.
+    | Below are all of the database connections defined for your application.
+    | An example configuration is provided for each database system which
+    | is supported by Laravel. You're free to add / remove connections.
     |
     */
 
@@ -35,90 +34,95 @@ return [
 
         'sqlite' => [
             'driver' => 'sqlite',
+            'url' => env('DB_URL'),
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
+            'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
+            'busy_timeout' => null,
+            'journal_mode' => null,
+            'synchronous' => null,
+            'transaction_mode' => 'DEFERRED',
         ],
 
         'mysql' => [
             'driver' => 'mysql',
+            'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'forge'),
-            'username' => env('DB_USERNAME', 'forge'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
             'unix_socket' => env('DB_SOCKET', ''),
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
             'prefix' => '',
+            'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
 
-            /*
-             * Pin the MySQL SESSION timezone to match config/app.php's UTC.
-             *
-             * Without this the connection inherits the *server* default, which differs
-             * between this dev machine (SYSTEM = Taipei Standard Time) and a typical
-             * Linux VPS or CI runner (UTC). The 23 timestamp() columns convert on
-             * write/read using the session timezone; the 10 dateTime() columns store
-             * the literal string and never convert. If PHP and MySQL disagree, only
-             * half the columns shift — the hardest class of timezone bug to spot.
-             * The pin is required regardless of WHICH zone is chosen; it removes the
-             * dependency on the host clock entirely.
-             *
-             * A fixed offset, NOT a named zone: named zones need MySQL's timezone
-             * tables loaded (mysql_tzinfo_to_sql), which a default install lacks, and
-             * fail or silently fall back when they are empty.
-             *
-             * See UPSTREAM.md UP-009.
-             */
-            'timezone' => '+00:00',
+        'mariadb' => [
+            'driver' => 'mariadb',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '3306'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
         ],
 
         /*
-        | Reads the machine-wide credentials in ~/.ifgf/postgres.env first (loaded by
-        | bootstrap/global-env.php), falling back to this checkout's .env. That is what
-        | lets the password be entered once per machine instead of once per clone.
+        | Host, port, role and password come from the machine-wide credentials in
+        | ~/.ifgf/postgres.env first (loaded by bootstrap/global-env.php), falling back
+        | to this checkout's .env. That is what lets the password be entered once per
+        | machine instead of once per clone.
+        |
+        | The database NAME is deliberately not read from IFGF_PG_DATABASE: that
+        | machine-wide value still names the retired fork's database (ifgf_cms). Each
+        | environment names its own database in DB_DATABASE — ifgf_app here,
+        | ifgf_app_test in phpunit.xml, ifgf_app_staging and ifgf_app_prod on the server.
         */
         'pgsql' => [
             'driver' => 'pgsql',
+            'url' => env('DB_URL'),
             'host' => env('IFGF_PG_HOST', env('DB_HOST', '127.0.0.1')),
             'port' => env('IFGF_PG_PORT', env('DB_PORT', '5432')),
-            'database' => env('IFGF_PG_DATABASE', env('DB_DATABASE', 'ifgf_cms')),
+            'database' => env('DB_DATABASE', 'ifgf_app'),
             'username' => env('IFGF_PG_USERNAME', env('DB_USERNAME', 'ifgf')),
             'password' => env('IFGF_PG_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
+            'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
-            'schema' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
-        /*
-        | The automated suite. Same role and password, DIFFERENT database — the harness
-        | truncates every table on this connection before each run, so pointing it at
-        | 'pgsql' would destroy real data.
-        */
-        'pgsql_testing' => [
-            'driver' => 'pgsql',
-            'host' => env('IFGF_PG_HOST', '127.0.0.1'),
-            'port' => env('IFGF_PG_PORT', '5432'),
-            'database' => env('IFGF_PG_TEST_DATABASE', 'ifgf_cms_test'),
-            'username' => env('IFGF_PG_USERNAME', 'ifgf'),
-            'password' => env('IFGF_PG_PASSWORD', ''),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'schema' => 'public',
-            'sslmode' => 'prefer',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',
+            'url' => env('DB_URL'),
             'host' => env('DB_HOST', 'localhost'),
             'port' => env('DB_PORT', '1433'),
-            'database' => env('DB_DATABASE', 'forge'),
-            'username' => env('DB_USERNAME', 'forge'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
-            'charset' => 'utf8',
+            'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
+            'prefix_indexes' => true,
+            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
+            // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
     ],
@@ -130,11 +134,14 @@ return [
     |
     | This table keeps track of all the migrations that have already run for
     | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run in the database.
+    | the migrations on disk haven't actually been run on the database.
     |
     */
 
-    'migrations' => 'migrations',
+    'migrations' => [
+        'table' => 'migrations',
+        'update_date_on_publish' => true,
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -142,20 +149,45 @@ return [
     |--------------------------------------------------------------------------
     |
     | Redis is an open source, fast, and advanced key-value store that also
-    | provides a richer set of commands than a typical key-value systems
-    | such as APC or Memcached. Laravel makes it easy to dig right in.
+    | provides a richer body of commands than a typical key-value system
+    | such as Memcached. You may define your connection settings here.
     |
     */
 
     'redis' => [
 
-        'client' => 'predis',
+        'client' => env('REDIS_CLIENT', 'phpredis'),
+
+        'options' => [
+            'cluster' => env('REDIS_CLUSTER', 'redis'),
+            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-database-'),
+            'persistent' => env('REDIS_PERSISTENT', false),
+        ],
 
         'default' => [
+            'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),
-            'password' => env('REDIS_PASSWORD', null),
-            'port' => env('REDIS_PORT', 6379),
-            'database' => 0,
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'max_retries' => env('REDIS_MAX_RETRIES', 3),
+            'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
+            'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
+            'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
+        ],
+
+        'cache' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_CACHE_DB', '1'),
+            'max_retries' => env('REDIS_MAX_RETRIES', 3),
+            'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
+            'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
+            'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
         ],
 
     ],

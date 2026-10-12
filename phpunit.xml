@@ -1,43 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" backupGlobals="false" bootstrap="vendor/autoload.php" colors="true" processIsolation="false" stopOnFailure="false" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd" cacheDirectory=".phpunit.cache" backupStaticProperties="false">
-  <testsuites>
-    <testsuite name="Unit">
-      <directory suffix="Test.php">./tests/Unit</directory>
-    </testsuite>
-    <testsuite name="Feature">
-      <directory suffix="Test.php">./tests/Feature</directory>
-    </testsuite>
-  </testsuites>
-  <php>
-    <env name="APP_ENV" value="testing"/>
-
-    <!--
-      The ifgf_ suite (tests/IfgfTestCase) runs on PostgreSQL, which is IfgfTestCase's own
-      default ('pgsql_testing' -> ifgf_cms_test). Provisioned 2026-09-08; the temporary
-      mysql pin that lived here has been removed.
-
-      The WP 0A characterization suites are unaffected and still run against MySQL — they
-      are a MySQL baseline by design (PG_MIGRATION_PLAN.md section 0.2).
-
-      To run the ifgf_ suite against MySQL again for a comparison, set
-      IFGF_TEST_CONNECTION=mysql in the environment rather than reinstating it here.
-    -->
-    <env name="BCRYPT_ROUNDS" value="4"/>
-    <env name="CACHE_DRIVER" value="array"/>
-    <env name="SESSION_DRIVER" value="array"/>
-    <env name="QUEUE_DRIVER" value="sync"/>
-    <env name="MAIL_DRIVER" value="array"/>
-    <!-- WP 0A item 5: DB_* connection values live in .env.testing (gitignored), not here.
-             phpunit.xml is committed, and this file must never carry a real credential.
-             APP_ENV=testing above makes Laravel auto-load .env.testing, which points at the
-             disposable churchcms_test_disposable database (WP 0A gate 7). Runtime refusal
-             checks live in App\Providers\DatabaseSafetyServiceProvider (build.md L515):
-             it prints and asserts environment/driver/host/database before migrate:fresh,
-             db:wipe, or migrate:reset are allowed to run. -->
-  </php>
-  <source>
-    <include>
-      <directory suffix=".php">./app</directory>
-    </include>
-  </source>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="ifgf_app_test" force="true"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
 </phpunit>

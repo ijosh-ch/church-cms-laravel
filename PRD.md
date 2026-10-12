@@ -2,6 +2,7 @@
 
 **Version:** 3.0 · **Date:** 2026-10-04 · **Owner:** Ian Joseph Chandra · **Branch:** `dev`
 **Replaces:** PRD 2.5 (2026-08-08) — still readable with `git show feat/postgresql-multisite:PRD.md`.
+**Amended:** 2026-10-04 — FR-13 gains the live sheet sync (owner-authorised; D11, D12).
 
 > This file is the scope. Read it whole (hard cap 7,000 tokens). Anything not written here is
 > **out of scope** until the owner adds it. Build order and session budgets: `EXECUTION_PLAN.md`.
@@ -217,7 +218,7 @@ hold. Ushers and IT admins enter one headcount per occurrence. Weeks with no dat
 
 ### FR-13 Imports
 
-Both are dry-run first, repeatable without duplicates, and leave an `import_batches` row.
+All three are dry-run first, repeatable without duplicates, and leave an `import_batches` row.
 - **Legacy workbook** — `ifgf:import:workbook <path> [--commit]`. Members from `Daftar Jemaat`
   (with the legacy Birthday ID as `calendar_event_id`); attendance from `Daftar Absensi`, where the
   branch comes from the scan time (**before 13:00 = Zhongli, after = Taipei** — the sheet's own
@@ -229,6 +230,25 @@ Both are dry-run first, repeatable without duplicates, and leave an `import_batc
   name is shown for the uploader to map to a member or keep as a guest.
   `docs/LINE_IMPORT_PROMPT.md` is the prompt an AI chat uses to turn pasted LINE messages into
   that CSV.
+- **Live sheet sync** *(added 2026-10-04)* — `ifgf:import:sheet [--commit]`. Until cutover some
+  people keep using the old Google Form and QR, so the app pulls what it is missing from the live
+  spreadsheet. The command downloads the spreadsheet as an .xlsx through the Google API —
+  read-only, into a temporary file outside the repository — runs the **same** workbook importer
+  on it, and deletes the file.
+  - **Adds only:** members registered through the old form, scans in `Daftar Absensi`, headcount
+    rows. A member is matched by email or normalised phone, a scan by member and occurrence, a
+    headcount by occurrence. Where the app already has the record **the app wins**: nothing is
+    changed, and the difference is listed in the batch summary.
+  - A scan's branch and mode follow the workbook rule above (13:00; `Online = Ya`).
+  - A member who arrives this way gets a QR, and their legacy Birthday ID becomes
+    `calendar_event_id` — a second calendar event is never created for them. No welcome email
+    before cutover (D11).
+  - **Schedule:** hourly, behind a config flag that is off by default; production only (D12);
+    switched off for good at cutover. A scheduled run refuses to start while the flag is off.
+  - **Access and privacy:** a Google service account with Viewer access to that one spreadsheet
+    and nothing else; its key and the spreadsheet id live in `~/.ifgf/`. A `SheetGateway`
+    contract with a fake keeps tests offline. The `URLs Absensi` sheet is never read. Log lines
+    and the batch summary carry row references and field names only — no personal data.
 
 ### FR-14 Teams
 
@@ -337,7 +357,7 @@ How they are tested, and the rules for databases and environments, are in `STAND
 
 Laravel 13 · PHP 8.4 · PostgreSQL 17 (Eloquent, `pdo_pgsql`) · Blade + Tailwind + Alpine through
 Vite · no SPA. Packages beyond the skeleton: `laravel/socialite`, `simplesoftwareio/simple-qrcode`,
-`phpoffice/phpspreadsheet` (import only), a Google Calendar client (FR-6 only).
+`phpoffice/phpspreadsheet` (import only), a Google API client (FR-6 and the live sheet sync only).
 Languages `id` (default), `en`, `zh_TW`. Every screen works on a phone first and on a desktop.
 Mail and calendar jobs run on the database queue. Tests at three levels — automated on
 PostgreSQL, a local run-through, and a smoke check through Cloudflare — as `STANDARDS.md` sets
@@ -360,7 +380,10 @@ hostname beside the production one.
 | D8 | Ministry team leaders only view their roster | Could also let them edit it |
 | D9 | Indonesian universities are not loaded | No official API; field 12 asks about Taiwan |
 | D10 | Each PHP file carries a one-line SPDX licence tag, added by script | v2 typed a 17-line AGPL header into every file |
+| D11 | A member pulled in by the live sheet sync gets the welcome email and new QR only at cutover | Mailing now would announce the new system early |
+| D12 | The live sheet sync runs in production only | Staging keeps demo data (`STANDARDS.md` §1) |
 
 Needed from the owner before the work package that uses it: a mail provider (WP3), a Google OAuth
 client (WP2), SSH access to the Ubuntu PC and a staging hostname on Cloudflare (WP2S), a calendar
-service account (WP6), two or three real LINE recaps (WP8).
+service account (WP6), a Viewer-only service account for the spreadsheet and its id (WP7), two or
+three real LINE recaps (WP8).

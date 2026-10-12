@@ -1,107 +1,85 @@
 {
-    "name": "churchcms/church-cms",
-    "description": "Open source church management system built with Laravel and Vue.",
-    "keywords": [
-        "church",
-        "church-management",
-        "cms",
-        "laravel",
-        "ministry"
-    ],
-    "license": "AGPL-3.0-or-later",
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "ifgf-taipei-zhongli/member-attendance",
     "type": "project",
+    "description": "Members, teams and attendance for IFGF Taipei-Zhongli.",
+    "keywords": ["church", "members", "attendance"],
+    "license": "AGPL-3.0-or-later",
     "require": {
         "php": "^8.3",
-        "barryvdh/laravel-dompdf": "^3.0",
-        "darkaonline/l5-swagger": "^8.6",
-        "google/cloud-language": "^0.31",
-        "google/cloud-storage": "^1.42",
-        "guzzlehttp/guzzle": "^7.4",
-        "kreait/laravel-firebase": "^7.2",
-        "laravel-notification-channels/fcm": "^6.1",
-        "laravel/framework": "^13.0",
-        "laravel/sanctum": "^4.0",
-        "laravel/tinker": "^3.0",
-        "laravel/ui": "^4.5",
-        "lcobucci/jwt": "^5.2",
-        "ifgf/church-operations": "^0.1.0",
-        "league/csv": "^9.2",
-        "league/flysystem-aws-s3-v3": "^3.0",
-        "maatwebsite/excel": "^3.1",
-        "nckg/laravel-impersonate": "^4.0",
-        "santigarcor/laratrust": "^8.5.5",
-        "simplesoftwareio/simple-qrcode": "^4.2",
-        "spatie/laravel-activitylog": "^4.2",
-        "spatie/laravel-medialibrary": "^11.0",
-        "spatie/laravel-sitemap": "^7.0",
-        "stripe/stripe-php": "^20.2",
-        "tijsverkoyen/css-to-inline-styles": "^2.4",
-        "titasgailius/search-relations": "^1.0",
-        "twilio/sdk": "^6.9"
+        "laravel/framework": "^13.17",
+        "laravel/tinker": "^3.0"
     },
     "require-dev": {
-        "barryvdh/laravel-debugbar": "^4.4",
-        "fakerphp/faker": "^1.24",
-        "filp/whoops": "^2.14",
-        "laravel/dusk": "^8.0",
-        "mockery/mockery": "^1.5",
+        "fakerphp/faker": "^1.23",
+        "laravel/pail": "^1.2.5",
+        "laravel/pao": "^1.0.6",
+        "laravel/pint": "^1.27",
+        "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^11.0"
+        "phpunit/phpunit": "^12.5.12"
     },
     "autoload": {
-        "classmap": [
-            "database/seeders"
-        ],
         "psr-4": {
             "App\\": "app/",
-            "Database\\Seeders\\": "database/seeders/",
-            "Database\\Factories\\": "database/factories/"
-        },
-        "files": [
-            "config/church-cms.php"
-        ]
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
     },
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/"
         }
     },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "npm install --ignore-scripts",
+            "npm run build"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan dev"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi @no_additional_args",
+            "@php artisan test"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ]
+    },
     "extra": {
         "laravel": {
             "dont-discover": []
         }
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "custompackages/ifgf/church-operations",
-            "options": {
-                "symlink": true
-            }
-        }
-    ],
-    "scripts": {
-        "post-root-package-install": [
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
-        ],
-        "post-create-project-cmd": [
-            "@php artisan key:generate"
-        ],
-        "post-autoload-dump": [
-            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover"
-        ]
-    },
     "config": {
-        "audit": {
-            "block-insecure": false
-        },
-        "platform": {
-            "php": "8.4.24"
-        },
+        "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
-        "optimize-autoloader": true
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true

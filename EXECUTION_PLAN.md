@@ -258,22 +258,51 @@ php artisan make:test Calendar/BirthdaySyncTest && php artisan make:test Institu
 the fake · tests can never reach the Google driver · search matches English and Chinese names and
 is throttled. **The live calendar is not touched before WP9.**
 
-## WP7 — Legacy workbook import
+## WP7 — Legacy workbook import and live sheet sync
 
 **PRD:** FR-13, §5.9. **Old files:** `…/Services/WorkbookImporter.php` L120–260 (reading and type
 coercion only — the stages are rewritten for the new schema), `WORKBOOK_INVENTORY.md`.
+**Owner input:** a Viewer-only service account key and the spreadsheet id in `~/.ifgf/`; D11, D12.
 
 ```
 composer require phpoffice/phpspreadsheet
 php artisan make:command ImportWorkbook --command=ifgf:import:workbook
 php artisan make:class Services/WorkbookImporter
 php artisan make:test Import/WorkbookImportTest
+php artisan make:interface Contracts/SheetGateway
+php artisan make:class Sheets/FakeSheetGateway
+php artisan make:class Sheets/GoogleSheetGateway
+php artisan make:command ImportSheet --command=ifgf:import:sheet
+php artisan make:test Import/SheetSyncTest
 ```
 Tests build a tiny workbook in code; no real file enters the repo.
+
+**Live sheet sync (added 2026-10-04) — built after the workbook import, in the same WP.**
+- One importer. `WorkbookImporter` takes a path and a source (`workbook` | `sheet`) and loads
+  only the sheets it names, so `URLs Absensi` is never parsed. No second importer.
+- `ImportSheet`: `SheetGateway::download()` → a random file in the system temp directory →
+  importer → `finally` delete. Dry run unless `--commit`. `--scheduled` refuses unless
+  `config('ifgf.sheet_sync.enabled')`; `routes/console.php` schedules it hourly with
+  `--commit --scheduled` and `withoutOverlapping`.
+- `GoogleSheetGateway` exports through the Drive API with `google/apiclient` (already added in
+  WP6), read-only scope, bound only in production. Every other environment, and every test,
+  gets the fake. If the export passes Drive's 10 MB limit, stop and ask the owner.
+- Existing member (email or normalised phone), scan (member + occurrence) or headcount
+  (occurrence): change nothing; `summary` gets the sheet row and the names of the differing
+  fields — never the values. Logs likewise.
+- New member: QR from WP3's issuer; legacy Birthday ID → `calendar_event_id`; no calendar job
+  and no mail are queued.
+- Config keys in `config/ifgf.php`; `.env.example` names them with empty values.
 
 **Gate:** dry run writes nothing · second `--commit` adds nothing · time rule puts 12:59 in
 Zhongli and 13:01 in Taipei · unresolved rows listed in `summary` · on the real file the batch
 summary is shown to the owner (workbook (4): 233 members, 3,693 scans, 434 headcount rows).
+**Sheet sync adds:** a member edited in the app is not overwritten · a new form registrant
+appears once, with a QR and the adopted calendar id · `--scheduled` refuses while the flag is
+off · tests can never reach the Google driver · a `URLs Absensi` sheet in the fixture is never
+loaded · `summary` and the log hold no name, email or phone · the temp file is gone afterwards,
+also when the import throws. The session never runs it against the live spreadsheet — the owner
+runs the first real dry run and reads the summary.
 
 ## WP8 — Reports, headcount, LINE import
 
@@ -301,7 +330,8 @@ Build: a test for every PRD §5 and `STANDARDS.md` §3–4 item still untested, 
 deletion (anonymise the row, remove the QR and the calendar event) and the audit log; the
 production half of `docs/DEPLOY.md` — its own database `ifgf_app_prod` and role, its own hostname,
 Cloudflare Access on `/admin`; the cutover checklist — final import with `--commit`, adopt calendar
-event ids, mail every member their new QR, switch off the Apps Script trigger; a translation pass
+event ids, mail every member their new QR, switch off the Apps Script trigger, run the sheet sync
+one last time and switch its flag and schedule off for good; a translation pass
 for `id`, `en`, `zh_TW`.
 
 **Gate:** every checklist item has a passing test · `composer audit` and `npm audit` clean ·

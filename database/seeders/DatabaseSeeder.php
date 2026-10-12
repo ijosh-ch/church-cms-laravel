@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -7,27 +9,14 @@ use Illuminate\Database\Seeder;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Core seed data required for every installation.
-     *
-     * Run automatically by: php artisan migrate:fresh --seed
-     * For demo/development data run: php artisan db:seed --class=DemoDataSeeder
+     * Seed the application's database. Reference data only — no members.
      */
-    public function run()
+    public function run(): void
     {
         $this->call([
-            UsergroupTableSeeder::class,
-            CountriesTableSeeder::class,
-            StatesTableSeeder::class,
-            CitiesTableSeeder::class,
-            PermissionTableSeeder::class,
-            RoleSeeder::class,
-            GroupCategoryTableSeeder::class,
-            MailTemplatesSeeder::class,
-            SmsTemplatesTableSeeder::class,
-            KeywordsTableSeeder::class,
-            SettingsTableSeeder::class,
-            PaymentgatewaysTableSeeder::class,
-            BibleTableSeeder::class,
+            BranchSeeder::class,
+            TeamSeeder::class,
+            EventSeeder::class,
         ]);
     }
 }

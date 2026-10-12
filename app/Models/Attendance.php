@@ -1,75 +1,65 @@
 <?php
 
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Enums\AttendanceMethod;
+use App\Enums\AttendanceMode;
+use App\Enums\MemberCategory;
+use Database\Factories\AttendanceFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Attendance Model
- *
- * Represents attendance records for church events, services, and activities.
- * Tracks presence or absence of members at various church functions.
- *
- * @package App\Models
- * @property int $id Primary key
- * @property int $church_id Foreign key to church
- * @property int $user_id Foreign key to user
- * @property int $entity_id ID of the entity (event, service, etc.)
- * @property string $entity_name Name/type of entity for polymorphic relations
- * @property string $title Title of the attendance record
- * @property string|null $category Category of attendance
- * @property \Carbon\Carbon $date Date of the attendance
- * @property bool $is_present Whether the member was present
- * @property \Carbon\Carbon|null $present_at Timestamp when presence was marked
- * @property \Carbon\Carbon|null $deleted_at Soft delete timestamp
- * @property \Carbon\Carbon $created_at Record creation timestamp
- * @property \Carbon\Carbon $updated_at Record update timestamp
- *
- * Relations:
- * @property-read \App\Models\Church $church The church this attendance belongs to
- * @property-read \App\Models\User $user The member's attendance record
- * @property-read \App\Models\Events $events The event this attendance is for
+ * One row per member per occurrence. A guest row has a guest_name and no member.
+ * `category` is the member's category on that day, kept so later changes do not rewrite history.
  */
+#[Fillable([
+    'occurrence_id',
+    'member_id',
+    'guest_name',
+    'mode',
+    'method',
+    'category',
+    'recorded_by',
+    'recorded_at',
+])]
 class Attendance extends Model
-{    //
-    use SoftDeletes;
+{
+    /** @use HasFactory<AttendanceFactory> */
+    use HasFactory;
 
     /**
-     * The table associated with the model.
-     *
-     * @var string
+     * @return array<string, string>
      */
-    protected $table = 'attendances';
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
-    protected $fillable = [
-        'church_id' , 'user_id' , 'entity_id' , 'entity_name' , 'title' , 'category' , 'date' , 'is_present' , 'present_at'
-    ];
-
-    /**
-     * The attributes that should be mutated to dates.
-     *
-     * @var array
-     */
-    protected $dates = [ 'date' , 'present_at' , 'deleted_at' ];
-
-    public function church()
+    protected function casts(): array
     {
-        return $this->belongsTo('App\Models\Church','church_id');
+        return [
+            'mode' => AttendanceMode::class,
+            'method' => AttendanceMethod::class,
+            'category' => MemberCategory::class,
+            'recorded_at' => 'datetime',
+        ];
     }
 
-    public function user()
-   	{
-   		return $this->belongsTo('App\Models\User','user_id');
-   	}
+    /** @return BelongsTo<Occurrence, $this> */
+    public function occurrence(): BelongsTo
+    {
+        return $this->belongsTo(Occurrence::class);
+    }
 
-   	public function events()
-   	{
-   		return $this->belongsTo('App\Models\Events','entity_id');
-   	}
+    /** @return BelongsTo<Member, $this> */
+    public function member(): BelongsTo
+    {
+        return $this->belongsTo(Member::class);
+    }
+
+    /** @return BelongsTo<Member, $this> */
+    public function recorder(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'recorded_by');
+    }
 }

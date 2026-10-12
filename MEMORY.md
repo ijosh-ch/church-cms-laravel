@@ -6,6 +6,95 @@
 
 ---
 
+## 2026-10-04 — Session 14 — WP1 built in the temp skeleton; two owner steps block the gate
+
+**Duration:**
+- 2026/10/04_02:25 - 03:00 (0.6h, start time estimated): WP1 written and unit-tested inside
+  `%TEMP%\ifgf-skel`; the repository tree itself is unchanged.
+
+**Summary:** WP1 is written but not landed. The session could neither clear the fork's tree nor
+create the databases, so all work sits in the temp skeleton (`%TEMP%\ifgf-skel`, 1 MB without
+`vendor/` and `node_modules/`), which WP1 step 4 copies into the repo anyway. Laravel 13.34.0
+(the newest; no 14 exists). Unit suite 30/30 green; the feature tests are written and have never
+run because `ifgf_app_test` does not exist. `composer audit` and `npm audit` are clean; Pint clean.
+
+### Blocked — the owner must do these
+
+- **Clear the tree (WP1 step 3).** The `git rm` of the fork's tracked files was refused by Claude
+  Code's permission classifier ("irreversible local destruction"). Do not work around it; the
+  owner runs step 3 or grants the permission.
+- **Create the databases.** Role `ifgf` has `createdb=false` and is not a superuser. The owner
+  runs `createdb -U postgres -O ifgf -E UTF8 ifgf_app` and the same for `ifgf_app_test`
+  (`C:\Program Files\PostgreSQL\17\bin\`; `psql` is not on PATH).
+
+### Learned
+
+- **`~/.ifgf/postgres.env` still says `IFGF_PG_DATABASE=ifgf_cms`** (and `…_TEST_DATABASE=
+  ifgf_cms_test`). So `config/database.php` takes host, port, role and password from `IFGF_PG_*`
+  but the database **name** only from `DB_DATABASE` (`.env` → `ifgf_app`; `phpunit.xml` →
+  `ifgf_app_test`, `force="true"`). Reading the name from the machine file would have pointed the
+  new app at the fork's database.
+- **`make:enum Enums/Foo` nests** once `app/Enums` exists (`app/Enums/Enums/Foo.php`). Use
+  `make:enum Foo --string`. The plan's loop is wrong for all but the first enum.
+- **The skeleton ships its own `CLAUDE.md` and `AGENTS.md`** (Laravel Boost). Delete them from the
+  skeleton before copying, or they overwrite this repository's `CLAUDE.md`.
+- **The skeleton serves `storage/{path}`** (two routes) because the `local` disk has
+  `serve => true`. Set to `false`; `RouteAuditTest` asserts it stays off.
+- **`HasVersion4Uuids` is time-ordered** (`Str::orderedUuid()`), so `Member` uses `HasUuids`,
+  `uniqueIds() = ['public_ref']` and overrides `newUniqueId()` with `Str::uuid()`.
+- `make:session-table` regenerates the `sessions` migration after deleting the skeleton's
+  `create_users_table`. The session handler still needs the column to be called `user_id`.
+- In the Bash tool a doubled backslash reaches the shell as one: `printf`/`sed` with `App\\Enums`
+  wrote `Appnums`. Use `perl` with `\x5c`, or the Write/Edit tools, for PHP namespaces.
+- An ignored `.env.testing` from the fork is still in the tree; Laravel would load it under
+  `APP_ENV=testing`. Rename it to `.env.backup-fork-testing` when `.env` is renamed.
+- Git Bash ignores `TZ=`; `date` prints UTC.
+
+### Decisions taken — owner may overrule
+
+- `Team.ability` is not mass-assignable (it is what grants scan/admin). `Member` does not allow
+  mass assignment of `public_ref`, `category`, QR, calendar, `email_verified_at`, `legacy_ref`.
+- `category` is recomputed in a `saving` hook whenever occupation, education or birthday is dirty.
+- FR-5 age rule: applies only when the education level is empty, and before the student rules.
+- Phones are stored as E.164 digits **without** the `+` (`886912345678`), as the old normaliser did.
+- Weekday numbering is 0 = Sunday. iCare teams are seeded without a branch or meeting weekday.
+- `RouteAuditTest` allow-list is by URI: `/`, `up`, `register[/*]`, `sign-in[/*]`, `auth/google`,
+  `auth/google/callback`, `change-requests/*/confirm|reject`. WP2/WP3/WP5 must use these URIs.
+- Enums exist only for the 11 lists WP1 names. `headcounts.source`, `change_requests.status` and
+  the three `import_batches` lists are plain strings until their work package.
+- `composer.json`: name `ifgf-taipei-zhongli/member-attendance`, licence `AGPL-3.0-or-later`.
+- SPDX line added by a `perl -0pi` one-liner to `app/`, `tests/`, `database/factories|seeders`,
+  the 2026 migrations and `bootstrap/global-env.php` (60 files). Skeleton files left as they are.
+- An extra `tests/Feature/Models/MemberTest.php` was generated (FR-5 on save, guarded columns,
+  hidden tokens, encrypted QR copy). The skeleton's Laravel `README.md` and welcome page are kept.
+
+### Not done
+
+(Later the same session the owner reset the `postgres` password through a temporary `trust` in
+`pg_hba.conf` and created both databases. The full suite then ran for the first time: 65/65
+green on `ifgf_app_test`, and `migrate --seed` succeeded on the empty `ifgf_app` — 15 migrations,
+3 seeders. PowerShell needs `& "…\psql.exe"`; a quoted path alone is a parse error.)
+
+**2026-10-12, same session — the temp skeleton was lost, then WP1 landed.**
+- **Never build in `%TEMP%` across days.** Windows cleaned `%TEMP%\ifgf-skel` within eight days;
+  17 of about 80 authored files survived. The rest were rewritten from the session's own context
+  into `wp1-salvage/`. Had the session ended first, WP1 would have been lost.
+- The owner then authorised the tree clear in chat; `git rm` went through (2,197 files), the
+  Laratrust stub was deleted, `.env` and `.env.testing` were set aside as `.env.backup-fork*`.
+- Landed on a fresh skeleton, now **Laravel 13.35.0**: 65/65 from inside the repository,
+  `migrate:fresh --seed` clean on `ifgf_app`, audits clean, Pint clean, SPDX on 60 files.
+- `git rm` stages the deletions by its nature; nothing else is staged.
+- Dev Google setup by the owner: project `ifgf-site-dev`, key and `calendar.env` in `~/.ifgf/`,
+  dev calendar reachable read-only (verified). It already held 22 events of unknown origin.
+- **Owner statement, not yet written into the rules:** the development database may hold the
+  current church member data. This contradicts `STANDARDS.md` §1 and `CLAUDE.md`.
+- FR-13 gained the live sheet sync (PRD amended, WP7, D11, D12).
+
+Still not done: `/security-review` on the pending changes · graph rebuild (`/graphify` is not a
+skill in Claude Code desktop sessions, and the `graphify` CLI has no build command) · the commit.
+
+---
+
 ## 2026-10-04 — Session 13 — Security review; re-scope to PRD 3.0; `dev` becomes a clean Laravel 13 app
 
 **Duration:**
