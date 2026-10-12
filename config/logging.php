@@ -65,6 +65,16 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // PRD §5.13 — who changed a role, a team membership or a member's status, and when.
+        // Entries carry internal ids only, never a name, an email or a phone number.
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'days' => 400,
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

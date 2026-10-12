@@ -149,6 +149,30 @@ green on `ifgf_app_test`, and `migrate --seed` succeeded on the empty `ifgf_app`
   read-only and Google answers `requiredAccessLevel` (403) on create.
 - `CLAUDE.md` now allows the dev calendar on the owner's development PC; tests always fake.
 
+**2026-10-13, later — roles, member management, usher scanner (owner: "continue until both are ready").**
+- Birthday event changed three times by the owner in one evening: it is now
+  `🎂 {full name} ({Chinese name})'s Birthday`, description without an age. An age line was built
+  and removed again: one repeating event has one description, so it needed a yearly rewrite of
+  every event. Nothing is scheduled; the app can show ages later.
+- A search by name must not go in the URL (`STANDARDS.md` §4.3): the admin list and the usher
+  roster POST the query, keep it in the session and redirect to a clean GET.
+- A team never appears in a URL either: remove-from-team sends `team_id` in the body.
+- The last IT admin cannot be removed; without that guard one click locks everyone out.
+- `updateExistingPivot` on a relation with `wherePivotNull('left_at')` only touches the live row,
+  which is exactly what "leave" and "change role" need.
+- `collect()` has no `modelKeys()`; an empty roster must still work — `pluck('id')`.
+- `travelTo('2026-10-18 15:07')` is UTC; a test about a Taipei clock time must say so.
+- The preview pane blocks cameras, so `scanner.js` is verified only as far as its fallback
+  message; the decode-and-post path has never run. Cameras also need HTTPS outside localhost.
+- Rate limits: scan 120/min and typed code 10/min, both **per usher** (ushers share one Wi-Fi).
+- Sign-in uses `remember: true`; the poster in church is just the site address.
+- TODO.md is over its 1,500-token cap after this session and needs trimming.
+- `ifgf:calendar:sync --prune [--commit]` added at the owner's request. The dev calendar held 22
+  yearly birthday events from May–August 2025, created by two Gmail accounts in the legacy
+  format — real members' birthdays from the old system, not leftovers of this app. Shown to the
+  owner by shape and origin (no names), then removed on their word. **On the live calendar,
+  pruning before the legacy import would remove every legacy event.**
+
 Still not done: `/security-review` on the pending changes · graph rebuild (`/graphify` is not a
 skill in Claude Code desktop sessions, and the `graphify` CLI has no build command) · the commit.
 

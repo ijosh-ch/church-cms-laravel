@@ -112,6 +112,19 @@ class GoogleCalendarGatewayTest extends TestCase
         $this->gateway()->create($this->event());
     }
 
+    public function test_listing_follows_every_page_and_returns_only_ids(): void
+    {
+        Http::fake([
+            self::EVENTS.'?*pageToken=next*' => Http::response(['items' => [['id' => 'c']]]),
+            self::EVENTS.'*' => Http::response(['items' => [['id' => 'a'], ['id' => 'b']], 'nextPageToken' => 'next']),
+        ]);
+
+        $this->assertSame(['a', 'b', 'c'], $this->gateway()->eventIds());
+
+        Http::assertSentCount(2);
+        Http::assertSent(fn (Request $request) => $request->method() === 'GET' && str_contains($request->url(), 'fields=items%28id%29%2CnextPageToken'));
+    }
+
     private function gateway(): GoogleCalendarGateway
     {
         return new GoogleCalendarGateway(self::CALENDAR, fn () => 'test-token');

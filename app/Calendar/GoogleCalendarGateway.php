@@ -51,6 +51,28 @@ class GoogleCalendarGateway implements CalendarGateway
         $this->send('delete', fn (PendingRequest $http) => $http->delete($this->url($eventId)), [404, 410]);
     }
 
+    public function eventIds(): array
+    {
+        $ids = [];
+        $pageToken = null;
+
+        do {
+            $response = $this->send('list', fn (PendingRequest $http) => $http->get($this->url(), array_filter([
+                'maxResults' => 2500,
+                'fields' => 'items(id),nextPageToken',
+                'pageToken' => $pageToken,
+            ])));
+
+            foreach ($response->json('items', []) as $item) {
+                $ids[] = $item['id'];
+            }
+
+            $pageToken = $response->json('nextPageToken');
+        } while (is_string($pageToken));
+
+        return $ids;
+    }
+
     /**
      * @param  Closure(PendingRequest): Response  $request
      * @param  list<int>  $alsoAccept

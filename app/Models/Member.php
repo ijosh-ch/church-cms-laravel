@@ -8,6 +8,8 @@ use App\Enums\EducationLevel;
 use App\Enums\HouseholdRole;
 use App\Enums\MemberCategory;
 use App\Enums\MemberStatus;
+use App\Enums\TeamAbility;
+use App\Enums\TeamRole;
 use App\Observers\MemberObserver;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -155,6 +157,23 @@ class Member extends Authenticatable
             ->withPivot(['role', 'left_at'])
             ->withTimestamps()
             ->wherePivotNull('left_at');
+    }
+
+    /**
+     * Access comes only from team membership (PRD §2): being in an active team that carries
+     * the ability — `scan` for ushers, `admin` for IT.
+     */
+    public function hasAbility(TeamAbility $ability): bool
+    {
+        return $this->teams()->where('ability', $ability)->where('is_active', true)->exists();
+    }
+
+    /**
+     * Whether the member is a leader of this one team.
+     */
+    public function leads(Team $team): bool
+    {
+        return $this->teams()->whereKey($team->getKey())->wherePivot('role', TeamRole::Leader->value)->exists();
     }
 
     /** @return HasMany<Attendance, $this> */

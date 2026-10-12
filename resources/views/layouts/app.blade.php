@@ -33,6 +33,16 @@
                                 class="flex min-h-11 items-center px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('My QR') }}</a>
                             <a href="{{ route('profile.edit') }}" @if (request()->routeIs('profile.*')) aria-current="page" @endif
                                 class="flex min-h-11 items-center px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('Profile') }}</a>
+                            @can('scan')
+                                <a href="{{ route('usher.scan') }}" @if (request()->routeIs('usher.scan', 'usher.branch', 'usher.roster')) aria-current="page" @endif
+                                    class="flex min-h-11 items-center border-t border-stone-200 px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('Scan attendance') }}</a>
+                                <a href="{{ route('usher.attendance') }}" @if (request()->routeIs('usher.attendance')) aria-current="page" @endif
+                                    class="flex min-h-11 items-center px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('Attendance') }}</a>
+                            @endcan
+                            @can('admin')
+                                <a href="{{ route('admin.members.index') }}" @if (request()->routeIs('admin.members.*')) aria-current="page" @endif
+                                    class="flex min-h-11 items-center border-t border-stone-200 px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('Members') }}</a>
+                            @endcan
                             <form method="POST" action="{{ route('sign-out') }}" class="border-t border-stone-200">
                                 @csrf
                                 <button type="submit"

@@ -115,7 +115,7 @@ class RegistrationController extends Controller
             return redirect()->route('register.done');
         }
 
-        Auth::login($member);
+        Auth::login($member, remember: true);
         $request->session()->regenerate();
 
         return redirect()->route('home')->with('registered', true);

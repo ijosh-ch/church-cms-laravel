@@ -48,4 +48,9 @@ class FakeCalendarGateway implements CalendarGateway
     {
         unset($this->events[$eventId]);
     }
+
+    public function eventIds(): array
+    {
+        return array_map('strval', array_keys($this->events));
+    }
 }

@@ -8,11 +8,15 @@ use App\Calendar\FakeCalendarGateway;
 use App\Calendar\GoogleAccessToken;
 use App\Calendar\GoogleCalendarGateway;
 use App\Contracts\CalendarGateway;
+use App\Enums\TeamAbility;
 use App\Exceptions\CalendarException;
+use App\Models\Member;
+use App\Models\Team;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -51,5 +55,18 @@ class AppServiceProvider extends ServiceProvider
         // people registers from the church's one Wi-Fi address.
         RateLimiter::for('registration', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
         RateLimiter::for('sign-in', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
+
+        // Per usher, not per address: several ushers share the church's Wi-Fi. A queue at the
+        // door is about one scan every two seconds. The typed code is guessable, so it gets
+        // the hardest limit of all (PRD §5.5).
+        RateLimiter::for('scan', fn (Request $request) => Limit::perMinute(120)->by('scan:'.$request->user()?->id));
+        RateLimiter::for('short-code', fn (Request $request) => Limit::perMinute(10)->by('code:'.$request->user()?->id));
+
+        // Three Gates carry all authorisation (PRD §2). Deny by default; `admin` implies the others.
+        Gate::define('admin', fn (Member $member) => $member->hasAbility(TeamAbility::Admin));
+        Gate::define('scan', fn (Member $member) => $member->hasAbility(TeamAbility::Scan)
+            || $member->hasAbility(TeamAbility::Admin));
+        Gate::define('lead-team', fn (Member $member, Team $team) => $member->leads($team)
+            || $member->hasAbility(TeamAbility::Admin));
     }
 }

@@ -11,7 +11,7 @@ use App\Http\Requests\RegisterMemberRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Branch;
 use App\Models\Team;
-use App\Support\PhoneNormalizer;
+use App\Services\MemberEditor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -47,37 +47,12 @@ class ProfileController extends Controller
         ]);
     }
 
-    public function update(UpdateProfileRequest $request, PhoneNormalizer $normalizer): RedirectResponse
+    public function update(UpdateProfileRequest $request, MemberEditor $editor): RedirectResponse
     {
-        $data = $request->validated();
-        $occupation = $data['occupation'] ?? null;
-        $icare = $data['icare'] ?? null;
-
         // The category follows from occupation, education and birthday (the model recomputes it),
         // and a changed name, birthday or iCare re-syncs the birthday calendar (MemberObserver).
-        $request->user()->update([
-            'full_name' => trim($data['full_name']),
-            'chinese_name' => $this->blankToNull($data['chinese_name'] ?? null),
-            'birthday' => $data['birthday'],
-            'domicile_taiwan' => trim($data['domicile_taiwan']),
-            'line_id' => $this->blankToNull($data['line_id'] ?? null),
-            'phone' => $normalizer->normalize($data['phone']),
-            'branch_id' => Branch::where('code', $data['branch'])->value('id'),
-            'occupation' => $occupation === 'other'
-                ? trim((string) $data['occupation_other'])
-                : $this->blankToNull($occupation),
-            'education_level' => $this->blankToNull($data['education_level'] ?? null),
-            'school_or_company' => $this->blankToNull($data['school_or_company'] ?? null),
-            'icare_team_id' => in_array($icare, [null, '', RegisterMemberRequest::NO_ICARE], true) ? null : (int) $icare,
-        ]);
+        $request->user()->update($editor->attributes($request->validated()));
 
         return redirect()->route('profile.edit')->with('saved', true);
-    }
-
-    private function blankToNull(?string $value): ?string
-    {
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 }

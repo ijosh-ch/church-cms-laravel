@@ -9,25 +9,34 @@
 
 ## Now
 
-1. **Commit (owner's yes):** the profile page, the header menu, the birthday calendar sync, and
-   the amended `PRD.md` FR-6 and `CLAUDE.md`. 166/166 tests. Verified live on 2026-10-13 against
-   the **dev** calendar once the owner gave the service account "Make changes to events":
-   `ifgf:calendar:sync` created three events (22 → 25), retried jobs updated them in place with no
-   duplicates, and an event read back from Google matches the owner's format. Calendar jobs need
-   `php artisan queue:work` running.
-   Already committed: WP1 (`fd25235`), registration + Google sign-in (`3e4ff14`), design (`62f6b7a`).
-2. **Run `/security-review`** on WP1 and the registration slice — never run. Rebuild the graph
-   (the `graphify` CLI has no build command; the `/graphify` skill is not in the desktop session).
-3. **Rest of WP2** (`EXECUTION_PLAN.md` § WP2), a new session. Done already: `/sign-in`, Google
-   (`Auth/GoogleController`, Socialite), `/sign-out`, guest and signed-in redirects. Still to do:
-   the email sign-in link (`EmailLinkController`, `SignInLink` mail) — until then a member who has
-   no Google account for their registered email cannot sign in again; Gates `scan`, `lead-team`,
-   `admin`; `ifgf:admin:grant`; locale switch and `lang/` (labels are already in `__()`); trusted
-   proxies; the real layout; `Auth/EmailLinkTest`, `Auth/GateTest`, `Security/ProxyAndCookieTest`.
-4. **Rest of WP3:** family rows and households (FR-3) · profile edit · attendance history on
-   `/me` · `MemberObserver` + `SyncBirthdayEvent` · an already-registered person is mailed a
-   sign-in link (needs WP2) · `HouseholdTest`, `Member/ProfileTest`.
-
+1. **Start a new session** — this one is far past its useful size. Everything is committed;
+   232/232 tests. Built 2026-10-13 at the owner's request: the three Gates, `ifgf:admin:grant`,
+   the audit log, `/admin/members` (search, edit, status, teams and roles), `/usher` (branch,
+   camera scan, typed code, find by name) and `/usher/attendance` with the totals block; sign-in
+   is remembered on the phone and `/` opens the QR; the birthday event is now
+   `🎂 {full name} ({Chinese name})'s Birthday` (no age in the calendar — owner's choice);
+   `ifgf:calendar:sync --prune [--commit]` removes events that belong to no member. The dev
+   calendar was pruned on the owner's word (22 legacy events from 2025) and now holds exactly
+   the three development members.
+2. **Owner, to try it:** `php artisan ifgf:admin:grant <your registered email>`, then open the
+   menu. The camera scanner is **untested** — the preview pane blocks cameras; try
+   `http://localhost:8080/usher/scan` in Chrome with a webcam. A phone needs HTTPS (WP2S).
+   The made-up member `alicia.demo@example.com` is an IT admin in the development database.
+3. **Run `/security-review`** — never run on anything. Rebuild the graph (`graphify` CLI has no
+   build command; the `/graphify` skill is not in the desktop session).
+4. **Still to build, in rough order of need:**
+   - Email sign-in link (rest of WP2). Without it, someone who registered by hand can only sign
+     in again with a Google account for the same email.
+   - WP2S staging through Cloudflare: HTTPS is what lets a phone camera scan, and it is where
+     "the usher screens on their own port or hostname" gets decided (`routes/web.php` keeps
+     them in one group for that).
+   - Usher: record for another event of today (FR-7 last line), headcount entry (FR-12).
+   - Attendance: the members × weeks grid and CSV export (FR-11); attendance history on `/me`.
+   - Admin: team CRUD (FR-14), member deletion/anonymise (PRD §5.14), households (FR-3).
+   - iCare leader workspace (WP5), institutions search (WP6), imports (WP7), reports (WP8).
+   - Locale switch and `lang/`; a poster page with the QR of the site address.
+   - `Admin\MemberController@search`, `MemberTeamController@destroy` and the two roster searches
+     validate inline; `STANDARDS.md` §3.2 asks for FormRequests.
 ## Next — one work package per session, in this order
 
 - WP2 and the rest of WP3 are items 3 and 4 above

@@ -6,6 +6,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\Member;
 use App\Models\Team;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Facades\Socialite;
@@ -171,6 +172,27 @@ class GoogleSignInTest extends TestCase
 
         $this->followingRedirects()->get('/sign-in')->assertSee('Continue with Google');
         $this->assertGuest();
+    }
+
+    public function test_signing_in_is_remembered_on_the_phone(): void
+    {
+        $member = Member::factory()->create(['email' => 'demo.student@example.com']);
+        $this->googleReturns(['email' => 'demo.student@example.com', 'email_verified' => true]);
+
+        $this->get('/auth/google/callback')->assertCookie(Auth::guard()->getRecallerName());
+
+        $this->assertNotNull($member->fresh()->remember_token);
+    }
+
+    public function test_registering_is_remembered_on_the_phone_too(): void
+    {
+        $this->post('/register', $this->stepOne(['attend_again' => 'no']))
+            ->assertCookie(Auth::guard()->getRecallerName());
+    }
+
+    public function test_the_address_on_the_poster_opens_the_qr_for_a_signed_in_member(): void
+    {
+        $this->actingAs(Member::factory()->create())->get('/')->assertRedirect('/me');
     }
 
     public function test_signing_out_ends_the_session(): void

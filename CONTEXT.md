@@ -4,8 +4,9 @@
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
 **Updated:** 2026-10-12 · **Branch:** `dev` (created 2026-10-04 from `feat/postgresql-multisite`
-at `51613f8`) · **Stage:** WP1 committed (`fd25235`); the registration part of WP3 is
-built and green but **uncommitted**; WP2 (sign-in) not started (`TODO.md`).
+at `51613f8`) · **Stage:** registration, Google sign-in, profile and the birthday calendar are committed;
+so are roles, member management for admins and the usher screens. Nothing is uncommitted
+(`TODO.md` lists what is not built yet).
 
 ---
 
@@ -37,7 +38,7 @@ name filled in, and the new member's email is stored as verified. `/sign-out` en
 There is no email sign-in link yet. Google's client comes from the JSON named in
 `~/.ifgf/google.env`.
 
-**Profile and birthday calendar (uncommitted):** `/profile` edits every registration field except
+**Profile and birthday calendar:** `/profile` edits every registration field except
 the email; the header has a menu (My QR, Profile, Sign out). `MemberObserver` queues
 `SyncBirthdayEvent` when a member is created or their name, Chinese name, birthday or iCare
 changes; `Services/BirthdaySync` writes through `Contracts/CalendarGateway`. Drivers: `fake`
@@ -49,6 +50,15 @@ Dev server: `php artisan serve --port=8080` (`.claude/launch.json`); `APP_URL` i
 
 `wp1-salvage/` is an untracked duplicate of the WP1 files, kept until the commit.
 
+**Roles, admin and usher:** access comes only from team membership — Gates `scan`,
+`lead-team`, `admin` in `AppServiceProvider`; the first admin is made with
+`php artisan ifgf:admin:grant <email>`. `/admin/members` (IT admins): search kept in the session,
+edit, status, teams and roles; changes go to the `audit` log channel (`storage/logs/audit-*.log`,
+ids only). `/usher` (ushers and admins): pick a branch → `/usher/scan` (camera via `jsqr` in
+`resources/js/scanner.js`, typed backup code, find by name) → `/usher/attendance` (one Sunday of
+one branch with the totals block). `Services/AttendanceRecorder` creates the day's Sunday Service
+on first use and keeps one row per member. Times are stored in UTC and shown in Asia/Taipei.
+Sign-in is remembered on the phone; `/` sends a signed-in member to `/me`.
 ## Why the fork is being retired
 
 A security review on 2026-09-24 found every critical problem inside the upstream code: a live web

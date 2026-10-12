@@ -1,8 +1,6 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Nothing is scheduled yet. The birthday calendar is written only when a member's record
+// changes (MemberObserver), and `php artisan ifgf:calendar:sync` reconciles it by hand.

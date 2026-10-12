@@ -32,4 +32,13 @@ interface CalendarGateway
      * @throws CalendarException
      */
     public function delete(string $eventId): void;
+
+    /**
+     * The id of every event in the calendar, whoever created it.
+     *
+     * @return list<string>
+     *
+     * @throws CalendarException
+     */
+    public function eventIds(): array;
 }

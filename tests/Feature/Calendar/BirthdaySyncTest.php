@@ -10,6 +10,7 @@ use App\Contracts\CalendarGateway;
 use App\Models\Member;
 use App\Models\Team;
 use App\Services\BirthdaySync;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -33,7 +34,7 @@ class BirthdaySyncTest extends TestCase
     {
         $event = BirthdayEvent::forMember($this->alicia());
 
-        $this->assertSame('🎂 Alicia (iCare Hsinchu) Birthday', $event->title);
+        $this->assertSame("🎂 Alicia Ardella (林淑愛)'s Birthday", $event->title);
         $this->assertSame(
             "English Name: Alicia Ardella\nChinese Name: 林淑愛\nYear of Birth: 2002\niCare: iCare Hsinchu",
             $event->description,
@@ -56,9 +57,17 @@ class BirthdaySyncTest extends TestCase
 
         $event = BirthdayEvent::forMember($member);
 
-        $this->assertSame('🎂 Budi Birthday', $event->title);
-        $this->assertStringContainsString("Chinese Name: -\n", $event->description);
+        $this->assertSame("🎂 Budi Santoso's Birthday", $event->title);
+        $this->assertStringContainsString("English Name: Budi Santoso\nChinese Name: -\n", $event->description);
         $this->assertStringEndsWith('iCare: -', $event->description);
+    }
+
+    public function test_the_event_says_nothing_that_goes_out_of_date(): void
+    {
+        $event = BirthdayEvent::forMember($this->alicia());
+
+        $this->assertStringNotContainsString('Age', $event->description);
+        $this->assertCount(0, app(Schedule::class)->events());
     }
 
     public function test_a_new_member_gets_one_event_and_its_id_is_remembered(): void
@@ -94,14 +103,14 @@ class BirthdaySyncTest extends TestCase
         $this->assertSame('2101-05-01', $this->calendar->events[$eventId]->until);
     }
 
-    public function test_changing_the_name_or_the_icare_changes_the_title(): void
+    public function test_changing_the_name_changes_the_title_and_the_icare_the_description(): void
     {
         $member = $this->alicia();
         $eventId = $member->fresh()->calendar_event_id;
 
         $member->update(['full_name' => 'Alice Ardella', 'icare_team_id' => Team::where('name', 'Grace')->value('id')]);
 
-        $this->assertSame('🎂 Alice (iCare Grace) Birthday', $this->calendar->events[$eventId]->title);
+        $this->assertSame("🎂 Alice Ardella (林淑愛)'s Birthday", $this->calendar->events[$eventId]->title);
         $this->assertStringContainsString('iCare: iCare Grace', $this->calendar->events[$eventId]->description);
     }
 
@@ -162,6 +171,40 @@ class BirthdaySyncTest extends TestCase
         $this->assertStringContainsString('Synced 3, failed 0.', $output);
         $this->assertStringNotContainsString('Alicia', $output);
         $this->assertArrayHasKey($alicia->fresh()->calendar_event_id, $this->calendar->events);
+    }
+
+    public function test_pruning_only_counts_the_events_of_nobody_until_told_to_commit(): void
+    {
+        $alicia = $this->alicia();
+        $strayA = $this->calendar->create(new BirthdayEvent('Left behind', '-', '2000-01-01', '2099-01-01'));
+        $strayB = $this->calendar->create(new BirthdayEvent('Also left behind', '-', '2001-02-02', '2100-02-02'));
+
+        $this->assertSame(0, Artisan::call('ifgf:calendar:sync'));
+        $this->assertCount(3, $this->calendar->events);
+
+        $this->assertSame(0, Artisan::call('ifgf:calendar:sync', ['--prune' => true]));
+        $this->assertStringContainsString('2 events belong to no member. Nothing was removed', Artisan::output());
+        $this->assertCount(3, $this->calendar->events);
+
+        $this->assertSame(0, Artisan::call('ifgf:calendar:sync', ['--prune' => true, '--commit' => true]));
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('Removed 2 of 2 events that belonged to no member.', $output);
+        $this->assertStringNotContainsString('Left behind', $output);
+        $this->assertStringNotContainsString('Alicia', $output);
+        $this->assertSame([$alicia->fresh()->calendar_event_id], array_keys($this->calendar->events));
+        $this->assertArrayNotHasKey($strayA, $this->calendar->events);
+        $this->assertArrayNotHasKey($strayB, $this->calendar->events);
+    }
+
+    public function test_pruning_keeps_the_event_of_every_member_and_can_be_run_again(): void
+    {
+        $this->alicia();
+        Member::factory()->count(2)->create();
+
+        Artisan::call('ifgf:calendar:sync', ['--prune' => true, '--commit' => true]);
+        $this->assertStringContainsString('Removed 0 of 0', Artisan::output());
+        $this->assertCount(3, $this->calendar->events);
     }
 
     public function test_the_test_suite_always_gets_the_fake_calendar(): void
