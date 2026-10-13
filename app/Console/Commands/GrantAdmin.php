@@ -33,6 +33,13 @@ class GrantAdmin extends Command
             return self::FAILURE;
         }
 
+        // Anyone can register with any email, so an email nobody has proved is not enough.
+        if ($member->email_verified_at === null) {
+            $this->error('That email is not verified. The member must sign in with Google once, then run this again.');
+
+            return self::FAILURE;
+        }
+
         $team = Team::where('ability', TeamAbility::Admin)->where('is_active', true)->orderBy('id')->first();
 
         if ($team === null) {

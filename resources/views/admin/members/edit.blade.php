@@ -24,6 +24,11 @@
         <div class="mb-5">
             <p class="mb-1 block text-sm font-medium text-stone-800">{{ __('Email') }}</p>
             <p class="rounded-md border border-stone-200 bg-stone-100 px-3 py-2 text-base text-stone-700">{{ $member->email ?? '—' }}</p>
+            @if ($member->email_verified_at === null)
+                <p class="mt-1 text-sm text-amber-800" data-testid="unverified">
+                    {{ __('Not verified yet. A team or role takes effect only after this member has signed in with Google.') }}
+                </p>
+            @endif
         </div>
 
         <div class="mb-5">

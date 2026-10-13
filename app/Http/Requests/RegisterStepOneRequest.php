@@ -5,6 +5,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Controllers\RegistrationController;
+use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -44,8 +45,8 @@ class RegisterStepOneRequest extends FormRequest
     {
         return [
             'email' => ['required', 'string', 'email:rfc', 'max:255'],
-            'full_name' => ['required', 'string', 'max:255'],
-            'chinese_name' => ['nullable', 'string', 'max:255'],
+            'full_name' => ['required', 'string', 'max:255', new PersonName],
+            'chinese_name' => ['nullable', 'string', 'max:255', new PersonName],
             'birthday' => ['required', 'date', 'after:1900-01-01', 'before:today'],
             'domicile_taiwan' => ['required', 'string', 'max:255'],
             'line_id' => ['nullable', 'string', 'max:255'],

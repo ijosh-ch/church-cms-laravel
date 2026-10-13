@@ -9,6 +9,7 @@ use App\Enums\MemberStatus;
 use App\Enums\TeamRole;
 use App\Enums\TeamType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\SearchMembersRequest;
 use App\Http\Requests\Admin\UpdateMemberRequest;
 use App\Http\Requests\RegisterMemberRequest;
 use App\Models\Branch;
@@ -18,7 +19,6 @@ use App\Services\MemberEditor;
 use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -62,16 +62,9 @@ class MemberController extends Controller
         ]);
     }
 
-    public function search(Request $request): RedirectResponse
+    public function search(SearchMembersRequest $request): RedirectResponse
     {
-        $filter = $request->validate([
-            'q' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', Rule::enum(MemberStatus::class)],
-            'branch' => ['nullable', 'string', Rule::exists('branches', 'code')],
-            'icare' => ['nullable', 'string', 'max:20'],
-        ]);
-
-        $request->session()->put(self::FILTER, array_map(fn ($value) => trim((string) $value), $filter));
+        $request->session()->put(self::FILTER, array_map(fn ($value) => trim((string) $value), $request->validated()));
 
         return redirect()->route('admin.members.index');
     }

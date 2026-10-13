@@ -6,6 +6,56 @@
 
 ---
 
+## 2026-10-13 — Security and privacy review of everything built so far
+
+> No entry exists for the sessions of 2026-10-12 and 2026-10-13 that built registration, sign-in,
+> the profile, the calendar, roles, admin and usher screens. `git log` is the only record of them.
+
+**Summary:** `/security-review` could not be used (see Failed), so `app/`, `routes/`, `config/`,
+`resources/views` and `resources/js` were read by hand against `STANDARDS.md` §3–§4 and PRD §5.
+One high, two medium and five low findings; all fixed except M2 (owner: leave it). 232 → 267 tests.
+
+### Learned
+
+- **Registration signs a person in without proving the email (PRD FR-1), so an unverified email
+  must never carry access.** Before this session, whoever typed a future usher's email first kept
+  a live session on the row the real owner later reached through Google. Now: `hasAbility()` and
+  `leads()` need `email_verified_at`; the first Google verification deletes the member's rows in
+  `sessions` and replaces `remember_token`; `ifgf:admin:grant` refuses an unverified email;
+  the last-admin check counts verified admins only. Any future sign-in path (the email link)
+  must do the same on first verification.
+- **The remember cookie has never signed anyone in.** Laravel 13's `SessionGuard::userFromRecaller`
+  returns null unless `getAuthPassword()` is a string, and `Member` has no password. The cookie is
+  set (the tests only assert that) but ignored, so sign-in lasts `SESSION_LIFETIME` (120 minutes
+  idle). **Not fixed — the owner decides**: `getAuthPassword(): string { return ''; }` would turn
+  on a 400-day sign-in for ushers and admins too.
+- **Markdown mail already escapes `[`, `<`, `>`** in Blade echoes (`EncodedHtmlString`), but a bare
+  address or a line break still gets through, and mail clients link bare addresses. The welcome
+  email therefore carries nothing the registrant typed.
+- **Google Calendar renders HTML in an event description.** Names now pass `Rules/PersonName`
+  (letters of any script, digits, spaces, `. , ' ’ · ( ) -`, one line) and `BirthdayEvent`
+  collapses whitespace in both names.
+- `config/session.php` sets `'encrypt' => true` outright. A test on `config('session.encrypt')`
+  would otherwise follow whatever the machine's `.env` says.
+- **In `ifgf_app` nobody is an admin any more**: the one role holder there registered by hand, so
+  the email is unverified. The owner signs in with Google once, then runs `ifgf:admin:grant`.
+- `php artisan test --compact` prints one JSON object; pipe it through `php -r` to list failures.
+- Port 8080 was held by another chat's `ifgf-dev`; `preview_start {url}` opens the same site.
+
+### Failed
+
+- `/security-review` diffs the branch against `origin/dev`: 2,324 files and over 64 MB, nearly all
+  the fork's deletion. It is usable only after `dev` is pushed.
+- A Bash heredoc holding PHP with backticks and quotes died with "unexpected EOF". Write the
+  script with the Write tool into the scratchpad and run it.
+- Level 2 could not reach `/admin/members/{member}`: it needs a verified admin and a Google
+  sign-in. The registration form was walked instead; the admin note is covered by a test only.
+
+### Decisions taken — owner may overrule
+
+- Registering while signed in no longer switches who is signed in; it answers `/register/done`.
+- `usher/roster/search` shares the `scan` throttle (120 a minute per usher).
+
 ## 2026-10-04 — Session 14 — WP1 built in the temp skeleton; two owner steps block the gate
 
 **Duration:**

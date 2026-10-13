@@ -110,8 +110,10 @@ class RegistrationController extends Controller
 
         $member = $registrar->register($data, $emailVerified);
 
-        // Already registered: nothing changed, and the answer does not say so.
-        if ($member === null) {
+        // Already registered: nothing changed, and the answer does not say so. The same answer
+        // goes to someone who is signed in — an usher helping a newcomer on their own phone
+        // stays the usher; the newcomer signs in on theirs.
+        if ($member === null || $request->user() !== null) {
             return redirect()->route('register.done');
         }
 

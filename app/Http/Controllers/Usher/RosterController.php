@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Usher;
 use App\Enums\AttendanceMethod;
 use App\Enums\AttendanceMode;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Usher\SearchRosterRequest;
 use App\Http\Requests\Usher\TickRosterRequest;
 use App\Models\Attendance;
 use App\Models\Member;
@@ -58,11 +59,9 @@ class RosterController extends Controller
         ]);
     }
 
-    public function search(Request $request): RedirectResponse
+    public function search(SearchRosterRequest $request): RedirectResponse
     {
-        $q = $request->validate(['q' => ['nullable', 'string', 'max:100']])['q'] ?? '';
-
-        $request->session()->put(self::QUERY, trim($q));
+        $request->session()->put(self::QUERY, trim((string) $request->validated('q')));
 
         return redirect()->route('usher.roster');
     }

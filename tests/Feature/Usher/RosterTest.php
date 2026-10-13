@@ -115,6 +115,15 @@ class RosterTest extends TestCase
         $this->get('/usher/roster')->assertSee('Recorded')->assertSee('Onsite');
     }
 
+    public function test_the_search_is_throttled_like_the_scan(): void
+    {
+        for ($i = 0; $i < 120; $i++) {
+            $this->post('/usher/roster/search', ['q' => 'ma'])->assertRedirect('/usher/roster');
+        }
+
+        $this->post('/usher/roster/search', ['q' => 'ma'])->assertStatus(429);
+    }
+
     public function test_the_tick_is_validated(): void
     {
         $member = Member::factory()->create();

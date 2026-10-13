@@ -3,108 +3,92 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-10-12 · **Branch:** `dev` (created 2026-10-04 from `feat/postgresql-multisite`
-at `51613f8`) · **Stage:** registration, Google sign-in, profile and the birthday calendar are committed;
-so are roles, member management for admins and the usher screens. Nothing is uncommitted
-(`TODO.md` lists what is not built yet).
+**Updated:** 2026-10-13 · **Branch:** `dev`, six commits ahead of `origin/dev` once this session's
+commit lands, nothing pushed · **Stage:** registration, Google sign-in, profile, birthday
+calendar, roles, admin member management and the usher screens are built and have had their
+first security and privacy review. `TODO.md` lists what is not built yet.
 
 ---
 
 ## Where things stand
 
-The owner re-scoped the project on 2026-10-04. `PRD.md` 3.0 lists the only features in scope;
-`EXECUTION_PLAN.md` splits them into ten work packages, one per session. `STANDARDS.md` is the
-quality bar for all of them and for every later module: four separate databases (test,
-development, staging, production), tests written with the code, a security and privacy
-checklist at every gate. Deployment target: a self-hosted Ubuntu PC behind a Cloudflare Tunnel.
+`PRD.md` 3.0 is the scope; `EXECUTION_PLAN.md` splits it into work packages; `STANDARDS.md` is
+the quality bar (four separate databases, tests written with the code, a security and privacy
+checklist at every gate). Deployment target: a self-hosted Ubuntu PC behind a Cloudflare Tunnel.
+Nothing is deployed; the legacy Google Form and Apps Script are still the live system.
 
-**The working tree is now a clean Laravel 13.35 app.** The GegoSoft fork was removed from `dev`
-on 2026-10-12 (2,197 tracked files) and survives only on `feat/postgresql-multisite`.
+The tree is a clean Laravel 13.35 app. The GegoSoft fork survives only on
+`feat/postgresql-multisite`.
 
-**What exists:** 12 domain migrations plus `sessions`, `cache`, `jobs`; 11 models with `Member` as
-the auth model (no `users` table, no passwords); 11 enums; `Support/PhoneNormalizer`; 10
-factories; 3 seeders (2 branches, 27 iCare and 7 ministry teams, 29 events); 6 test files.
-65/65 tests on `ifgf_app_test`; `ifgf_app` rebuilt and seeded; only `/` and `up` are routed;
-`composer audit` and `npm audit` clean.
+**Numbers:** 267/267 tests on `ifgf_app_test`; 28 routes; `composer audit` and `npm audit` clean.
+12 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
+no passwords).
 
-**Screens that exist:** `/register` (page one, 9 fields) → `/register/details` (page two, 4
-fields; skipped by a visitor) → `/me` (the member's QR and short code, signed in) or
-`/register/done` (someone already registered). `Services/MemberRegistrar` creates the member,
-`Services/QrIssuer` issues the QR (256-bit token; hash + encrypted copy + 8-character code),
-`Mail/WelcomeWithQr` is queued. `/` redirects to **`/sign-in`**, which offers "Continue with
-Google" and "Register without Google". Google (`Auth/GoogleController`): a verified email that
-matches a member signs them in; an unknown one goes to `/register` with the email fixed and the
-name filled in, and the new member's email is stored as verified. `/sign-out` ends the session.
-There is no email sign-in link yet. Google's client comes from the JSON named in
-`~/.ifgf/google.env`.
+## What is built
 
-**Profile and birthday calendar:** `/profile` edits every registration field except
-the email; the header has a menu (My QR, Profile, Sign out). `MemberObserver` queues
-`SyncBirthdayEvent` when a member is created or their name, Chinese name, birthday or iCare
-changes; `Services/BirthdaySync` writes through `Contracts/CalendarGateway`. Drivers: `fake`
-(default, and always in tests) or `google` (`Calendar/GoogleCalendarGateway`, plain HTTP — no
-`google/apiclient`). This PC is set to `google` and the **dev** calendar in `~/.ifgf/calendar.env`,
-but that calendar is shared read-only with the service account, so every write is refused (403).
-Calendar jobs run on the database queue: `php artisan queue:work`. Run `npm run build` once for the CSS (`public/build` is not committed).
-Dev server: `php artisan serve --port=8080` (`.claude/launch.json`); `APP_URL` is 8080.
+- **Registration** — `/register` (page one, 9 fields) → `/register/details` (page two, 4 fields;
+  skipped by a visitor) → `/me` with the QR, or `/register/done` for someone already registered
+  **or already signed in** (an usher helping a newcomer stays the usher).
+  `Services/MemberRegistrar`, `Services/QrIssuer` (256-bit token: hash + encrypted copy +
+  8-character code), `Mail/WelcomeWithQr` (queued; carries nothing the registrant typed).
+- **Sign-in** — `/sign-in` offers Google or "Register without Google". A Google-verified email
+  that matches a member signs them in; an unknown one goes to `/register` with the email fixed.
+  There is no email sign-in link yet. The remember cookie is set but Laravel ignores it
+  (`TODO.md` item 2), so sign-in lasts 120 idle minutes.
+- **Verified email is what carries access.** Registration signs a person in without proof, so
+  `Member::hasAbility()` and `leads()` return false until `email_verified_at` is set. The first
+  Google verification deletes that member's other sessions and replaces the remember token.
+- **Roles** — Gates `scan`, `lead-team`, `admin` in `AppServiceProvider`, from team membership
+  only. First admin: `php artisan ifgf:admin:grant <email>` (refuses an unverified email).
+- **Admin** — `/admin/members`: search kept in the session, edit, status, teams and roles; the
+  member page says when an email is not verified. Changes go to the `audit` log channel
+  (`storage/logs/audit-*.log`, ids only).
+- **Usher** — `/usher`: pick a branch → `/usher/scan` (camera through `jsqr` in
+  `resources/js/scanner.js`, typed backup code, find by name) → `/usher/attendance` (one Sunday
+  of one branch with the totals block). `Services/AttendanceRecorder` creates the day's Sunday
+  Service on first use and keeps one row per member. Stored in UTC, shown in Asia/Taipei.
+- **Profile and birthday calendar** — `/profile` edits every registration field except the
+  email. `MemberObserver` queues `SyncBirthdayEvent` when the name, Chinese name, birthday or
+  iCare changes; `Services/BirthdaySync` writes through `Contracts/CalendarGateway` (`fake` by
+  default and always in tests; `google` is plain HTTP, no `google/apiclient`).
+  `ifgf:calendar:sync [--prune [--commit]]` reconciles everyone.
+- **Input rules** — every form validates in a FormRequest. Names pass `Rules/PersonName` (one
+  line, no markup or links). Session rows are always encrypted (`config/session.php`).
+- **Throttles** — registration and sign-in 20 a minute per address; scan, roster tick and
+  roster search 120 a minute per usher; the typed code 10.
 
-`wp1-salvage/` is an untracked duplicate of the WP1 files, kept until the commit.
+## This PC
 
-**Roles, admin and usher:** access comes only from team membership — Gates `scan`,
-`lead-team`, `admin` in `AppServiceProvider`; the first admin is made with
-`php artisan ifgf:admin:grant <email>`. `/admin/members` (IT admins): search kept in the session,
-edit, status, teams and roles; changes go to the `audit` log channel (`storage/logs/audit-*.log`,
-ids only). `/usher` (ushers and admins): pick a branch → `/usher/scan` (camera via `jsqr` in
-`resources/js/scanner.js`, typed backup code, find by name) → `/usher/attendance` (one Sunday of
-one branch with the totals block). `Services/AttendanceRecorder` creates the day's Sunday Service
-on first use and keeps one row per member. Times are stored in UTC and shown in Asia/Taipei.
-Sign-in is remembered on the phone; `/` sends a signed-in member to `/me`.
-## Why the fork is being retired
+Windows 11 · PHP 8.4 (`php` on PATH) · Node 22 · PostgreSQL 17 as a service. Credentials are
+machine-wide in `~/.ifgf/postgres.env` (its database names still point at the fork and are
+ignored). `ifgf_app` (development) and `ifgf_app_test` (tests) are owned by role `ifgf`;
+`ifgf_cms` belongs to the fork — untouched. `psql` lives in `C:\Program Files\PostgreSQL\17\bin\`.
 
-A security review on 2026-09-24 found every critical problem inside the upstream code: a live web
-installer, an unauthenticated `/api/users`, open registration that creates a full admin, stored
-XSS in the admin feedback pages, the debug bar in `require`. None of the features in PRD 3.0 uses
-upstream code — the IFGF part was about 85 files whose only tie to upstream was the login table.
-
-## What the target app is
-
-One website, phone first. Everyone is a `Member`; sign-in is an email link or Google; there are no
-passwords. Access comes only from team membership: a team with `ability = scan` (ushers), one with
-`ability = admin` (IT), or the `leader` role in an iCare team.
-
-Twelve tables: `branches, teams, member_team, households, institutions, members, events,
-occurrences, attendances, headcounts, change_requests, import_batches`.
+- Site: the `ifgf-dev` preview server, `http://localhost:8080` (Google's redirect needs 8080).
+  Run `npm run build` once for the CSS; `public/build` is not committed.
+- Calendar: driver `google`, the **dev** calendar named in `~/.ifgf/calendar.env`. Writes work;
+  it was pruned on 2026-10-13 and holds the three development members. Jobs need
+  `php artisan queue:work`.
+- Google sign-in: the client JSON named in `~/.ifgf/google.env`.
+- In `ifgf_app` nobody is an admin until the owner signs in with Google and runs
+  `ifgf:admin:grant` (`TODO.md` item 1).
+- `wp1-salvage/` is an untracked duplicate of the WP1 files; the owner has not said to delete it.
 
 ## Facts a session will need
 
 - **Category** is a formula over occupation and education, not age (PRD FR-5).
-- **Legacy branch rule:** a scan before 13:00 is Zhongli, after is Taipei. Used only by the import;
-  from now on the usher picks the branch.
+- **Legacy branch rule:** a scan before 13:00 is Zhongli, after is Taipei — import only.
 - **Quarterly review:** monthly = average of weekly, rounded up; quarterly = average of the three
   months, rounded down.
-- **Registration form:** 13 fields on two pages, "just visiting" ends after page 1
-  (`GAS_INVENTORY.md` §7). 27 iCare groups.
 - **Workbook (4):** 233 members, 3,693 scans, 434 headcount rows (`WORKBOOK_INVENTORY.md` §6).
-- The legacy system (Google Form + Apps Script) is still the live one. Nothing here is deployed.
+  It holds real member data: read from `Downloads`, never copied into the repository.
 
-## Environment
+## Not built — known gaps in the security baseline
 
-Windows 11 · PHP 8.4.24 (`php` on PATH) · Composer · Node 22 · PostgreSQL 17.10 as a service ·
-credentials machine-wide in `~/.ifgf/postgres.env` (host, port, role, password — its database
-names still point at the fork and are ignored). Databases `ifgf_app` and `ifgf_app_test` exist,
-owned by role `ifgf` (created by the owner as `postgres`; `ifgf` cannot create databases). `ifgf_cms` and `ifgf_cms_test` belong
-to the fork — untouched. `psql`/`createdb` live in `C:\Program Files\PostgreSQL\17\bin\`.
-
-## Standing hazards
-
-- The fork's holes are real but **not deployed**. Do not spend a session fixing them.
-- The workbook holds real member data. It is read from `Downloads`, never copied into the repo.
-  Its `URLs Absensi` sheet caches contact details inside formula text — never print formula
-  fallbacks from that sheet.
-- An untracked `database/seeders/LaratrustSeeder.php` (an upstream stub) sits in the tree; WP1
-  asks before removing it.
+Security headers, trusted proxies, forced HTTPS (all WP2S); the email sign-in link; member
+deletion/anonymise (PRD §5.14). Registration still reveals who is a member (owner's decision).
 
 ## Licensing
 
-`LICENSE` = AGPL-3.0 (© 2026 IFGF Taipei Zhongli). `LICENSE.upstream-MIT` stays — the repository's
-history derives from GegoSoft's MIT fork. `NOTICE.md` explains the split.
+`LICENSE` = AGPL-3.0 (© 2026 IFGF Taipei Zhongli). `LICENSE.upstream-MIT` stays. New PHP files
+carry `// SPDX-License-Identifier: AGPL-3.0-or-later`.

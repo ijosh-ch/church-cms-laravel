@@ -41,7 +41,7 @@ final readonly class BirthdayEvent
         $birthday = $member->birthday;
         $icare = $member->icareTeam?->name;
         $name = trim(preg_replace('/\s+/', ' ', $member->full_name));
-        $chineseName = trim((string) $member->chinese_name);
+        $chineseName = trim(preg_replace('/\s+/u', ' ', (string) $member->chinese_name));
 
         return new self(
             title: $chineseName === ''

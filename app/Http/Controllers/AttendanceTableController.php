@@ -7,12 +7,11 @@ namespace App\Http\Controllers;
 use App\Enums\AttendanceMode;
 use App\Enums\EventType;
 use App\Enums\MemberCategory;
+use App\Http\Requests\ShowAttendanceTableRequest;
 use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\Occurrence;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -21,12 +20,9 @@ use Illuminate\View\View;
  */
 class AttendanceTableController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(ShowAttendanceTableRequest $request): View
     {
-        $filter = $request->validate([
-            'date' => ['nullable', 'date_format:Y-m-d'],
-            'branch' => ['nullable', 'string', Rule::exists('branches', 'code')],
-        ]);
+        $filter = $request->validated();
 
         $branches = Branch::orderBy('id')->get();
         $branch = $branches->firstWhere('code', $filter['branch'] ?? null)

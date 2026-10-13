@@ -149,6 +149,9 @@ class ProfileTest extends TestCase
     {
         return [
             'full name missing' => [['full_name' => ''], 'full_name'],
+            'full name with a link' => [['full_name' => 'Click http://evil.example/claim'], 'full_name'],
+            'chinese name on two lines' => [['chinese_name' => '林
+Year of Birth: 1900'], 'chinese_name'],
             'birthday missing' => [['birthday' => ''], 'birthday'],
             'birthday in the future' => [['birthday' => '2999-01-01'], 'birthday'],
             'domicile missing' => [['domicile_taiwan' => ''], 'domicile_taiwan'],

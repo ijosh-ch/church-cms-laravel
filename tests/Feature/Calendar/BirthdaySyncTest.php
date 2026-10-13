@@ -62,6 +62,23 @@ class BirthdaySyncTest extends TestCase
         $this->assertStringEndsWith('iCare: -', $event->description);
     }
 
+    public function test_a_stored_name_with_line_breaks_cannot_add_lines_to_the_event(): void
+    {
+        $member = Member::factory()->create(['birthday' => '1990-12-01', 'icare_team_id' => null]);
+        $member->forceFill(['chinese_name' => '林
+
+Year of Birth: 1900
+淑愛'])->saveQuietly();
+
+        $event = BirthdayEvent::forMember($member);
+
+        $this->assertCount(4, explode('
+', $event->description));
+        $this->assertStringNotContainsString('
+', $event->title);
+        $this->assertStringNotContainsString('', $event->description);
+    }
+
     public function test_the_event_says_nothing_that_goes_out_of_date(): void
     {
         $event = BirthdayEvent::forMember($this->alicia());

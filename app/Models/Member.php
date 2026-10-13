@@ -162,18 +162,24 @@ class Member extends Authenticatable
     /**
      * Access comes only from team membership (PRD §2): being in an active team that carries
      * the ability — `scan` for ushers, `admin` for IT.
+     *
+     * Registration signs a person in without proof that the email is theirs, so a role counts
+     * only once the email is verified. Otherwise whoever typed a future usher's email first
+     * would hold that usher's access.
      */
     public function hasAbility(TeamAbility $ability): bool
     {
-        return $this->teams()->where('ability', $ability)->where('is_active', true)->exists();
+        return $this->email_verified_at !== null
+            && $this->teams()->where('ability', $ability)->where('is_active', true)->exists();
     }
 
     /**
-     * Whether the member is a leader of this one team.
+     * Whether the member is a leader of this one team. Needs a verified email, as above.
      */
     public function leads(Team $team): bool
     {
-        return $this->teams()->whereKey($team->getKey())->wherePivot('role', TeamRole::Leader->value)->exists();
+        return $this->email_verified_at !== null
+            && $this->teams()->whereKey($team->getKey())->wherePivot('role', TeamRole::Leader->value)->exists();
     }
 
     /** @return HasMany<Attendance, $this> */

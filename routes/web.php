@@ -49,7 +49,7 @@ Route::middleware(['auth', 'can:scan'])->prefix('usher')->name('usher.')->group(
     Route::post('scan', [ScanController::class, 'scan'])->middleware('throttle:scan')->name('scan.store');
     Route::post('code', [ScanController::class, 'code'])->middleware('throttle:short-code')->name('code');
     Route::get('roster', [RosterController::class, 'show'])->name('roster');
-    Route::post('roster/search', [RosterController::class, 'search'])->name('roster.search');
+    Route::post('roster/search', [RosterController::class, 'search'])->middleware('throttle:scan')->name('roster.search');
     Route::post('roster/tick', [RosterController::class, 'tick'])->middleware('throttle:scan')->name('roster.tick');
     Route::get('attendance', AttendanceTableController::class)->name('attendance');
 });

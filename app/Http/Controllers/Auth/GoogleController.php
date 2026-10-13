@@ -10,6 +10,8 @@ use App\Models\Member;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
@@ -63,7 +65,11 @@ class GoogleController extends Controller
         }
 
         if ($member->email_verified_at === null) {
-            $member->forceFill(['email_verified_at' => now()])->save();
+            // Until now nobody had proved this email: registration signs in whoever typed it.
+            // Its owner has just arrived, so every earlier sign-in for this member ends here.
+            DB::table(config('session.table', 'sessions'))->where('user_id', $member->id)->delete();
+
+            $member->forceFill(['email_verified_at' => now(), 'remember_token' => Str::random(60)])->save();
         }
 
         Auth::login($member, remember: true);

@@ -62,6 +62,10 @@ class RegistrationTest extends TestCase
             'full name missing' => [['full_name' => ''], 'full_name'],
             'full name too long' => [['full_name' => str_repeat('a', 256)], 'full_name'],
             'chinese name too long' => [['chinese_name' => str_repeat('a', 256)], 'chinese_name'],
+            'full name with a link' => [['full_name' => 'Click http://evil.example/claim'], 'full_name'],
+            'full name on two lines' => [['full_name' => 'Budi
+Santoso'], 'full_name'],
+            'chinese name with markup' => [['chinese_name' => '<a href="https://evil.example">林</a>'], 'chinese_name'],
             'birthday missing' => [['birthday' => ''], 'birthday'],
             'birthday not a date' => [['birthday' => 'yesterday-ish'], 'birthday'],
             'birthday in the future' => [['birthday' => '2999-01-01'], 'birthday'],
@@ -75,6 +79,31 @@ class RegistrationTest extends TestCase
             'attend again missing' => [['attend_again' => ''], 'attend_again'],
             'attend again unknown' => [['attend_again' => 'maybe'], 'attend_again'],
         ];
+    }
+
+    public function test_the_welcome_email_carries_nothing_the_registrant_typed(): void
+    {
+        $this->post('/register', $this->stepOne(['attend_again' => 'no', 'full_name' => 'Typed By A Stranger']));
+
+        $member = Member::sole();
+        $mail = new WelcomeWithQr($member);
+
+        // It goes to an address nobody has proved, so it holds only what this app generated.
+        $mail->assertDontSeeInHtml('Typed By A Stranger');
+        $mail->assertDontSeeInText('Typed By A Stranger');
+        $mail->assertSeeInHtml($member->short_code);
+    }
+
+    public function test_registering_someone_while_signed_in_does_not_swap_who_is_signed_in(): void
+    {
+        $usher = Member::factory()->create();
+
+        $this->actingAs($usher)
+            ->post('/register', $this->stepOne(['attend_again' => 'no']))
+            ->assertRedirect('/register/done');
+
+        $this->assertSame(2, Member::count());
+        $this->assertAuthenticatedAs($usher);
     }
 
     public function test_a_visitor_is_stored_after_page_one_and_never_sees_page_two(): void

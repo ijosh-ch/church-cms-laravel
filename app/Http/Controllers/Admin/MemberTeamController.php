@@ -6,12 +6,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\TeamAbility;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\DestroyMemberTeamRequest;
 use App\Http\Requests\Admin\StoreMemberTeamRequest;
 use App\Models\Member;
 use App\Models\Team;
 use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,9 +38,9 @@ class MemberTeamController extends Controller
         return redirect()->route('admin.members.edit', $member)->with('teams-saved', true);
     }
 
-    public function destroy(Request $request, Member $member): RedirectResponse
+    public function destroy(DestroyMemberTeamRequest $request, Member $member): RedirectResponse
     {
-        $teamId = (int) $request->validate(['team_id' => ['required', 'integer', 'exists:teams,id']])['team_id'];
+        $teamId = (int) $request->validated('team_id');
         $team = Team::findOrFail($teamId);
 
         if ($team->ability === TeamAbility::Admin && $this->isTheLastAdmin($member)) {
@@ -61,9 +61,12 @@ class MemberTeamController extends Controller
     {
         $admins = DB::table('member_team')
             ->join('teams', 'teams.id', '=', 'member_team.team_id')
+            ->join('members', 'members.id', '=', 'member_team.member_id')
             ->where('teams.ability', TeamAbility::Admin->value)
             ->where('teams.is_active', true)
             ->whereNull('member_team.left_at')
+            ->whereNull('members.deleted_at')
+            ->whereNotNull('members.email_verified_at')
             ->distinct()
             ->pluck('member_team.member_id');
 

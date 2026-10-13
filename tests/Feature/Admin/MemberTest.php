@@ -220,6 +220,16 @@ class MemberTest extends TestCase
             ->assertSessionHasErrors(['full_name', 'status', 'branch', 'phone', 'birthday']);
 
         $this->assertSame('Unchanged', $member->fresh()->full_name);
+
+        $this->actingAs($this->admin)
+            ->put('/admin/members/'.$member->public_ref, $this->form([
+                'full_name' => '<b>Unchanged</b>',
+                'chinese_name' => '林
+淑愛',
+            ]))
+            ->assertSessionHasErrors(['full_name', 'chinese_name']);
+
+        $this->assertSame('Unchanged', $member->fresh()->full_name);
     }
 
     public function test_the_menu_shows_members_only_to_an_admin(): void

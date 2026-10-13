@@ -9,6 +9,7 @@ use App\Enums\MemberStatus;
 use App\Enums\TeamType;
 use App\Http\Requests\RegisterMemberRequest;
 use App\Models\Team;
+use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -38,8 +39,8 @@ class UpdateMemberRequest extends FormRequest
             ->all();
 
         return [
-            'full_name' => ['required', 'string', 'max:255'],
-            'chinese_name' => ['nullable', 'string', 'max:255'],
+            'full_name' => ['required', 'string', 'max:255', new PersonName],
+            'chinese_name' => ['nullable', 'string', 'max:255', new PersonName],
             'birthday' => ['nullable', 'date', 'after:1900-01-01', 'before:today'],
             'domicile_taiwan' => ['nullable', 'string', 'max:255'],
             'line_id' => ['nullable', 'string', 'max:255'],

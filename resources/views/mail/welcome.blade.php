@@ -1,5 +1,5 @@
 <x-mail::message>
-# {{ __('Welcome, :name', ['name' => $member->full_name]) }}
+# {{ __('Welcome to IFGF Taipei–Zhongli') }}
 
 {{ __('Thank you for registering with IFGF Taipei–Zhongli. Show your attendance QR to the usher on Sunday.') }}
 
