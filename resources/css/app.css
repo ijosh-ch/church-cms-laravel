@@ -3,7 +3,94 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* The tokens of design/DESIGN.md §3 and §12. Light theme only for now. */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Instrument Sans', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', ui-sans-serif, system-ui,
+        sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-canvas: #f8fafc;
+    --color-surface: #ffffff;
+    --color-ink: #0f172a;
+    --color-ink-body: #334155;
+    --color-ink-muted: #475569;
+    --color-ink-subtle: #64748b;
+    --color-line: #e2e8f0;
+    --color-line-strong: #64748b;
+    --color-primary: #1d4ed8;
+    --color-primary-hover: #1e40af;
+    --color-primary-soft: #eff6ff;
+    --color-on-primary: #ffffff;
+    --color-success: #166534;
+    --color-success-soft: #f0fdf4;
+    --color-warning: #92400e;
+    --color-warning-soft: #fffbeb;
+    --color-danger: #991b1b;
+    --color-danger-soft: #fef2f2;
+    --color-danger-solid: #b91c1c;
+    --color-birthday: #9d174d;
+    --color-birthday-soft: #fdf2f8;
+    --color-cat-kids: #92400e;
+    --color-cat-kids-soft: #fef3c7;
+    --color-cat-teens: #115e59;
+    --color-cat-teens-soft: #ccfbf1;
+    --color-cat-college: #5b21b6;
+    --color-cat-college-soft: #ede9fe;
+    --color-cat-adult: #1e40af;
+    --color-cat-adult-soft: #dbeafe;
+    --color-google-blue: #4285f4;
+    --color-google-green: #34a853;
+    --color-google-yellow: #fbbc05;
+    --color-google-red: #ea4335;
+
+    --text-display: 1.75rem;
+    --text-display--line-height: 2.25rem;
+    --text-display--font-weight: 600;
+    --text-title: 1.375rem;
+    --text-title--line-height: 1.75rem;
+    --text-title--font-weight: 600;
+    --text-heading: 1.125rem;
+    --text-heading--line-height: 1.625rem;
+    --text-heading--font-weight: 600;
+    --text-body: 1rem;
+    --text-body--line-height: 1.5rem;
+    --text-body--font-weight: 400;
+    --text-label: 0.875rem;
+    --text-label--line-height: 1.25rem;
+    --text-label--font-weight: 500;
+    --text-caption: 0.8125rem;
+    --text-caption--line-height: 1.125rem;
+    --text-caption--font-weight: 400;
+
+    --radius-control: 10px;
+    --radius-card: 14px;
+    --radius-sheet: 20px;
+
+    --shadow-float: 0 8px 24px rgb(15 23 42 / 0.12);
+}
+
+/* DESIGN.md §3.3 — a 2 px primary ring with a 2 px offset, on every interactive element. */
+@utility focus-ring {
+    &:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+}
+
+/* The same ring on a wrapper whose control is inside it, such as a radio card. */
+@utility focus-ring-within {
+    &:has(:focus-visible) {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

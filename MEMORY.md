@@ -6,6 +6,54 @@
 
 ---
 
+## 2026-10-14 — Restyle foundations, two pages, and two owner changes on the way
+
+**Summary:** A restyle session (the prompt is `design/RESTYLE_PROMPT.md`): audit of all 13 pages,
+the tokens and 13 Blade components of `design/DESIGN.md`, then `/register` and `/sign-in`. The
+owner added two changes mid-session: the birthday event title now carries the iCare, and Google
+sign-in can ask for the birthday behind `IFGF_GOOGLE_BIRTHDAY`. 267 → 275 tests.
+
+### Learned
+
+- **The tests pin raw HTML, so a restyle can break them without touching behaviour.** `/register`
+  must not contain the string `readonly` unless Google supplied the email (the Tailwind variant
+  `read-only:` is fine); `IFGF Taipei / 台北` and the member's short code must each stay one
+  unbroken string. `x-qr-card` therefore shows the code in two groups with `aria-hidden` and keeps
+  the real code in an `sr-only` span.
+- **`x-input` and `x-select` read `name` and `hint` from the `x-field` around them** with
+  `@aware([...])` followed by `@props(['name' => null, ...])`. `@aware` only sees what was passed
+  to the parent as an attribute, never a parent's default.
+- **A submitting button is `aria-busy`, not `disabled`.** A disabled button drops its own
+  `name`/`value` from the form, and the usher screens submit through named buttons.
+- **`x-button` is natural width from 768 px, but a grid stretches it.** Wrap it in a `div`.
+- **Socialite caches the driver.** `->scopes()` adds to it and the scope stays for the life of
+  the app (a test caught the birthday scope surviving its switch); use `->setScopes()`.
+- **The components page has no route.** `resources/views/design/components.blade.php` is rendered
+  by hand into `public/build/_design/components.html` (ignored by Git, emptied by every
+  `npm run build`): in `php artisan tinker`, `View::share('errors', ...)` with a `ViewErrorBag`
+  holding errors for `demo_error`, `demo_select_error`, `demo_radio_error`, then
+  `file_put_contents(..., view('design.components', ['qr' => app(QrIssuer::class)->svg('x')])->render())`.
+- **A true 375 px screenshot:** the browser pane crops captures after scrolling, and headless Edge
+  will not open narrower than about 500 px. Load the page in a 375 px `iframe` on a throwaway
+  HTML file under `public/build/`, screenshot that with `msedge --headless=new`, crop.
+- **Port 8080 was held by another chat's dev server.** `preview_start` by name fails; opening
+  `http://localhost:8080/...` by URL works.
+- A Bash heredoc fed to Python turns `\\` into `\`: write the script to a file instead.
+
+### Failed, or not done
+
+- **No signed-in page was seen in a browser** — the pane had no session. The nine signed-in pages
+  were audited from their Blade source only; the audit is in the session, not in a file.
+- **`/security-review` was not run** on this session's changes. `STANDARDS.md` §3–§4 were checked
+  by hand: no new route, the Google token is never logged, the birthday is validated and stays in
+  the encrypted session, the sign-in page says what is asked and why.
+- **The Google birthday was tested only against faked answers.** The real thing needs the People
+  API enabled in the Cloud project and the scope on the consent screen. The scope is sensitive:
+  a published app shows "Google hasn't verified this app" until Google verifies it.
+- The dev Google calendar still shows the old event titles until `ifgf:calendar:sync` is run.
+- Left alone because they are not views: Laravel's default error wording ("The email field is
+  required."), the language switch of `DESIGN.md` §4, a confirmation before "Remove" from a team.
+
 ## 2026-10-13 — Security and privacy review of everything built so far
 
 > No entry exists for the sessions of 2026-10-12 and 2026-10-13 that built registration, sign-in,

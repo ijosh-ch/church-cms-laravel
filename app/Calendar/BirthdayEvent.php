@@ -9,11 +9,11 @@ use App\Models\Member;
 /**
  * What a member's birthday looks like in the calendar (PRD FR-6).
  *
- *   Title        🎂 Alicia Ardella (林淑愛)'s Birthday
+ *   Title        🎂 Alicia Ardella (iCare Hsinchu)'s Birthday
+ *                🎂 Budi Santoso (no iCare)'s Birthday
  *   Description  English Name: Alicia Ardella
  *                Chinese Name: 林淑愛
  *                Year of Birth: 2002
- *                iCare: iCare Hsinchu
  *
  * An all-day event on the day of birth, repeating every year until the birth year + 99,
  * with reminders one week and one day before. Nothing in it changes from year to year, so
@@ -39,19 +39,18 @@ final readonly class BirthdayEvent
     public static function forMember(Member $member): self
     {
         $birthday = $member->birthday;
-        $icare = $member->icareTeam?->name;
+        $icare = trim(preg_replace('/\s+/u', ' ', (string) $member->icareTeam?->name));
         $name = trim(preg_replace('/\s+/', ' ', $member->full_name));
         $chineseName = trim(preg_replace('/\s+/u', ' ', (string) $member->chinese_name));
 
         return new self(
-            title: $chineseName === ''
-                ? "🎂 {$name}'s Birthday"
-                : "🎂 {$name} ({$chineseName})'s Birthday",
+            title: $icare === ''
+                ? "🎂 {$name} (no iCare)'s Birthday"
+                : "🎂 {$name} (iCare {$icare})'s Birthday",
             description: implode("\n", [
                 'English Name: '.$name,
                 'Chinese Name: '.($chineseName === '' ? '-' : $chineseName),
                 'Year of Birth: '.$birthday->year,
-                'iCare: '.($icare === null ? '-' : 'iCare '.$icare),
             ]),
             date: $birthday->toDateString(),
             until: $birthday->copy()->addYears(self::YEARS)->toDateString(),

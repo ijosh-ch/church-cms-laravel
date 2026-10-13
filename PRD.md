@@ -101,6 +101,10 @@ On submit: normalise the phone; look for an existing member by **email or phone*
   a one-time link (15 minutes, single use, only its hash stored).
 - **Google:** Socialite; accept only a Google-verified email and match it to `members.email`. No
   match → the registration form with the email filled in.
+  With `IFGF_GOOGLE_BIRTHDAY=true` the sign-in also asks for Google's birthday permission and,
+  for a new person only, fills the birthday in — still editable, and the form still asks when
+  Google has none, has no year, or the person says no (owner, 2026-10-14). The scope is
+  sensitive: Google must verify the app before it is switched on in production.
 - Either way sets `email_verified_at`. Sessions in the database, secure cookies.
 - Signed in, a member sees their QR, their attendance history, and edits their own profile —
   every FR-1 field except email. A change to name, birthday or iCare re-syncs the calendar (FR-6).
@@ -143,9 +147,9 @@ One addition for family members who have no education level: age under 13 → Ki
 
 - **Calendar sync (legacy behaviour kept).** One all-day event per member in the church birthday
   calendar, repeating yearly until birth year + 99, reminders at 1 week and 1 day.
-  Title `🎂 {full_name} ({chinese_name})'s Birthday`; the bracket is left out when there is no
-  Chinese name. Description, one per line: `English Name:`, `Chinese Name:`, `Year of Birth:`,
-  `iCare:` (owner, 2026-10-13). No age in the calendar: it would have to be rewritten every
+  Title `🎂 {full_name} (iCare {name})'s Birthday`, or `(no iCare)` for a member who has not
+  joined one. Description, one per line: `English Name:`, `Chinese Name:`, `Year of Birth:`
+  (owner, 2026-10-14). No age in the calendar: it would have to be rewritten every
   year; the app can show it later. The event id lives in `members.calendar_event_id`.
   `ifgf:calendar:sync --prune` counts the events that belong to no member and, with `--commit`,
   removes them — never on the live calendar before the import has adopted the legacy event ids. A change to birthday,

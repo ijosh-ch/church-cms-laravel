@@ -44,6 +44,7 @@ class RegistrationController extends Controller
             'saved' => $request->session()->get(self::STEP_ONE, []) + array_filter([
                 'email' => $google['email'] ?? null,
                 'full_name' => $google['name'] ?? null,
+                'birthday' => $google['birthday'] ?? null,
             ]),
         ]);
     }

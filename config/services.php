@@ -50,6 +50,9 @@ return [
             'client_id' => env('GOOGLE_CLIENT_ID', $client['client_id'] ?? null),
             'client_secret' => env('GOOGLE_CLIENT_SECRET', $client['client_secret'] ?? null),
             'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+            // Also ask Google for the birthday, to fill in the registration form (PRD FR-2).
+            // Off by default: it is a sensitive scope, and the Cloud project needs the People API.
+            'birthday' => (bool) env('IFGF_GOOGLE_BIRTHDAY', false),
         ];
     })(),
 

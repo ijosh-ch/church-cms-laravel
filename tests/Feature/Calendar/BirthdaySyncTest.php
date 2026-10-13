@@ -34,9 +34,9 @@ class BirthdaySyncTest extends TestCase
     {
         $event = BirthdayEvent::forMember($this->alicia());
 
-        $this->assertSame("🎂 Alicia Ardella (林淑愛)'s Birthday", $event->title);
+        $this->assertSame("🎂 Alicia Ardella (iCare Hsinchu)'s Birthday", $event->title);
         $this->assertSame(
-            "English Name: Alicia Ardella\nChinese Name: 林淑愛\nYear of Birth: 2002\niCare: iCare Hsinchu",
+            "English Name: Alicia Ardella\nChinese Name: 林淑愛\nYear of Birth: 2002",
             $event->description,
         );
         $this->assertSame('2002-04-22', $event->date);
@@ -57,9 +57,9 @@ class BirthdaySyncTest extends TestCase
 
         $event = BirthdayEvent::forMember($member);
 
-        $this->assertSame("🎂 Budi Santoso's Birthday", $event->title);
+        $this->assertSame("🎂 Budi Santoso (no iCare)'s Birthday", $event->title);
         $this->assertStringContainsString("English Name: Budi Santoso\nChinese Name: -\n", $event->description);
-        $this->assertStringEndsWith('iCare: -', $event->description);
+        $this->assertStringNotContainsString('iCare', $event->description);
     }
 
     public function test_a_stored_name_with_line_breaks_cannot_add_lines_to_the_event(): void
@@ -72,7 +72,7 @@ Year of Birth: 1900
 
         $event = BirthdayEvent::forMember($member);
 
-        $this->assertCount(4, explode('
+        $this->assertCount(3, explode('
 ', $event->description));
         $this->assertStringNotContainsString('
 ', $event->title);
@@ -120,15 +120,15 @@ Year of Birth: 1900
         $this->assertSame('2101-05-01', $this->calendar->events[$eventId]->until);
     }
 
-    public function test_changing_the_name_changes_the_title_and_the_icare_the_description(): void
+    public function test_changing_the_name_or_the_icare_changes_the_title(): void
     {
         $member = $this->alicia();
         $eventId = $member->fresh()->calendar_event_id;
 
         $member->update(['full_name' => 'Alice Ardella', 'icare_team_id' => Team::where('name', 'Grace')->value('id')]);
 
-        $this->assertSame("🎂 Alice Ardella (林淑愛)'s Birthday", $this->calendar->events[$eventId]->title);
-        $this->assertStringContainsString('iCare: iCare Grace', $this->calendar->events[$eventId]->description);
+        $this->assertSame("🎂 Alice Ardella (iCare Grace)'s Birthday", $this->calendar->events[$eventId]->title);
+        $this->assertStringNotContainsString('iCare', $this->calendar->events[$eventId]->description);
     }
 
     public function test_a_change_the_calendar_does_not_show_leaves_it_alone(): void

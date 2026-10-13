@@ -55,6 +55,10 @@ Roles, not hues, are used in views (`bg-surface`, `text-ink-muted`). Ratios are 
 
 Category badges (text / background, light): Kids `#92400E` / `#FEF3C7` · Teens and Youth `#115E59` /
 `#CCFBF1` · College `#5B21B6` / `#EDE9FE` · Adult `#1E40AF` / `#DBEAFE`. All above 6:1.
+In views they are the roles `cat-kids`, `cat-teens`, `cat-college`, `cat-adult`, each with a `-soft`.
+
+The Google mark keeps Google's own four colours — `google-blue` `#4285F4`, `google-green` `#34A853`,
+`google-yellow` `#FBBC05`, `google-red` `#EA4335` — used inside `<x-icon name="google" />` and nowhere else.
 
 Rules: one accent (`primary`). Status colour is always paired with an icon and a word. Never put
 `ink-subtle` on `canvas` for text that must be read. The accent is a placeholder until §11.1.
@@ -84,7 +88,8 @@ No text below 13 px. No all-caps. Sentence case everywhere. Numbers in tables ar
 - **Depth:** a 1 px `line` border, not a shadow. One shadow only, for things that float over the
   page (sheet, menu, toast): `0 8px 24px rgb(15 23 42 / 0.12)`.
 - **Motion:** 150 ms ease-out for colour and opacity; 220 ms for a sheet or toast sliding in.
-  Nothing loops. All motion is removed under `prefers-reduced-motion`.
+  Nothing loops, except the spinner of a button that is submitting. All motion is removed under
+  `prefers-reduced-motion`; the spinner then stands still.
 - **Breakpoints:** phone below 768 · tablet 768 · desktop 1024 and up.
 - **Sizes:** tap target at least 44 × 44; control height 48 on phones, 44 on desktop;
   form column at most 560; reading column 720; tables up to 1200.
@@ -129,6 +134,7 @@ Each is one Blade component. Variants are props, never copied markup.
 | `x-month-nav` | Previous / month name / next, plus "Today". Used by birthdays and attendance. |
 | `x-sheet` | Bottom sheet on phones, centred dialog on desktop, for one short task or a confirmation. Focus is trapped and returns to the trigger. |
 | `x-skeleton` | Grey blocks in the shape of the content while a list loads. No spinners for whole pages. |
+| `x-icon` | The one place an icon's path is written: `<x-icon name="check-circle" />`, 20 px by default, `size="24"` in navigation. Always `aria-hidden`; the words beside it, or the parent's `aria-label`, carry the meaning. |
 
 ## 6. Patterns
 
@@ -209,6 +215,7 @@ For iCare leaders (their own group) and IT admins (the whole church). Nobody els
 3. **Birthday calendar grid.** PRD FR-6 lists a birthday *table* with a month picker. The calendar
    view in §8 is a second way to show the same data and needs one line added to FR-6.
 4. **Required marks.** §5 marks the few optional fields instead of starring the many required ones.
+   *Decided 2026-10-13: "(optional)" on the optional fields, no asterisks.*
 
 ## 12. Tailwind 4 mapping
 
@@ -228,10 +235,20 @@ Tokens live in `resources/css/app.css`; views use the generated utilities (`bg-s
     --color-danger: #991B1B;      --color-danger-soft: #FEF2F2;
     --color-danger-solid: #B91C1C;
     --color-birthday: #9D174D;    --color-birthday-soft: #FDF2F8;
-    --radius-control: 10px;       --radius-card: 14px;
+    --color-cat-kids: #92400E;    --color-cat-kids-soft: #FEF3C7;
+    --color-cat-teens: #115E59;   --color-cat-teens-soft: #CCFBF1;
+    --color-cat-college: #5B21B6; --color-cat-college-soft: #EDE9FE;
+    --color-cat-adult: #1E40AF;   --color-cat-adult-soft: #DBEAFE;
+    --color-google-blue: #4285F4; --color-google-green: #34A853;
+    --color-google-yellow: #FBBC05; --color-google-red: #EA4335;
+    --radius-control: 10px;       --radius-card: 14px;      --radius-sheet: 20px;
     --shadow-float: 0 8px 24px rgb(15 23 42 / 0.12);
 }
 ```
+
+The type styles of §3.2 are utilities too — `text-display`, `text-title`, `text-heading`,
+`text-body`, `text-label`, `text-caption` — each carrying its size, line height and weight.
+`font-sans` is the stack of §3.2. `focus-ring` is the focus style of §3.3.
 
 The dark values of §3.1 override the same variables under `prefers-color-scheme: dark`.
 

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\RegistrationController;
 use App\Models\Member;
+use App\Services\GoogleBirthday;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,20 +20,24 @@ use Throwable;
 
 /**
  * PRD FR-2 — sign in with Google. Only an email that Google has verified is accepted, and it
- * is matched to members.email. No match: on to the registration form with that email filled in.
+ * is matched to members.email. No match: on to the registration form with that email filled in,
+ * and the birthday too when the switch is on and the person lets Google share it.
  */
 class GoogleController extends Controller
 {
-    public function redirect(): RedirectResponse|SymfonyRedirectResponse
+    public function redirect(GoogleBirthday $birthdays): RedirectResponse|SymfonyRedirectResponse
     {
         if (! config('services.google.client_id')) {
             return $this->backToSignIn(__('Google sign-in is not set up on this server.'));
         }
 
-        return Socialite::driver('google')->redirect();
+        // Set, not added: the driver may outlive one request, and scopes must not pile up on it.
+        $scopes = ['openid', 'profile', 'email', ...($birthdays->enabled() ? [GoogleBirthday::SCOPE] : [])];
+
+        return Socialite::driver('google')->setScopes($scopes)->redirect();
     }
 
-    public function callback(Request $request): RedirectResponse
+    public function callback(Request $request, GoogleBirthday $birthdays): RedirectResponse
     {
         try {
             $google = Socialite::driver('google')->user();
@@ -59,6 +64,8 @@ class GoogleController extends Controller
             $request->session()->put(RegistrationController::GOOGLE, [
                 'email' => $email,
                 'name' => trim((string) $google->getName()),
+                // Asked only for someone who is about to fill in the form; a member's is on record.
+                'birthday' => $birthdays->fetch($google->token ?? null),
             ]);
 
             return redirect()->route('register');
