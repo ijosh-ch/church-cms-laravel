@@ -64,6 +64,9 @@
 - **Before WP8:** two or three real LINE recaps, pasted in chat — never committed.
 - **Any time:** the ten defaults in `PRD.md` §7; fix `EXECUTION_PLAN.md` WP1 step 6
   (`make:enum Foo --string`).
+- **When ready to leave the fork:** signed in as `ifgf-tpe`, create an empty private repository
+  `members` and give `ijosh-ch` push access. Then run `docs/MOVE_TO_MEMBERS_REPO_PROMPT.md` in its
+  own session, answering D1–D5. Features built before then come along.
 
 ## Waiting on the owner's yes
 

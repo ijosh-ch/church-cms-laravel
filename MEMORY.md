@@ -77,6 +77,16 @@ waiting on the owner (`TODO.md`, "Waiting on the owner's yes").
   Writing them as controller method parameters halved it.
 - The migration `add_profile_reminded_at_to_members` (another session's, uncommitted) is still
   pending in `ifgf_app`.
+- **The app holds no GegoSoft code.** Since `fd25235` it shares no source file with ChurchCMS,
+  only boilerplate lines. But `dev` still sits on GegoSoft's 323 commits, and the GitHub repo is
+  a public fork whose `main` shows their app. The owner chose to keep the two separate, do
+  feature work first, and later move the app to `ifgf-tpe/members`, which is a GitHub **user**
+  account, not an organisation. The prompt for that is `docs/MOVE_TO_MEMBERS_REPO_PROMPT.md`.
+  Its history-replay script was tested on a throwaway clone: 9 commits, identical tree, the
+  same hashes on every run.
+- **The ChurchCMS Laravel 10 → 13 upgrade already exists** on `contrib/laravel-supported-platform`
+  (August). It boots and builds but is not behaviour-tested, and its Vue 2 frontend has 166 npm
+  advisories. That is a possible pull request to GegoSoft, not a base for this app.
 
 ## 2026-10-14 — Restyle foundations, two pages, and two owner changes on the way
 
