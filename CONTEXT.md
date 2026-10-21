@@ -3,7 +3,7 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-10-14 · **Branch:** `dev`, seven commits ahead of `origin/dev`, nothing
+**Updated:** 2026-10-21 · **Branch:** `dev`, seven commits ahead of `origin/dev`, nothing
 pushed · **Stage:** registration, Google sign-in, profile, birthday calendar, roles, admin member
 management and the usher screens are built and reviewed once; the restyle to `design/DESIGN.md`
 has its foundations and two pages. `TODO.md` lists what is not built yet.
@@ -20,7 +20,7 @@ Nothing is deployed; the legacy Google Form and Apps Script are still the live s
 The tree is a clean Laravel 13.35 app. The GegoSoft fork survives only on
 `feat/postgresql-multisite`.
 
-**Numbers:** 275/275 tests on `ifgf_app_test`; 28 routes; `composer audit` and `npm audit` clean.
+**Numbers:** 282/282 tests on `ifgf_app_test`; 27 routes; `composer audit` and `npm audit` clean.
 12 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
 no passwords).
 **Data model:** the ERD and the class diagrams are in `README.md` → "Data model". `DATA_MODEL.md`
@@ -28,11 +28,18 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
 
 ## What is built
 
-- **Registration** — `/register` (page one, 9 fields) → `/register/details` (page two, 4 fields;
-  skipped by a visitor) → `/me` with the QR, or `/register/done` for someone already registered
-  **or already signed in** (an usher helping a newcomer stays the usher).
-  `Services/MemberRegistrar`, `Services/QrIssuer` (256-bit token: hash + encrypted copy +
-  8-character code), `Mail/WelcomeWithQr` (queued; carries nothing the registrant typed).
+- **Registration** — one page since 2026-10-21: full name, email, WhatsApp (country code first,
+  `Enums/PhoneCountry` checks the mobile shape), birthday, branch, iCare, "come again?" (No →
+  visitor). → `/me` with the QR, or `/register/done` for someone already registered or already
+  signed in. A registered phone is refused (`Rules/NotRegistered`; a child under 13 may share a
+  parent's). Chinese name, Line ID, domicile, occupation, education and school are asked later:
+  `Member::needsProfile()` drives a card on `/me` and a note on `/profile`, and
+  `ifgf:profile:remind` (daily 19:00 Taipei) sends one email seven days after registering
+  (`members.profile_reminded_at`). `Services/MemberRegistrar`, `Services/QrIssuer` (256-bit
+  token: hash + encrypted copy + 8-character code), `Mail/WelcomeWithQr` (queued; carries
+  nothing the registrant typed).
+- **Deployment** — not deployed. `docs/DEPLOY.md` is the procedure: only a Git tag travels,
+  never development data; the guards it names are built in WP2S.
 - **Sign-in** — `/sign-in` offers Google or "Register without Google". A Google-verified email
   that matches a member signs them in; an unknown one goes to `/register` with the email fixed.
   There is no email sign-in link yet. The remember cookie is set but Laravel ignores it, so
@@ -61,7 +68,7 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
   (light theme only, placeholder blue). Components in `resources/views/components/`: `button`,
   `field`, `input`, `select`, `radio-cards`, `alert`, `card`, `badge`, `list` + `list.item`,
   `empty`, `steps`, `qr-card`, `icon`. `layouts/guest.blade.php` is the signed-out column.
-  **Restyled:** `/sign-in`, `/register`. **Still old** (`stone-*`/`sky-*`, `x-form.field`,
+  **Restyled:** `/sign-in`, `/register`, and the card on `/me`. **Still old** (`stone-*`/`sky-*`, `x-form.field`,
   `layouts/app.blade.php`): every other page. `resources/js/app.js` holds the button loading
   state, focus on the error summary and "Copy the code". All components in every state:
   `resources/views/design/components.blade.php`, rendered by hand (newest `MEMORY.md` entry).

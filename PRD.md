@@ -65,27 +65,40 @@ The first IT admin is created by an artisan command, never through a web form.
 
 ## 3. Functional requirements
 
-### FR-1 Registration — parity with the Google Form
+### FR-1 Registration — the basics first
 
-Public form, always open, throttled. Two steps, exactly as the form branches today.
+Public form, always open, throttled. **One page with only the basics, so a newcomer is done in a
+minute; the rest of the profile is asked for afterwards** (owner, 2026-10-21 — this replaces the
+two-page parity with the Google Form). The same 13 fields are kept; only *when* they are asked
+changes.
 
-| # | Form label | Column | Req. | Notes |
+| # | Form label | Column | On the form | Notes |
 |---|---|---|---|---|
-| 1 | Email | `email` | yes | lower-cased, unique |
-| 2 | Full Name (passport / ARC) | `full_name` | yes | |
-| 3 | Chinese Name | `chinese_name` | no | |
-| 4 | Tanggal Lahir | `birthday` | yes | |
-| 5 | Domisili Taiwan | `domicile_taiwan` | yes | free text, e.g. "Taipei - Da'an" |
-| 6 | Line ID | `line_id` | no | |
-| 7 | WhatsApp Number | `phone` | yes | stored E.164, default region TW |
-| 8 | Domisili Gereja IFGF | `branch_id` | yes | Taipei / Zhongli |
-| 9 | Plan to attend again? | `status` | yes | **No → `visitor`, form ends here** |
-| 10 | Profesi saat ini | `occupation` | yes* | `worker`, `student`, `homemaker`, or typed text |
-| 11 | Tingkat Pendidikan | `education_level` | no | `sd smp sma diploma s1 s2 s3` |
-| 12 | Sekolah / Kampus / Perusahaan | `school_or_company` | yes* | typeahead, FR-4 |
-| 13 | iCare | `icare_team_id` | yes* | active iCare teams, or "Belum mengikuti" = null |
+| 1 | Full Name (passport / ARC) | `full_name` | yes, required | |
+| 2 | Email | `email` | yes, required | lower-cased, unique |
+| 3 | WhatsApp Number | `phone` | yes, required | stored E.164; the country code is chosen first (`phone_country`, default +886) and the number must have that country's mobile shape (owner, 2026-10-21) |
+| 4 | Tanggal Lahir | `birthday` | yes, required | |
+| 5 | Domisili Gereja IFGF | `branch_id` | yes, required | Taipei / Zhongli |
+| 6 | iCare | `icare_team_id` | yes, required | active iCare teams, or "Belum mengikuti" = null |
+| 7 | Plan to attend again? | `status` | yes, required | **No → `visitor`**, Yes → `active` |
+| 8 | Chinese Name | `chinese_name` | profile | optional |
+| 9 | Line ID | `line_id` | profile | optional |
+| 10 | Domisili Taiwan | `domicile_taiwan` | profile | free text, e.g. "Taipei - Da'an" |
+| 11 | Profesi saat ini | `occupation` | profile | `worker`, `student`, `homemaker`, or typed text |
+| 12 | Tingkat Pendidikan | `education_level` | profile | optional; `sd smp sma diploma s1 s2 s3` |
+| 13 | Sekolah / Kampus / Perusahaan | `school_or_company` | profile | typeahead, FR-4 |
 
-\* only when 9 = Yes. After step 2 the registrant may add family members (FR-3).
+**The rest of the profile.** A member who plans to come again and has not filled in 10, 11 and 13
+sees "Complete your profile" on their QR page, and the profile page says what is missing. Seven
+days after registering they get **one** reminder email (`ifgf:profile:remind`, daily at 19:00
+Taipei; `members.profile_reminded_at` keeps it to one). A visitor is never asked. Until occupation
+is known, the category formula of FR-5 runs on what there is — the owner reviews the formula
+against the workbook later.
+
+**WhatsApp number and Line ID are unique** (owner, 2026-10-15): the form refuses a number, and the
+profile a Line ID, that another member already has, and says so. The phone is compared normalised,
+the Line ID ignoring case. A child under 13 may give a parent's number (they will be linked through
+the household, FR-3). An IT admin's edit is not checked.
 
 On submit: normalise the phone; look for an existing member by **email or phone**.
 - Found → change nothing, email that member a sign-in link, show the same success page (no
@@ -93,7 +106,8 @@ On submit: normalise the phone; look for an existing member by **email or phone*
 - New → create the member, compute the category (FR-5), issue a QR (FR-7), queue the welcome email
   with the QR, queue the birthday event (FR-6), sign the registrant in, show their QR.
 
-*Done when:* the 13 fields, the visitor branch and the duplicate rule are each covered by a test.
+*Done when:* the seven fields, the visitor answer, the duplicate rule, the profile card and the
+one reminder are each covered by a test.
 
 ### FR-2 Sign-in and member self-service
 
@@ -185,6 +199,10 @@ occurrence. Types: `sunday_service`, `icare`, `worship_night`, `class`, `special
 for that date — no scheduled job inserts weeks. Seeded: Sunday Service for each branch, and one
 weekly iCare event per iCare team. An IT admin adds the rest (Worship Night, a discipleship class,
 Christmas, Passover).
+
+**Later, not in this PRD (owner, 2026-10-21):** special events — created by the usher leader, with
+registration, limited places and tickets — move to a separate app in its own repository, open only
+to the usher leader and the IT admin (`ROADMAP.md` M8). Its check-ins come back here as attendances.
 
 ### FR-9 Weekly iCare attendance
 
@@ -301,7 +319,8 @@ members         id, public_ref (uuid), household_id?, household_role?, branch_id
                 birthday?, domicile_taiwan?, occupation?, education_level?, school_or_company?,
                 category, status (active|inactive|visitor),
                 qr_token_hash? (unique), qr_token_enc?, short_code? (unique),
-                calendar_event_id?, calendar_synced_at?, email_verified_at?, remember_token,
+                calendar_event_id?, calendar_synced_at?, profile_reminded_at?,
+                email_verified_at?, remember_token,
                 legacy_ref?, timestamps, deleted_at
 events          id, type, name, branch_id?, team_id?, recurrence, weekday?, is_active
 occurrences     id, event_id, occurs_on, locked_at?                  unique(event_id, occurs_on)

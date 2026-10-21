@@ -7,7 +7,9 @@ namespace App\Http\Requests;
 use App\Enums\EducationLevel;
 use App\Enums\MemberStatus;
 use App\Enums\TeamType;
+use App\Models\Member;
 use App\Models\Team;
+use App\Rules\NotRegistered;
 use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -48,14 +50,14 @@ class UpdateProfileRequest extends FormRequest
             'chinese_name' => ['nullable', 'string', 'max:255', new PersonName],
             'birthday' => ['required', 'date', 'after:1900-01-01', 'before:today'],
             'domicile_taiwan' => ['required', 'string', 'max:255'],
-            'line_id' => ['nullable', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:32', new PhoneNumber],
+            'line_id' => ['nullable', 'string', 'max:255', new NotRegistered('line_id', $this->user())],
+            'phone' => ['required', 'string', 'max:32', new PhoneNumber, new NotRegistered('phone', $this->user(), $this->input('birthday'))],
             'branch' => ['required', 'string', Rule::exists('branches', 'code')->where('is_active', true)],
-            'occupation' => [$pageTwo, Rule::in(RegisterMemberRequest::OCCUPATIONS)],
+            'occupation' => [$pageTwo, Rule::in(Member::OCCUPATIONS)],
             'occupation_other' => ['nullable', 'required_if:occupation,other', 'string', 'max:100'],
             'education_level' => ['nullable', Rule::enum(EducationLevel::class)],
             'school_or_company' => [$pageTwo, 'string', 'max:255'],
-            'icare' => [$pageTwo, Rule::in([RegisterMemberRequest::NO_ICARE, ...$icareIds])],
+            'icare' => [$pageTwo, Rule::in([Member::NO_ICARE, ...$icareIds])],
         ];
     }
 

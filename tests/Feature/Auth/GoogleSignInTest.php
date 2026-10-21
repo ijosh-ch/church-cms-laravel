@@ -98,8 +98,7 @@ class GoogleSignInTest extends TestCase
         $this->get('/auth/google/callback');
 
         // A posted email is ignored: the address is the one Google vouched for.
-        $this->post('/register', $this->stepOne(['email' => 'someone.else@example.com']));
-        $this->post('/register/details', $this->stepTwo())->assertRedirect('/me');
+        $this->post('/register', $this->stepOne(['email' => 'someone.else@example.com']))->assertRedirect('/me');
 
         $member = Member::sole();
 
@@ -110,7 +109,7 @@ class GoogleSignInTest extends TestCase
         $this->assertNull(session('registration.google'));
     }
 
-    public function test_a_visitor_can_finish_after_google_on_page_one(): void
+    public function test_a_visitor_can_finish_after_google(): void
     {
         $this->googleReturns(['email' => 'new.person@example.com', 'email_verified' => true]);
         $this->get('/auth/google/callback');
@@ -261,23 +260,8 @@ class GoogleSignInTest extends TestCase
             'line_id' => '',
             'phone' => '0987 654 321',
             'branch' => 'ZL',
-            'attend_again' => 'yes',
-            ...$overrides,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $overrides
-     * @return array<string, mixed>
-     */
-    private function stepTwo(array $overrides = []): array
-    {
-        return [
-            'occupation' => 'worker',
-            'occupation_other' => '',
-            'education_level' => '',
-            'school_or_company' => 'Demo Company',
             'icare' => (string) Team::where('name', 'Grace')->value('id'),
+            'attend_again' => 'yes',
             ...$overrides,
         ];
     }

@@ -4,31 +4,60 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\EducationLevel;
+use App\Enums\PhoneCountry;
 use App\Enums\TeamType;
+use App\Http\Controllers\RegistrationController;
+use App\Models\Member;
 use App\Models\Team;
+use App\Rules\NotRegistered;
+use App\Rules\PersonName;
+use App\Rules\PhoneNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Page two of the registration form — fields 10 to 13 of PRD FR-1, asked only of people who
- * plan to attend again.
+ * The registration form — the basics of PRD FR-1, on one page. The rest of the profile is filled
+ * in later, on the profile page.
  */
 class RegisterMemberRequest extends FormRequest
 {
-    /** The three choices of "Profesi saat ini"; `other` takes typed text. */
-    public const OCCUPATIONS = ['worker', 'student', 'homemaker', 'other'];
-
-    /** "Belum mengikuti" — not in an iCare group yet. */
-    public const NO_ICARE = 'none';
-
     /**
      * Registration is public.
      */
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // After "Continue with Google" the email is the one Google vouched for, whatever is posted.
+        $google = $this->hasSession() ? $this->session()->get(RegistrationController::GOOGLE) : null;
+
+        $this->merge([
+            'email' => is_array($google)
+                ? $google['email']
+                : mb_strtolower(trim((string) $this->input('email'))),
+        ]);
+    }
+
+    /**
+     * The phone is checked as one international number: the chosen country code, then what was
+     * typed. The request itself keeps what was typed, so a form sent back shows it unchanged.
+     *
+     * @return array<string, mixed>
+     */
+    public function validationData(): array
+    {
+        $data = $this->all();
+        $country = PhoneCountry::tryFrom((string) $this->input('phone_country'));
+
+        if ($country !== null && is_string($data['phone'] ?? null)) {
+            $data['phone'] = $country->combine($data['phone']);
+        }
+
+        return $data;
     }
 
     /**
@@ -45,27 +74,32 @@ class RegisterMemberRequest extends FormRequest
             ->all();
 
         return [
-            'occupation' => ['required', Rule::in(self::OCCUPATIONS)],
-            'occupation_other' => ['nullable', 'required_if:occupation,other', 'string', 'max:100'],
-            'education_level' => ['nullable', Rule::enum(EducationLevel::class)],
-            'school_or_company' => ['required', 'string', 'max:255'],
-            'icare' => ['required', Rule::in([self::NO_ICARE, ...$icareIds])],
+            'email' => ['required', 'string', 'email:rfc', 'max:255'],
+            'full_name' => ['required', 'string', 'max:255', new PersonName],
+            'birthday' => ['required', 'date', 'after:1900-01-01', 'before:today'],
+            'phone_country' => ['nullable', Rule::enum(PhoneCountry::class)],
+            'phone' => ['required', 'string', 'max:32', new PhoneNumber(strict: true), new NotRegistered('phone', birthday: $this->input('birthday'))],
+            'branch' => ['required', 'string', Rule::exists('branches', 'code')->where('is_active', true)],
+            'icare' => ['required', Rule::in([Member::NO_ICARE, ...$icareIds])],
+            'attend_again' => ['required', Rule::in(['yes', 'no'])],
         ];
     }
 
     /**
-     * The form's own labels, so a message reads "The iCare field is required."
+     * The form's own labels, so a message reads "The WhatsApp Number field is required."
      *
      * @return array<string, string>
      */
     public function attributes(): array
     {
         return [
-            'occupation' => __('Profesi saat ini'),
-            'occupation_other' => __('other occupation'),
-            'education_level' => __('Tingkat Pendidikan'),
-            'school_or_company' => __('Sekolah / Kampus / Perusahaan'),
+            'full_name' => __('Full Name'),
+            'birthday' => __('Tanggal Lahir'),
+            'phone' => __('WhatsApp Number'),
+            'phone_country' => __('Country code'),
+            'branch' => __('Domisili Gereja IFGF'),
             'icare' => 'iCare',
+            'attend_again' => __('Sunday Gathering'),
         ];
     }
 }

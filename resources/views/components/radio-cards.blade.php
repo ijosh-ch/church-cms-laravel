@@ -31,7 +31,7 @@
                 <input type="radio" name="{{ $name }}" value="{{ $option }}"
                     id="{{ $loop->first ? $name : $name.'-'.$option }}"
                     class="size-5 shrink-0 accent-primary outline-none"
-                    @checked($chosen === (string) $option)>
+                    @checked($chosen === (string) $option) @required(! $optional)>
                 <span>{{ $label }}</span>
             </label>
         @endforeach

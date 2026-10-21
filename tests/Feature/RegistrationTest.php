@@ -14,8 +14,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * PRD FR-1 — registration with the 13 fields of the Google Form, its visitor branch and the
- * rule for someone who is already registered.
+ * PRD FR-1 — registration asks only the basics, on one page (owner, 2026-10-21); the rest of the
+ * profile is asked for afterwards. Also its visitor answer and the rule for someone who is already
+ * registered.
  */
 class RegistrationTest extends TestCase
 {
@@ -27,24 +28,30 @@ class RegistrationTest extends TestCase
         Mail::fake();
     }
 
-    public function test_page_one_shows_the_nine_fields_and_says_what_is_collected(): void
+    public function test_the_form_asks_only_the_basics_and_says_what_is_collected(): void
     {
         $response = $this->get('/register')->assertOk();
 
-        foreach (['email', 'full_name', 'chinese_name', 'birthday', 'domicile_taiwan', 'line_id', 'phone', 'branch', 'attend_again'] as $field) {
+        foreach (['full_name', 'email', 'phone_country', 'phone', 'birthday', 'branch', 'icare', 'attend_again'] as $field) {
             $response->assertSee('name="'.$field.'"', false);
+        }
+
+        foreach (['chinese_name', 'domicile_taiwan', 'line_id', 'occupation', 'education_level', 'school_or_company'] as $field) {
+            $response->assertDontSee('name="'.$field.'"', false);
         }
 
         $response->assertSee('What we collect, and why');
         $response->assertSee('IFGF Taipei / 台北');
         $response->assertSee('IFGF Zhongli / 中壢');
+        $response->assertSee('Belum mengikuti');
+        $response->assertSee('iCare Grace');
     }
 
     /**
      * @param  array<string, mixed>  $change
      */
-    #[DataProvider('invalidStepOne')]
-    public function test_page_one_is_validated(array $change, string $field): void
+    #[DataProvider('invalidForm')]
+    public function test_the_form_is_validated(array $change, string $field): void
     {
         $this->post('/register', [...$this->stepOne(), ...$change])->assertSessionHasErrors($field);
 
@@ -54,28 +61,26 @@ class RegistrationTest extends TestCase
     /**
      * @return array<string, array{array<string, mixed>, string}>
      */
-    public static function invalidStepOne(): array
+    public static function invalidForm(): array
     {
         return [
             'email missing' => [['email' => ''], 'email'],
             'email malformed' => [['email' => 'not-an-email'], 'email'],
             'full name missing' => [['full_name' => ''], 'full_name'],
             'full name too long' => [['full_name' => str_repeat('a', 256)], 'full_name'],
-            'chinese name too long' => [['chinese_name' => str_repeat('a', 256)], 'chinese_name'],
             'full name with a link' => [['full_name' => 'Click http://evil.example/claim'], 'full_name'],
             'full name on two lines' => [['full_name' => 'Budi
 Santoso'], 'full_name'],
-            'chinese name with markup' => [['chinese_name' => '<a href="https://evil.example">林</a>'], 'chinese_name'],
             'birthday missing' => [['birthday' => ''], 'birthday'],
             'birthday not a date' => [['birthday' => 'yesterday-ish'], 'birthday'],
             'birthday in the future' => [['birthday' => '2999-01-01'], 'birthday'],
-            'domicile missing' => [['domicile_taiwan' => ''], 'domicile_taiwan'],
-            'line id too long' => [['line_id' => str_repeat('a', 256)], 'line_id'],
             'phone missing' => [['phone' => ''], 'phone'],
             'phone with no digits' => [['phone' => 'call me'], 'phone'],
             'phone too short' => [['phone' => '12345'], 'phone'],
             'branch missing' => [['branch' => ''], 'branch'],
             'branch unknown' => [['branch' => 'XXX'], 'branch'],
+            'icare missing' => [['icare' => ''], 'icare'],
+            'icare unknown' => [['icare' => '999999'], 'icare'],
             'attend again missing' => [['attend_again' => ''], 'attend_again'],
             'attend again unknown' => [['attend_again' => 'maybe'], 'attend_again'],
         ];
@@ -106,118 +111,78 @@ Santoso'], 'full_name'],
         $this->assertAuthenticatedAs($usher);
     }
 
-    public function test_a_visitor_is_stored_after_page_one_and_never_sees_page_two(): void
+    public function test_answering_no_to_coming_again_makes_a_visitor_who_is_not_asked_for_more(): void
     {
         $this->post('/register', $this->stepOne(['attend_again' => 'no']))->assertRedirect('/me');
 
         $member = Member::sole();
 
         $this->assertSame(MemberStatus::Visitor, $member->status);
-        $this->assertNull($member->occupation);
-        $this->assertNull($member->education_level);
-        $this->assertNull($member->school_or_company);
-        $this->assertNull($member->icare_team_id);
         $this->assertNotNull($member->qr_token_hash);
         $this->assertAuthenticatedAs($member);
-    }
-
-    public function test_answering_yes_leads_to_page_two_and_stores_nothing_yet(): void
-    {
-        $this->post('/register', $this->stepOne())->assertRedirect('/register/details');
-
-        $this->assertSame(0, Member::count());
-        $this->assertGuest();
-
-        $response = $this->get('/register/details')->assertOk();
-
-        foreach (['occupation', 'occupation_other', 'education_level', 'school_or_company', 'icare'] as $field) {
-            $response->assertSee('name="'.$field.'"', false);
-        }
-
-        $response->assertSee('Belum mengikuti');
-        $response->assertSee('iCare Grace');
-    }
-
-    public function test_page_two_cannot_be_reached_or_submitted_without_page_one(): void
-    {
-        $this->get('/register/details')->assertRedirect('/register');
-        $this->post('/register/details', $this->stepTwo())->assertRedirect('/register');
-
-        $this->assertSame(0, Member::count());
-    }
-
-    /**
-     * @param  array<string, mixed>  $change
-     */
-    #[DataProvider('invalidStepTwo')]
-    public function test_page_two_is_validated(array $change, string $field): void
-    {
-        $this->post('/register', $this->stepOne());
-
-        $this->post('/register/details', [...$this->stepTwo(), ...$change])->assertSessionHasErrors($field);
-
-        $this->assertSame(0, Member::count());
-    }
-
-    /**
-     * @return array<string, array{array<string, mixed>, string}>
-     */
-    public static function invalidStepTwo(): array
-    {
-        return [
-            'occupation missing' => [['occupation' => ''], 'occupation'],
-            'occupation unknown' => [['occupation' => 'astronaut'], 'occupation'],
-            'other occupation not typed' => [['occupation' => 'other', 'occupation_other' => ''], 'occupation_other'],
-            'education unknown' => [['education_level' => 'phd'], 'education_level'],
-            'school or company missing' => [['school_or_company' => ''], 'school_or_company'],
-            'icare missing' => [['icare' => ''], 'icare'],
-            'icare unknown' => [['icare' => '999999'], 'icare'],
-        ];
+        $this->assertFalse($member->needsProfile());
+        $this->get('/me')->assertDontSee('data-testid="complete-profile"', false);
     }
 
     public function test_a_ministry_team_is_not_an_icare_choice(): void
     {
         $usher = Team::where('name', 'Usher')->sole();
 
-        $this->post('/register', $this->stepOne());
-        $this->post('/register/details', $this->stepTwo(['icare' => (string) $usher->id]))
+        $this->post('/register', $this->stepOne(['icare' => (string) $usher->id]))
             ->assertSessionHasErrors('icare');
     }
 
-    public function test_a_full_registration_stores_all_thirteen_fields(): void
+    public function test_registering_stores_the_basics_and_leaves_the_rest_for_the_profile(): void
     {
         $grace = Team::where('name', 'Grace')->sole();
 
         $this->post('/register', $this->stepOne([
             'email' => '  Demo.Student@Example.com ',
             'phone' => '0912-345-678',
-        ]));
-        $this->post('/register/details', $this->stepTwo())->assertRedirect('/me');
+            // Fields that are no longer on the form are ignored if someone posts them.
+            'chinese_name' => '示範',
+            'occupation' => 'student',
+        ]))->assertRedirect('/me');
 
         $member = Member::sole();
 
         $this->assertSame('demo.student@example.com', $member->email);
         $this->assertSame('Demo Student', $member->full_name);
-        $this->assertSame('示範', $member->chinese_name);
         $this->assertSame('2004-03-15', $member->birthday->toDateString());
-        $this->assertSame("Taipei - Da'an", $member->domicile_taiwan);
-        $this->assertSame('demo.line', $member->line_id);
         $this->assertSame('886912345678', $member->phone);
         $this->assertSame('TPE', $member->branch->code);
-        $this->assertSame(MemberStatus::Active, $member->status);
-        $this->assertSame('student', $member->occupation);
-        $this->assertSame('s1', $member->education_level->value);
-        $this->assertSame('National Taiwan University', $member->school_or_company);
         $this->assertSame($grace->id, $member->icare_team_id);
+        $this->assertSame(MemberStatus::Active, $member->status);
 
-        // Computed, never typed (FR-5).
-        $this->assertSame(MemberCategory::College, $member->category);
+        foreach (['chinese_name', 'line_id', 'domicile_taiwan', 'occupation', 'education_level', 'school_or_company'] as $column) {
+            $this->assertNull($member->{$column}, $column);
+        }
+
+        // Computed, never typed (FR-5): with no occupation yet the formula gives Adult.
+        $this->assertSame(MemberCategory::Adult, $member->category);
+        $this->assertTrue($member->needsProfile());
+    }
+
+    public function test_the_qr_page_asks_for_the_rest_of_the_profile_until_it_is_filled_in(): void
+    {
+        $this->post('/register', $this->stepOne())->assertRedirect('/me');
+
+        $this->get('/me')
+            ->assertSee('data-testid="complete-profile"', false)
+            ->assertSee('Complete my profile')
+            ->assertSee('href="'.route('profile.edit').'"', false);
+        $this->get('/profile')->assertSee('A few details are still missing');
+
+        // The signed-in member is the same object across requests in a test: change that one.
+        auth()->user()->update(['domicile_taiwan' => 'Taipei', 'occupation' => 'worker', 'school_or_company' => 'Demo Company']);
+
+        $this->get('/me')->assertDontSee('data-testid="complete-profile"', false);
+        $this->get('/profile')->assertDontSee('A few details are still missing');
     }
 
     public function test_a_new_member_gets_a_qr_a_welcome_mail_and_is_signed_in(): void
     {
         $this->post('/register', $this->stepOne());
-        $this->post('/register/details', $this->stepTwo());
 
         $member = Member::sole();
 
@@ -232,30 +197,18 @@ Santoso'], 'full_name'],
         $this->assertAuthenticatedAs($member);
     }
 
-    public function test_not_in_an_icare_yet_and_a_typed_occupation_are_stored(): void
+    public function test_not_in_an_icare_yet_is_stored_as_no_icare(): void
     {
-        $this->post('/register', $this->stepOne());
-        $this->post('/register/details', $this->stepTwo([
-            'occupation' => 'other',
-            'occupation_other' => '  Pastor ',
-            'education_level' => '',
-            'icare' => 'none',
-        ]));
+        $this->post('/register', $this->stepOne(['icare' => 'none']));
 
-        $member = Member::sole();
-
-        $this->assertSame('Pastor', $member->occupation);
-        $this->assertNull($member->education_level);
-        $this->assertNull($member->icare_team_id);
-        $this->assertSame(MemberCategory::Adult, $member->category);
+        $this->assertNull(Member::sole()->icare_team_id);
     }
 
     public function test_someone_already_registered_by_email_is_not_changed_and_is_not_told(): void
     {
         $existing = Member::factory()->create(['email' => 'demo.student@example.com', 'full_name' => 'Original Name']);
 
-        $this->post('/register', $this->stepOne(['email' => 'DEMO.student@example.com']));
-        $this->post('/register/details', $this->stepTwo())->assertRedirect('/register/done');
+        $this->post('/register', $this->stepOne(['email' => 'DEMO.student@example.com']))->assertRedirect('/register/done');
 
         $this->assertSame(1, Member::count());
         $this->assertSame('Original Name', $existing->fresh()->full_name);
@@ -269,15 +222,43 @@ Santoso'], 'full_name'],
             ->assertDontSee('already');
     }
 
-    public function test_someone_already_registered_is_found_by_a_differently_written_phone(): void
+    public function test_a_registered_phone_is_refused_on_page_one_however_it_is_written(): void
     {
         Member::factory()->create(['phone' => '886912345678']);
 
-        $this->post('/register', $this->stepOne(['email' => 'someone.else@example.com', 'phone' => '+886 912 345 678']));
-        $this->post('/register/details', $this->stepTwo())->assertRedirect('/register/done');
+        $this->from('/register')
+            ->post('/register', $this->stepOne(['email' => 'someone.else@example.com', 'phone' => '+886 912 345 678']))
+            ->assertRedirect('/register')
+            ->assertSessionHasErrors(['phone' => 'This WhatsApp number is already registered. Sign in with Google, or ask an usher for help.']);
 
         $this->assertSame(1, Member::count());
         $this->assertGuest();
+    }
+
+    public function test_a_child_under_13_may_give_a_parents_registered_phone(): void
+    {
+        Member::factory()->create(['phone' => '886912345678']);
+
+        $this->post('/register', $this->stepOne([
+            'email' => 'demo.child@example.com',
+            'birthday' => now('Asia/Taipei')->subYears(10)->toDateString(),
+            'attend_again' => 'no',
+        ]))->assertSessionHasNoErrors()->assertRedirect('/me');
+
+        $this->assertSame(2, Member::where('phone', '886912345678')->count());
+    }
+
+    public function test_someone_aged_13_may_not_give_a_registered_phone(): void
+    {
+        Member::factory()->create(['phone' => '886912345678']);
+
+        $this->post('/register', $this->stepOne([
+            'email' => 'demo.teen@example.com',
+            'birthday' => now('Asia/Taipei')->subYears(13)->toDateString(),
+            'attend_again' => 'no',
+        ]))->assertSessionHasErrors('phone');
+
+        $this->assertSame(1, Member::count());
     }
 
     public function test_a_visitor_who_is_already_registered_gets_the_same_answer(): void
@@ -289,15 +270,13 @@ Santoso'], 'full_name'],
         $this->assertSame(1, Member::count());
     }
 
-    public function test_page_one_is_kept_when_going_back_and_cleared_when_finished(): void
+    public function test_a_form_sent_back_keeps_what_was_typed(): void
     {
-        $this->post('/register', $this->stepOne());
+        $this->from('/register')->post('/register', $this->stepOne(['phone' => '']))->assertRedirect('/register');
 
-        $this->get('/register')->assertSee('value="Demo Student"', false);
-
-        $this->post('/register/details', $this->stepTwo());
-
-        $this->assertNull(session('registration.step_one'));
+        $this->get('/register')
+            ->assertSee('value="Demo Student"', false)
+            ->assertSee('value="2004-03-15"', false);
     }
 
     public function test_registration_is_throttled(): void
@@ -307,7 +286,6 @@ Santoso'], 'full_name'],
         }
 
         $this->post('/register', [])->assertStatus(429);
-        $this->post('/register/details', [])->assertStatus(429);
     }
 
     public function test_nothing_but_the_listed_fields_can_be_set_through_the_form(): void
@@ -339,31 +317,14 @@ Santoso'], 'full_name'],
     private function stepOne(array $overrides = []): array
     {
         return [
-            'email' => 'demo.student@example.com',
             'full_name' => 'Demo Student',
-            'chinese_name' => '示範',
-            'birthday' => '2004-03-15',
-            'domicile_taiwan' => "Taipei - Da'an",
-            'line_id' => 'demo.line',
+            'email' => 'demo.student@example.com',
+            'phone_country' => '886',
             'phone' => '0912 345 678',
+            'birthday' => '2004-03-15',
             'branch' => 'TPE',
-            'attend_again' => 'yes',
-            ...$overrides,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $overrides
-     * @return array<string, mixed>
-     */
-    private function stepTwo(array $overrides = []): array
-    {
-        return [
-            'occupation' => 'student',
-            'occupation_other' => '',
-            'education_level' => 's1',
-            'school_or_company' => 'National Taiwan University',
             'icare' => (string) Team::where('name', 'Grace')->value('id'),
+            'attend_again' => 'yes',
             ...$overrides,
         ];
     }

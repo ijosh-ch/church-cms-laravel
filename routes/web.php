@@ -27,9 +27,7 @@ Route::controller(GoogleController::class)->middleware('throttle:sign-in')->grou
 
 Route::controller(RegistrationController::class)->group(function () {
     Route::get('register', 'create')->name('register');
-    Route::post('register', 'storeStepOne')->middleware('throttle:registration');
-    Route::get('register/details', 'details')->name('register.details');
-    Route::post('register/details', 'store')->middleware('throttle:registration');
+    Route::post('register', 'store')->middleware('throttle:registration');
     Route::get('register/done', 'done')->name('register.done');
 });
 

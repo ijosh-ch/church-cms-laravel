@@ -1,9 +1,13 @@
 @aware(['name', 'hint' => null])
-@props(['name' => null, 'hint' => null, 'type' => 'text', 'value' => ''])
+@props(['name' => null, 'hint' => null, 'control' => null, 'type' => 'text', 'value' => ''])
 
 @php
+    // The x-field around this control gives it its name, hint and error. A second control in the
+    // same field (the country code before a phone number) passes its own name as `control`.
+    $field = $name;
+    $name = $control ?? $field;
     $invalid = $errors->has($name);
-    $describedBy = trim(($hint ? $name.'-hint ' : '').($invalid ? $name.'-error' : ''));
+    $describedBy = trim(($hint ? $field.'-hint ' : '').($invalid && $name === $field ? $name.'-error' : ''));
 @endphp
 
 <input

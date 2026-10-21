@@ -29,7 +29,7 @@ is built on `dev`, from its own PRD, with the prompt in `SESSION_PROMPT.md`.
 | M5 | Joining the tools together | Grows with each module | M1 |
 | M6 | Growth and engagement analytics | Future | a few quarters of M1 data |
 | M7 | Discipleship journey | Future | M1 |
-| M8 | Event ticketing | Future | M1; M9 for paid tickets |
+| M8 | Events and ticketing — own repository, usher leader only | Future | M1; the M5 API; M9 for paid tickets |
 | M9 | Offerings: cash, transfers, bank matching | Future, last | a treasurer's process agreed first |
 | M10 | Event photo finder | Future | a profile photo per member; the M2 face worker |
 
@@ -183,16 +183,36 @@ derived from it. Serving is already `member_team`. **Decide first:** the list of
 classes (the earlier COME–GROW–SERVE–LEAD analysis is in
 `git show feat/postgresql-multisite:PRD.md`, FR-06), and who records a baptism.
 
-## M8 — Event ticketing
+## M8 — Events and ticketing (its own repository)
 
-**Goal.** Registration for special events — a retreat, Christmas — with limited places, and
-check-in at the door.
+**Goal.** Special events — Passover, Christmas, a retreat — created, opened for registration with
+limited places, and checked in at the door.
 
-**Shape.** `event_registrations (occurrence_id, member_id | guest details, status, ticket_ref)`.
-A member's ticket is their existing QR; a guest gets a ticket QR by email. Check-in is the M1
-usher scan page pointed at that occurrence, so attendance and the M6 reports work unchanged.
-Free events need nothing more. Paid events wait for M9. **Decide first:** capacity and waiting-list
-rules; whether guests may register without becoming members.
+**Its own app, in its own repository (owner, 2026-10-21).** A separate Laravel app, like every
+module here (M5): its own database, its own `PRD.md`, `STANDARDS.md` unchanged. M1 is not
+changed to host it.
+
+**Who gets in.** Only the usher leader — a `leader` of an M1 team with `ability = scan` — and the
+IT admin. Sign-in is the same Google account as M1; the app asks M1 whether that person is the
+usher leader, through the small read-only API of M5. The finer filter (more roles, per-event
+helpers, per-branch leaders) is decided in M8's own PRD.
+
+**Shape.** `events`, `event_dates`, `registrations (event_date, member public_ref | guest details,
+status, ticket_ref)`. A member's ticket is their existing M1 QR; a guest gets a ticket QR by
+email. Each check-in is sent back to M1 as an attendance on that occurrence, so the M1 attendance
+table and the M6 reports work unchanged. Free events first; paid events wait for M9.
+**Decide first:** capacity and waiting-list rules; whether guests may register without becoming
+members; which branch an all-church event belongs to.
+
+**Until M8 exists**, M1 keeps its own events (FR-8): the usher picks the branch and the event
+from two drop-downs on the scan page, and the scans belong to that occurrence.
+
+**Decided (owner, 2026-10-21): adopt Hi.Events.** The repository `ifgf-tpe/events` is a fork of
+[Hi.Events](https://github.com/HiEventsDev/Hi.Events) (Laravel 13, React 19, PostgreSQL, Docker):
+`main` mirrors upstream `main`, the church's work is on `dev`, and its own `PRD.md` holds the
+scope. It already has Google sign-in, sign-up switched off, capacity, QR tickets, check-in lists,
+webhooks and offline payment. AGPL-3.0 with a §7(b) term: "Powered by Hi.Events", linked to
+https://hi.events, stays on every page and email.
 
 ## M9 — Offering and payments
 

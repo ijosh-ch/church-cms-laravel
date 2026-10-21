@@ -57,6 +57,12 @@ class Member extends Authenticatable
     /** @use HasFactory<MemberFactory> */
     use HasFactory, HasUuids, Notifiable, SoftDeletes;
 
+    /** The choices of "Profesi saat ini"; `other` takes typed text. */
+    public const OCCUPATIONS = ['worker', 'student', 'homemaker', 'other'];
+
+    /** "Belum mengikuti" — not in an iCare group yet. */
+    public const NO_ICARE = 'none';
+
     /**
      * @var array<string, mixed>
      */
@@ -91,6 +97,7 @@ class Member extends Authenticatable
             'status' => MemberStatus::class,
             'qr_token_enc' => 'encrypted',
             'calendar_synced_at' => 'datetime',
+            'profile_reminded_at' => 'datetime',
             'email_verified_at' => 'datetime',
         ];
     }
@@ -183,6 +190,16 @@ class Member extends Authenticatable
     }
 
     /** @return HasMany<Attendance, $this> */
+    /**
+     * Registration asks only the basics (PRD FR-1). Someone who plans to come again is asked
+     * for the rest on their QR page, and once by email, until these are filled in.
+     */
+    public function needsProfile(): bool
+    {
+        return $this->status !== MemberStatus::Visitor
+            && ($this->domicile_taiwan === null || $this->occupation === null || $this->school_or_company === null);
+    }
+
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);

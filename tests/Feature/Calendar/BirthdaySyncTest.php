@@ -84,7 +84,10 @@ Year of Birth: 1900
         $event = BirthdayEvent::forMember($this->alicia());
 
         $this->assertStringNotContainsString('Age', $event->description);
-        $this->assertCount(0, app(Schedule::class)->events());
+        // Nothing rewrites the calendar on a timer.
+        foreach (app(Schedule::class)->events() as $event) {
+            $this->assertStringNotContainsString('calendar', (string) $event->command);
+        }
     }
 
     public function test_a_new_member_gets_one_event_and_its_id_is_remembered(): void

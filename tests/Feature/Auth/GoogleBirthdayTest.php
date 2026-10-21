@@ -81,6 +81,7 @@ class GoogleBirthdayTest extends TestCase
             'line_id' => '',
             'phone' => '0987 654 321',
             'branch' => 'ZL',
+            'icare' => 'none',
             'attend_again' => 'no',
         ])->assertRedirect('/me');
 

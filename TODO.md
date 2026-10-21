@@ -9,13 +9,14 @@
 
 ## Now
 
-1. **Next restyle session: `/register/details`.** Start it with `design/RESTYLE_PROMPT.md`; the
-   audit and the foundations are done, so begin at step 3. Order after it: `/register/done`,
-   `/me`, `/profile`, `/usher`, `/usher/scan` (its class names also live in `scanner.js`),
+1. **Next restyle session: `/profile`.** It is now where new members finish their profile, so it
+   matters most. Start with `design/RESTYLE_PROMPT.md` at step 3 (the audit and the foundations
+   are done). Order after it: `/me`, `/register/done`, `/usher`, `/usher/scan` (its class names also live in `scanner.js`),
    `/usher/roster`, `/usher/attendance`, `/admin/members`, the member page, then
-   `layouts/app.blade.php` (bottom bar on phones, sidebar on desktop). Showing "If other, please
-   specify" only for "Other" needs a few lines of script, or Alpine — ask first. When the last
-   page is done: delete `x-form.field` and the unused `welcome.blade.php`.
+   `layouts/app.blade.php` (bottom bar on phones, sidebar on desktop). On the profile, showing
+   "If other, please specify" only for "Other" needs a few lines of script, or Alpine — ask
+   first. When the last page is done: delete `x-form.field` and the unused `welcome.blade.php`.
+   Registration is one page since 2026-10-21; `/register/details` no longer exists.
 2. **Owner: get an admin back in development.** Sign in with Google at `http://localhost:8080`,
    then run `php artisan ifgf:admin:grant <that email>`. Until then no signed-in page can be
    opened in the browser pane, so their restyle cannot be checked by eye.
@@ -23,7 +24,9 @@
    `user.birthday.read` scope to the consent screen, put `IFGF_GOOGLE_BIRTHDAY=true` in `.env`,
    and sign in with an unregistered Google account. Tested so far only against fakes.
 4. **Owner: run `php artisan ifgf:calendar:sync`** so the dev calendar's events get the new
-   title, `🎂 Name (iCare X)'s Birthday`.
+   title, `🎂 Name (iCare X)'s Birthday`. Two made-up members are kept in `ifgf_app` on purpose
+   (`e2e.check.1021@example.test`, `e2e.quick.1021@example.test`); their welcome mail and
+   calendar jobs wait in the queue.
 5. **Owner: decide the remember cookie.** It has never signed anyone in (`Member` has no
    password, so Laravel ignores the cookie); sign-in lasts 120 idle minutes. One line turns on a
    400-day sign-in — for ushers and admins too. See the `MEMORY.md` entry of 2026-10-13.

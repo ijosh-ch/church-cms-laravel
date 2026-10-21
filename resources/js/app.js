@@ -45,3 +45,14 @@ document.addEventListener('click', async (event) => {
     label.textContent = button.dataset.copied;
     setTimeout(() => (label.textContent = original), 2000);
 });
+
+// Registration — the example in the WhatsApp box follows the chosen country code.
+document.querySelectorAll('[data-phone-country]').forEach((select) => {
+    const input = select.closest('form')?.querySelector('[data-phone-number]');
+
+    if (!input) return;
+
+    select.addEventListener('change', () => {
+        input.placeholder = select.selectedOptions[0]?.dataset.example ?? '';
+    });
+});

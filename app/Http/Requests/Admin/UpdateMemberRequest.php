@@ -7,7 +7,7 @@ namespace App\Http\Requests\Admin;
 use App\Enums\EducationLevel;
 use App\Enums\MemberStatus;
 use App\Enums\TeamType;
-use App\Http\Requests\RegisterMemberRequest;
+use App\Models\Member;
 use App\Models\Team;
 use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
@@ -46,11 +46,11 @@ class UpdateMemberRequest extends FormRequest
             'line_id' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:32', new PhoneNumber],
             'branch' => ['required', 'string', Rule::exists('branches', 'code')],
-            'occupation' => ['nullable', Rule::in(RegisterMemberRequest::OCCUPATIONS)],
+            'occupation' => ['nullable', Rule::in(Member::OCCUPATIONS)],
             'occupation_other' => ['nullable', 'required_if:occupation,other', 'string', 'max:100'],
             'education_level' => ['nullable', Rule::enum(EducationLevel::class)],
             'school_or_company' => ['nullable', 'string', 'max:255'],
-            'icare' => ['nullable', Rule::in([RegisterMemberRequest::NO_ICARE, ...$icareIds])],
+            'icare' => ['nullable', Rule::in([Member::NO_ICARE, ...$icareIds])],
             'status' => ['required', Rule::enum(MemberStatus::class)],
         ];
     }

@@ -37,7 +37,7 @@ class SchemaTest extends TestCase
             'institution_id', 'full_name', 'chinese_name', 'email', 'phone', 'line_id',
             'birthday', 'domicile_taiwan', 'occupation', 'education_level', 'school_or_company',
             'category', 'status', 'qr_token_hash', 'qr_token_enc', 'short_code',
-            'calendar_event_id', 'calendar_synced_at', 'email_verified_at', 'remember_token',
+            'calendar_event_id', 'calendar_synced_at', 'profile_reminded_at', 'email_verified_at', 'remember_token',
             'legacy_ref', 'deleted_at',
         ],
         'events' => ['id', 'type', 'name', 'branch_id', 'team_id', 'recurrence', 'weekday', 'is_active'],

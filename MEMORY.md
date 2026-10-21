@@ -6,6 +6,41 @@
 
 ---
 
+## 2026-10-21 — Registration checked end to end, made one page, phone country codes, deploy plan
+
+**Summary:** A made-up person was registered through the browser and every field read back from
+`ifgf_app`. Then, at the owner's request: a country-code picker with a per-country mobile check
+on the WhatsApp number; registration cut to one page of seven questions, the rest asked later
+(card on `/me`, note on `/profile`, one reminder email after seven days); and `docs/DEPLOY.md`,
+the procedure that keeps development data out of production. 282 tests.
+
+### Learned
+
+- **`@aware` beats a prop passed to the child** (`compileProps` does `$$key = $$key ?? $value`
+  after `@aware` set it). A second control inside one `x-field` therefore passes its name as
+  `control="phone_country"`; `x-input`/`x-select` use `$control ?? $name`.
+- **To check a combined value without changing what the form shows back**, override
+  `FormRequest::validationData()`: the validator and `validated()` see `+62…`, while the flashed
+  old input keeps what was typed.
+- **In a feature test the signed-in member is one object across requests**: update it through
+  `auth()->user()`, not a fresh query, or the next page shows the old values.
+- `make:enum Enums/Foo` creates `app/Enums/Enums/Foo.php`; use `make:enum Foo`.
+- `git mv` and `git rm` stage. Reset the index afterwards (`git reset -q`) until the owner says
+  commit.
+- The owner's choices (2026-10-21): quick form = name, email, WhatsApp, birthday, branch, iCare,
+  "come again?"; the category formula stays as in the workbook and is reviewed later; follow-up =
+  card plus one reminder email; keep the two test members in `ifgf_app`.
+
+### Failed, or not done
+
+- The new form was checked at 375 and 1280 px; the Google path into it only by tests.
+- The profile page still validates the phone loosely (10–15 digits) and has no country picker.
+- The reminder email has not been seen in the log (needs `queue:work`); its test covers content.
+- `/security-review` not run on this change. By hand: no new public route (`/register/details`
+  removed), the reminder carries nothing typed, `profile_reminded_at` is not fillable.
+- Headless Edge returned a 404 inside the 375 px frame once after a build; the browser pane at
+  375 px was used instead.
+
 ## 2026-10-21 — Database review and drawing (`DATA_MODEL.md`), read-only
 
 **Summary:** A review of all 18 tables against the code, PRD §4 and STANDARDS §3–§4. At the

@@ -7,9 +7,9 @@ namespace App\Http\Controllers\Member;
 use App\Enums\EducationLevel;
 use App\Enums\TeamType;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\RegisterMemberRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Branch;
+use App\Models\Member;
 use App\Models\Team;
 use App\Services\MemberEditor;
 use Illuminate\Http\RedirectResponse;
@@ -43,7 +43,7 @@ class ProfileController extends Controller
             'branches' => Branch::where('is_active', true)->orderBy('id')->get(),
             'educationLevels' => EducationLevel::cases(),
             'teams' => Team::where('type', TeamType::Icare)->where('is_active', true)->orderBy('name')->get(),
-            'noIcare' => RegisterMemberRequest::NO_ICARE,
+            'noIcare' => Member::NO_ICARE,
         ]);
     }
 

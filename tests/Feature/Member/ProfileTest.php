@@ -211,6 +211,20 @@ Year of Birth: 1900'], 'chinese_name'],
             ->assertSee('href="'.route('home').'"', false);
     }
 
+    public function test_another_members_phone_or_line_id_is_refused_but_ones_own_is_kept(): void
+    {
+        Member::factory()->create(['phone' => '886912345678', 'line_id' => 'taken.line']);
+        $member = $this->member();
+
+        $this->actingAs($member)->put('/profile', $this->profile(['line_id' => 'Taken.Line']))
+            ->assertSessionHasErrors(['phone', 'line_id']);
+
+        $member->forceFill(['phone' => '886987654321', 'line_id' => 'own.line'])->save();
+
+        $this->actingAs($member)->put('/profile', $this->profile(['phone' => '0987 654 321', 'line_id' => 'own.line']))
+            ->assertSessionHasNoErrors();
+    }
+
     private function member(): Member
     {
         return Member::factory()->student()->create([

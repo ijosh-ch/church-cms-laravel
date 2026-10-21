@@ -64,6 +64,7 @@ class UnverifiedEmailTest extends TestCase
             'domicile_taiwan' => 'Taipei',
             'phone' => '0912 345 678',
             'branch' => 'TPE',
+            'icare' => 'none',
             'attend_again' => 'no',
         ])->assertRedirect('/me');
 

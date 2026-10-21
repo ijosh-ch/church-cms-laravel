@@ -11,7 +11,6 @@ use App\Enums\TeamType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SearchMembersRequest;
 use App\Http\Requests\Admin\UpdateMemberRequest;
-use App\Http\Requests\RegisterMemberRequest;
 use App\Models\Branch;
 use App\Models\Member;
 use App\Models\Team;
@@ -45,7 +44,7 @@ class MemberController extends Controller
                 ->orWhere('email', 'ilike', $like)))
             ->when($filter['status'] !== '', fn ($query) => $query->where('status', $filter['status']))
             ->when($filter['branch'] !== '', fn ($query) => $query->whereRelation('branch', 'code', $filter['branch']))
-            ->when($filter['icare'] === RegisterMemberRequest::NO_ICARE, fn ($query) => $query->whereNull('icare_team_id'))
+            ->when($filter['icare'] === Member::NO_ICARE, fn ($query) => $query->whereNull('icare_team_id'))
             ->when(ctype_digit((string) $filter['icare']), fn ($query) => $query->where('icare_team_id', (int) $filter['icare']))
             ->orderBy('full_name')
             ->orderBy('id')
@@ -58,7 +57,7 @@ class MemberController extends Controller
             'statuses' => MemberStatus::cases(),
             'branches' => Branch::orderBy('id')->get(),
             'teams' => Team::where('type', TeamType::Icare)->orderBy('name')->get(),
-            'noIcare' => RegisterMemberRequest::NO_ICARE,
+            'noIcare' => Member::NO_ICARE,
         ]);
     }
 
@@ -90,7 +89,7 @@ class MemberController extends Controller
             'icareTeams' => Team::where('type', TeamType::Icare)->orderBy('name')->get(),
             'allTeams' => Team::where('is_active', true)->orderBy('type')->orderBy('name')->get(),
             'roles' => TeamRole::cases(),
-            'noIcare' => RegisterMemberRequest::NO_ICARE,
+            'noIcare' => Member::NO_ICARE,
         ]);
     }
 

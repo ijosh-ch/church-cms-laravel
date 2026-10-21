@@ -6,6 +6,12 @@
     <h1 class="mb-1 text-2xl font-semibold">{{ __('My profile') }}</h1>
     <p class="mb-6 text-sm text-stone-500">{{ __('Change your details here. Your email cannot be changed.') }}</p>
 
+    @if ($member->needsProfile() && ! $errors->any())
+        <x-alert class="mb-6" :title="__('A few details are still missing')">
+            {{ __('Fill in where you live in Taiwan, your work or study, and the rest below, then save.') }}
+        </x-alert>
+    @endif
+
     @if (session('saved'))
         <div class="mb-6 rounded-md border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
             {{ __('Saved. If your name, birthday or iCare changed, the birthday calendar is being updated.') }}
