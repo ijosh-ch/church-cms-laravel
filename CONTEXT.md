@@ -23,6 +23,8 @@ The tree is a clean Laravel 13.35 app. The GegoSoft fork survives only on
 **Numbers:** 275/275 tests on `ifgf_app_test`; 28 routes; `composer audit` and `npm audit` clean.
 12 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
 no passwords).
+**Data model:** the ERD and the class diagrams are in `README.md` → "Data model". `DATA_MODEL.md`
+has the table inventory and the ranked findings of the 2026-10-21 review.
 
 ## What is built
 

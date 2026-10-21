@@ -75,6 +75,25 @@
   mailer also writes each welcome email, with name and backup code, into `laravel.log`.
 - `simplesoftwareio/simple-qrcode` 4.2 raises three PHP 8.4 deprecation notices. It works.
 - Delete `wp1-salvage/` (untracked duplicate of WP1) and `custompackages/`?
+- **Database review (`DATA_MODEL.md` §8, 2026-10-21) — each needs a yes before a migration:**
+  - *Must, before production:*
+    - M1: make `occurrences.event_id`, `attendances.occurrence_id` and
+      `headcounts.occurrence_id` `RESTRICT`, not `CASCADE`.
+    - M2: define anonymise (§5.14) as one transaction that nulls the personal columns, clears the
+      QR, calendar and sessions, ends team rows, deletes change requests, then soft-deletes.
+    - M3: add `events.starts_on` and `ends_on` so `once` and `annual` events have a date (FR-7).
+  - *Should:*
+    - S1: add `headcounts.recorded_by` and `updated_by`.
+    - S2: allow one active Sunday Service per branch.
+    - S3: index `lower(trim(line_id))`.
+    - S4: make the email unique index `lower(email)`.
+    - S5: make `change_requests.requested_by` `SET NULL`.
+    - S6: add enums for headcount, import and change-request fields.
+    - S7: hide `short_code`.
+    - S8: add CHECK constraints.
+    - S9: add `public_ref` to teams, events and occurrences.
+    - S10: index `icare_team_id`, `household_id` and `change_requests.member_id`.
+  - *Decide:* N1, a child without their own email cannot use the public form.
 
 ## Carried over from the fork — still open
 
