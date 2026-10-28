@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-10-28 — "Hubungkan dengan Google" (connect an existing account)
+
+**Summary:** A signed-in member whose email is not verified gets a "Hubungkan dengan Google" card
+on `/profile` and a line on `/me`. `POST auth/google/connect` puts the member's id in the session
+(`GoogleController::CONNECT`) and runs the usual Google redirect; the shared callback pulls it and,
+for the same email (case-insensitive), verifies exactly as a sign-in does, audits
+`member.email_verified`, and signs in again on a fresh session. Any other email changes nothing.
+9 tests (`Auth/GoogleConnectTest`); suite 342 green.
+
+### Learned
+
+- **Only the same email, never a link to another address** (owner, 2026-10-28): linking a
+  different Google email would hand that person's roles to whoever registered with their email.
+- **Verifying ends the current session too** — `proveEmail()` deletes every session row of the
+  member, this one included — so connect mode must `Auth::login()` again afterwards.
+- **Errors go back as a flash (`google_error`), not `withErrors`**: the profile reads any error
+  as "Nothing was saved" for its own form.
+- Strings for this feature are Indonesian keys in `__()`, not entries in `lang/id.json`.
+- **Failed:** the FR-2 PRD line and the route line were committed early, inside the owner's iCare
+  commit `2920a43`, without the `connect` method — that commit alone points a route at a missing
+  method. Stage by file when several sessions share the working tree.
+
 ## 2026-10-28 — iCare leaves `teams`; FR-9 weekly iCare attendance built
 
 **Summary:** The owner reviewed the ERD and split iCare out of `teams`: `cell_groups`,

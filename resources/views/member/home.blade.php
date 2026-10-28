@@ -46,6 +46,13 @@
         </x-card>
     @endunless
 
+    @if ($member->email && $member->email_verified_at === null && config('services.google.client_id'))
+        <p class="mt-6 text-center text-sm text-stone-600" data-testid="google-connect-hint">
+            {{ __('Email Anda belum terverifikasi.') }}
+            <a href="{{ route('profile.edit') }}#google" class="text-sky-800 underline">{{ __('Hubungkan dengan Google') }}</a>
+        </p>
+    @endif
+
     <p class="mt-6 text-center text-sm">
         <a href="{{ route('profile.edit') }}" class="text-sky-800 underline">{{ __('Edit my profile') }}</a>
     </p>

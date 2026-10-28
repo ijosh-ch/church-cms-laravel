@@ -51,6 +51,8 @@
 9. **The email sign-in link** (rest of WP2). Without it, a person who registered by hand with a
    non-Google email can never verify it, so can never hold a role — and can never sign in again
    once the session ends. The first verification must end earlier sign-ins.
+   ("Hubungkan dengan Google" on `/profile`, 2026-10-28, covers only someone whose registered email
+   is a Google account.)
 10. **Then WP2S — staging through Cloudflare.** Must include: trusted proxies and the visitor IP
    (behind the tunnel every visitor shares one address, so the registration throttle would lock
    everyone out), security headers (PRD §5.12), forced HTTPS, Secure cookies, `ifgf:smoke`.

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\RegistrationController;
 use App\Models\Member;
 use App\Services\GoogleBirthday;
+use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,11 +23,20 @@ use Throwable;
  * PRD FR-2 — sign in with Google. Only an email that Google has verified is accepted, and it
  * is matched to members.email. No match: on to the registration form with that email filled in,
  * and the birthday too when the switch is on and the person lets Google share it.
+ *
+ * The same flow also runs in "connect" mode ("Hubungkan dengan Google"): a signed-in member who
+ * registered without Google proves their email by choosing the Google account that has it.
  */
 class GoogleController extends Controller
 {
-    public function redirect(GoogleBirthday $birthdays): RedirectResponse|SymfonyRedirectResponse
+    /** Session key: the id of the signed-in member who started connect mode. Never in the URL. */
+    public const CONNECT = 'google.connect';
+
+    public function redirect(Request $request, GoogleBirthday $birthdays): RedirectResponse|SymfonyRedirectResponse
     {
+        // A plain sign-in never finishes a connect that was started and abandoned.
+        $request->session()->forget(self::CONNECT);
+
         if (! config('services.google.client_id')) {
             return $this->backToSignIn(__('Google sign-in is not set up on this server.'));
         }
@@ -37,8 +47,31 @@ class GoogleController extends Controller
         return Socialite::driver('google')->setScopes($scopes)->redirect();
     }
 
+    /** "Hubungkan dengan Google" — only for a signed-in member whose email nobody has proved yet. */
+    public function connect(Request $request): RedirectResponse|SymfonyRedirectResponse
+    {
+        $member = $request->user();
+
+        if ($member->email_verified_at !== null) {
+            return redirect()->route('profile.edit');
+        }
+
+        if (! config('services.google.client_id')) {
+            return $this->backToProfile(__('Google sign-in is not set up on this server.'));
+        }
+
+        $request->session()->put(self::CONNECT, $member->getKey());
+
+        // No birthday scope: the member's birthday is already on record.
+        return Socialite::driver('google')->setScopes(['openid', 'profile', 'email'])->redirect();
+    }
+
     public function callback(Request $request, GoogleBirthday $birthdays): RedirectResponse
     {
+        // Read once: a second trip through the callback is an ordinary sign-in.
+        $connecting = $request->session()->pull(self::CONNECT);
+        $fail = fn (string $message) => $connecting === null ? $this->backToSignIn($message) : $this->backToProfile($message);
+
         try {
             $google = Socialite::driver('google')->user();
         } catch (Throwable $e) {
@@ -47,7 +80,7 @@ class GoogleController extends Controller
                 report($e);
             }
 
-            return $this->backToSignIn(__('Google sign-in did not finish. Please try again.'));
+            return $fail(__('Google sign-in did not finish. Please try again.'));
         }
 
         $email = mb_strtolower(trim((string) $google->getEmail()));
@@ -55,7 +88,11 @@ class GoogleController extends Controller
         $verified = filter_var($raw['email_verified'] ?? $raw['verified_email'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         if ($email === '' || ! $verified) {
-            return $this->backToSignIn(__('That Google account has no verified email address, so it cannot be used here.'));
+            return $fail(__('That Google account has no verified email address, so it cannot be used here.'));
+        }
+
+        if ($connecting !== null) {
+            return $this->finishConnect($request, $email, (int) $connecting);
         }
 
         $member = Member::where('email', $email)->first();
@@ -72,11 +109,7 @@ class GoogleController extends Controller
         }
 
         if ($member->email_verified_at === null) {
-            // Until now nobody had proved this email: registration signs in whoever typed it.
-            // Its owner has just arrived, so every earlier sign-in for this member ends here.
-            DB::table(config('session.table', 'sessions'))->where('user_id', $member->id)->delete();
-
-            $member->forceFill(['email_verified_at' => now(), 'remember_token' => Str::random(60)])->save();
+            $this->proveEmail($member);
         }
 
         Auth::login($member, remember: true);
@@ -85,8 +118,53 @@ class GoogleController extends Controller
         return redirect()->intended(route('home'));
     }
 
+    private function finishConnect(Request $request, string $googleEmail, int $connecting): RedirectResponse
+    {
+        $member = $request->user();
+
+        // The member who started connecting must be the one still signed in.
+        if ($member === null || $member->getKey() !== $connecting) {
+            return $this->backToSignIn(__('Google sign-in did not finish. Please try again.'));
+        }
+
+        if ($googleEmail !== mb_strtolower(trim((string) $member->email))) {
+            // Never link a different address: whoever registered with someone else's email could
+            // then keep that person's roles. The account stays exactly as it was.
+            return $this->backToProfile(__('Akun Google itu memakai email yang berbeda, jadi tidak ada yang diubah. Pilih akun Google dengan email yang sama seperti saat pendaftaran.'));
+        }
+
+        if ($member->email_verified_at === null) {
+            $this->proveEmail($member);
+            Audit::record('member.email_verified', $member, ['via' => 'google-connect']);
+        }
+
+        // proveEmail ended every session of this member, this one too: carry on in a fresh one,
+        // with a remember cookie for the new token.
+        Auth::login($member, remember: true);
+        $request->session()->regenerate();
+
+        return redirect()->route('profile.edit')->with('google_connected', true);
+    }
+
+    /**
+     * Until now nobody had proved this email: registration signs in whoever typed it. Its owner
+     * has just arrived, so every earlier sign-in for this member ends here.
+     */
+    private function proveEmail(Member $member): void
+    {
+        DB::table(config('session.table', 'sessions'))->where('user_id', $member->id)->delete();
+
+        $member->forceFill(['email_verified_at' => now(), 'remember_token' => Str::random(60)])->save();
+    }
+
     private function backToSignIn(string $message): RedirectResponse
     {
         return redirect()->route('login')->withErrors(['google' => $message]);
+    }
+
+    /** A flash message, not a form error: the profile form itself is untouched. */
+    private function backToProfile(string $message): RedirectResponse
+    {
+        return redirect()->route('profile.edit')->with('google_error', $message);
     }
 }

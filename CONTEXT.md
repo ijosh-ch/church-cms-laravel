@@ -49,6 +49,9 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
 - **Verified email is what carries access.** Registration signs a person in without proof, so
   `Member::hasAbility()` and `leads()` return false until `email_verified_at` is set. The first
   Google verification deletes that member's other sessions and replaces the remember token.
+  A member who registered without Google verifies later from `/profile` with "Hubungkan dengan
+  Google" (`POST auth/google/connect`; connect mode lives in the session, the callback is shared):
+  only a Google account with the same email is accepted, and it is audited.
 - **Roles** — Gates `scan`, `lead-team`, `admin` in `AppServiceProvider`, from team membership
   only; iCare pages use `CellGroupPolicy::lead` (current leader or co-leader, verified email, or admin). First admin: `php artisan ifgf:admin:grant <email>` (refuses an unverified email).
 - **Admin** — `/admin/members`: search kept in the session, edit, status, teams and roles; the

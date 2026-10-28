@@ -24,6 +24,30 @@
         </div>
     @endif
 
+    {{-- PRD FR-2: "Hubungkan dengan Google" proves the email of someone who registered without Google. --}}
+    @if (session('google_connected'))
+        <x-alert variant="success" class="mb-6" data-testid="google-connected">
+            {{ __('Akun Anda sudah terhubung dengan Google.') }}
+        </x-alert>
+    @endif
+
+    @if (session('google_error'))
+        <x-alert variant="danger" class="mb-6" data-testid="google-error">{{ session('google_error') }}</x-alert>
+    @endif
+
+    @if ($member->email && $member->email_verified_at === null && config('services.google.client_id'))
+        <x-card id="google" class="mb-6" :title="__('Hubungkan dengan Google')" data-testid="google-connect">
+            <p>{{ __('Email Anda belum terverifikasi. Pilih akun Google dengan email yang sama seperti saat pendaftaran (:email) untuk memverifikasinya.', ['email' => $member->email]) }}</p>
+            <form method="POST" action="{{ route('auth.google.connect') }}" class="mt-4">
+                @csrf
+                <x-button variant="secondary">
+                    <x-icon name="google" />
+                    {{ __('Hubungkan dengan Google') }}
+                </x-button>
+            </form>
+        </x-card>
+    @endif
+
     <form method="POST" action="{{ route('profile.update') }}" novalidate>
         @csrf
         @method('PUT')
