@@ -24,7 +24,7 @@ class BirthdaySync
     public function sync(Member $member): void
     {
         // The iCare may just have changed; do not trust a relation loaded earlier.
-        $member->unsetRelation('icareTeam');
+        $member->unsetRelation('cellGroup');
 
         if ($member->birthday === null) {
             $this->remove($member);

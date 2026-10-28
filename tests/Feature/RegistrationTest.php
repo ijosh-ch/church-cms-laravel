@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Enums\MemberCategory;
 use App\Enums\MemberStatus;
 use App\Mail\WelcomeWithQr;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Team;
 use Illuminate\Support\Facades\Mail;
@@ -43,7 +44,7 @@ class RegistrationTest extends TestCase
         $response->assertSee('What we collect, and why');
         $response->assertSee('IFGF Taipei / 台北');
         $response->assertSee('IFGF Zhongli / 中壢');
-        $response->assertSee('Belum mengikuti');
+        $response->assertSee('Belum join iCare');
         $response->assertSee('iCare Grace');
     }
 
@@ -134,7 +135,7 @@ Santoso'], 'full_name'],
 
     public function test_registering_stores_the_basics_and_leaves_the_rest_for_the_profile(): void
     {
-        $grace = Team::where('name', 'Grace')->sole();
+        $grace = CellGroup::where('name', 'Grace')->sole();
 
         $this->post('/register', $this->stepOne([
             'email' => '  Demo.Student@Example.com ',
@@ -151,7 +152,7 @@ Santoso'], 'full_name'],
         $this->assertSame('2004-03-15', $member->birthday->toDateString());
         $this->assertSame('886912345678', $member->phone);
         $this->assertSame('TPE', $member->branch->code);
-        $this->assertSame($grace->id, $member->icare_team_id);
+        $this->assertSame($grace->id, $member->cell_group_id);
         $this->assertSame(MemberStatus::Active, $member->status);
 
         foreach (['chinese_name', 'line_id', 'domicile_taiwan', 'occupation', 'education_level', 'school_or_company'] as $column) {
@@ -201,7 +202,7 @@ Santoso'], 'full_name'],
     {
         $this->post('/register', $this->stepOne(['icare' => 'none']));
 
-        $this->assertNull(Member::sole()->icare_team_id);
+        $this->assertNull(Member::sole()->cell_group_id);
     }
 
     public function test_someone_already_registered_by_email_is_not_changed_and_is_not_told(): void
@@ -323,7 +324,7 @@ Santoso'], 'full_name'],
             'phone' => '0912 345 678',
             'birthday' => '2004-03-15',
             'branch' => 'TPE',
-            'icare' => (string) Team::where('name', 'Grace')->value('id'),
+            'icare' => (string) CellGroup::where('name', 'Grace')->value('id'),
             'attend_again' => 'yes',
             ...$overrides,
         ];

@@ -17,7 +17,7 @@ class HomeController extends Controller
 {
     public function __invoke(Request $request, QrIssuer $qr): View
     {
-        $member = $request->user()->load(['branch', 'icareTeam']);
+        $member = $request->user()->load(['branch', 'cellGroup']);
 
         return view('member.home', [
             'member' => $member,

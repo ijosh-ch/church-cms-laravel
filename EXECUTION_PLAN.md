@@ -218,23 +218,44 @@ plain member gets 403 on every usher route · totals block matches hand-counted 
 
 ## WP5 — iCare leader workspace
 
-**PRD:** FR-9, FR-10, FR-6 (group table), FR-14.
+**PRD:** FR-9, FR-10, FR-6 (group table), FR-14. **Rewritten 2026-10-28:** iCare groups leave
+`teams` for `cell_groups` (owner). Do FR-9 first, end to end; ask before FR-10.
 
 ```
-php artisan make:policy TeamPolicy --model=Team
-php artisan make:controller Icare/AttendanceController
-php artisan make:controller Icare/MemberController
+php artisan make:enum CellGroupRole --string
+php artisan make:enum AttendeeStatus --string
+php artisan make:model CellGroup -mfs
+php artisan make:model CellGroupLeader -mf
+php artisan make:model CellGroupAttendance -mf
+php artisan make:model CellGroupAttendee -mf
+php artisan make:migration move_icare_from_teams_to_cell_groups
+php artisan make:policy CellGroupPolicy --model=CellGroup
+php artisan make:controller CellGroup/AttendanceController
+php artisan make:controller CellGroup/MemberStatusController --invokable
+php artisan make:controller CellGroup/PhotoController
+php artisan make:request CellGroup/SaveAttendanceRequest
+php artisan make:class Services/CellGroupAttendanceRecorder
+php artisan make:class Services/AttendancePhotoStore
+php artisan make:view cell-group.attendance
+php artisan make:test CellGroup/AttendanceTest && php artisan make:test CellGroup/AccessTest
+php artisan make:test CellGroup/PhotoTest && php artisan make:test Services/AttendancePhotoStoreTest --unit
+# then FR-10, FR-6 table, FR-14:
 php artisan make:controller Icare/BirthdayController --invokable
 php artisan make:controller ChangeRequestController
 php artisan make:controller Admin/TeamController --model=Team --requests
 php artisan make:mail ChangeRequestMail --markdown=mail.change-request
-php artisan make:test Icare/AttendanceTest && php artisan make:test Icare/ChangeRequestTest
-php artisan make:test Icare/BirthdayTableTest && php artisan make:test Admin/TeamTest
+php artisan make:test Icare/ChangeRequestTest && php artisan make:test Icare/BirthdayTableTest
+php artisan make:test Admin/TeamTest
 ```
-**Gate:** tick, re-save, guest and a back-filled date · status toggle is immediate and logged ·
-confirm applies, reject and expiry do not, a link works once · mail goes to the household head when
-the member has no email · leader of A gets 403 on team B · birthday table hides the year ·
-leaving a team sets `left_at` and keeps the row; rejoining adds a new one.
+**Gate:** photo or "Tanpa foto" required · default onsite, reason for online and absent · several
+guests · re-save and a back-filled date update one row per date · a future date is refused ·
+status toggle is immediate and logged · leader and co-leader of A get 403 on group B · the photo
+is a JPEG ≤ 3 MB without metadata, on the `photos` disk outside the code, seen and deleted only by the group's leaders
+and the admin · confirm applies, reject and expiry do not, a link works once · mail goes to the
+household head when the member has no email · birthday table hides the year · leaving a team
+sets `left_at` and keeps the row; rejoining adds a new one.
+
+---
 
 ## WP6 — Birthday calendar and institutions
 

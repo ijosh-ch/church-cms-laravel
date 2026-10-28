@@ -11,7 +11,7 @@
 
     <h1 class="text-2xl font-semibold">{{ $member->full_name }}</h1>
     <p class="mb-6 text-sm text-stone-500">
-        {{ $member->branch->name }}@if ($member->icareTeam) · iCare {{ $member->icareTeam->name }}@endif
+        {{ $member->branch->name }}@if ($member->cellGroup) · iCare {{ $member->cellGroup->name }}@endif
     </p>
 
     @if ($qrSvg)
@@ -35,6 +35,16 @@
             </div>
         </x-card>
     @endif
+
+    @unless ($member->photo_path)
+        {{-- Optional (owner, 2026-10-28): a photo of themself, for recognising them in iCare meeting photos later. --}}
+        <x-card class="mt-6" :title="__('Add a photo of yourself (optional)')" data-testid="add-photo">
+            <p>{{ __('It helps your iCare leader recognise you in the photo of a meeting. Only you see it, and you can delete it at any time.') }}</p>
+            <div class="mt-4">
+                <x-button variant="secondary" :href="route('profile.photo')">{{ __('Add my photo') }}</x-button>
+            </div>
+        </x-card>
+    @endunless
 
     <p class="mt-6 text-center text-sm">
         <a href="{{ route('profile.edit') }}" class="text-sky-800 underline">{{ __('Edit my profile') }}</a>

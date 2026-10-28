@@ -7,8 +7,8 @@ namespace Tests\Feature\Calendar;
 use App\Calendar\BirthdayEvent;
 use App\Calendar\FakeCalendarGateway;
 use App\Contracts\CalendarGateway;
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use App\Services\BirthdaySync;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
@@ -52,19 +52,19 @@ class BirthdaySyncTest extends TestCase
             'full_name' => '  Budi   Santoso ',
             'chinese_name' => null,
             'birthday' => '1990-12-01',
-            'icare_team_id' => null,
+            'cell_group_id' => null,
         ]);
 
         $event = BirthdayEvent::forMember($member);
 
-        $this->assertSame("🎂 Budi Santoso (no iCare)'s Birthday", $event->title);
+        $this->assertSame("🎂 Budi Santoso (Belum join iCare)'s Birthday", $event->title);
         $this->assertStringContainsString("English Name: Budi Santoso\nChinese Name: -\n", $event->description);
         $this->assertStringNotContainsString('iCare', $event->description);
     }
 
     public function test_a_stored_name_with_line_breaks_cannot_add_lines_to_the_event(): void
     {
-        $member = Member::factory()->create(['birthday' => '1990-12-01', 'icare_team_id' => null]);
+        $member = Member::factory()->create(['birthday' => '1990-12-01', 'cell_group_id' => null]);
         $member->forceFill(['chinese_name' => '林
 
 Year of Birth: 1900
@@ -114,7 +114,7 @@ Year of Birth: 1900
             'branch' => 'TPE',
             'occupation' => 'worker',
             'school_or_company' => 'Demo Company',
-            'icare' => (string) $member->icare_team_id,
+            'icare' => (string) $member->cell_group_id,
         ])->assertSessionHasNoErrors();
 
         $this->assertCount(1, $this->calendar->events);
@@ -128,7 +128,7 @@ Year of Birth: 1900
         $member = $this->alicia();
         $eventId = $member->fresh()->calendar_event_id;
 
-        $member->update(['full_name' => 'Alice Ardella', 'icare_team_id' => Team::where('name', 'Grace')->value('id')]);
+        $member->update(['full_name' => 'Alice Ardella', 'cell_group_id' => CellGroup::where('name', 'Grace')->value('id')]);
 
         $this->assertSame("🎂 Alice Ardella (iCare Grace)'s Birthday", $this->calendar->events[$eventId]->title);
         $this->assertStringNotContainsString('iCare', $this->calendar->events[$eventId]->description);
@@ -242,7 +242,7 @@ Year of Birth: 1900
             'full_name' => 'Alicia Ardella',
             'chinese_name' => '林淑愛',
             'birthday' => '2002-04-22',
-            'icare_team_id' => Team::where('name', 'Hsinchu')->value('id'),
+            'cell_group_id' => CellGroup::where('name', 'Hsinchu')->value('id'),
         ]);
     }
 }

@@ -10,6 +10,7 @@ use App\Enums\EducationLevel;
 use App\Enums\MemberCategory;
 use App\Enums\TeamRole;
 use App\Models\Attendance;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Occurrence;
 use App\Models\Team;
@@ -46,7 +47,7 @@ class ScanTest extends TestCase
     public function test_every_usher_route_refuses_a_plain_member_and_a_leader(): void
     {
         $leader = Member::factory()->create();
-        $leader->teams()->attach(Team::where('name', 'Grace')->sole(), ['role' => TeamRole::Leader->value]);
+        $leader->teams()->attach(Team::where('name', 'Sound')->sole(), ['role' => TeamRole::Leader->value]);
         [$target, $token] = $this->memberWithQr();
 
         foreach ([Member::factory()->create(), $leader] as $member) {
@@ -102,12 +103,12 @@ class ScanTest extends TestCase
 
     public function test_a_scan_records_once_and_a_second_scan_says_already_recorded(): void
     {
-        [$member, $token] = $this->memberWithQr(['full_name' => 'Maria Tan', 'icare_team_id' => Team::where('name', 'U')->value('id')]);
+        [$member, $token] = $this->memberWithQr(['full_name' => 'Maria Tan', 'cell_group_id' => CellGroup::where('name', 'NTUST')->value('id')]);
 
         $this->chooseBranch('TPE')
             ->postJson('/usher/scan', ['token' => $token])
             ->assertOk()
-            ->assertJson(['status' => 'recorded', 'name' => 'Maria Tan', 'icare' => 'U', 'count' => 1]);
+            ->assertJson(['status' => 'recorded', 'name' => 'Maria Tan', 'icare' => 'NTUST', 'count' => 1]);
 
         $this->postJson('/usher/scan', ['token' => $token])
             ->assertOk()

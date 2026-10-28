@@ -7,11 +7,11 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\EducationLevel;
 use App\Enums\MemberStatus;
 use App\Enums\TeamRole;
-use App\Enums\TeamType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SearchMembersRequest;
 use App\Http\Requests\Admin\UpdateMemberRequest;
 use App\Models\Branch;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Team;
 use App\Services\MemberEditor;
@@ -37,15 +37,15 @@ class MemberController extends Controller
         $like = '%'.addcslashes($filter['q'], '%_\\').'%';
 
         $members = Member::query()
-            ->with(['branch', 'icareTeam'])
+            ->with(['branch', 'cellGroup'])
             ->when($filter['q'] !== '', fn ($query) => $query->where(fn ($where) => $where
                 ->where('full_name', 'ilike', $like)
                 ->orWhere('chinese_name', 'ilike', $like)
                 ->orWhere('email', 'ilike', $like)))
             ->when($filter['status'] !== '', fn ($query) => $query->where('status', $filter['status']))
             ->when($filter['branch'] !== '', fn ($query) => $query->whereRelation('branch', 'code', $filter['branch']))
-            ->when($filter['icare'] === Member::NO_ICARE, fn ($query) => $query->whereNull('icare_team_id'))
-            ->when(ctype_digit((string) $filter['icare']), fn ($query) => $query->where('icare_team_id', (int) $filter['icare']))
+            ->when($filter['icare'] === Member::NO_ICARE, fn ($query) => $query->whereNull('cell_group_id'))
+            ->when(ctype_digit((string) $filter['icare']), fn ($query) => $query->where('cell_group_id', (int) $filter['icare']))
             ->orderBy('full_name')
             ->orderBy('id')
             ->paginate(25);
@@ -56,7 +56,7 @@ class MemberController extends Controller
             'filtered' => array_filter($filter) !== [],
             'statuses' => MemberStatus::cases(),
             'branches' => Branch::orderBy('id')->get(),
-            'teams' => Team::where('type', TeamType::Icare)->orderBy('name')->get(),
+            'teams' => CellGroup::query()->orderBy('name')->get(),
             'noIcare' => Member::NO_ICARE,
         ]);
     }
@@ -70,7 +70,7 @@ class MemberController extends Controller
 
     public function edit(Member $member): View
     {
-        $member->load(['branch', 'icareTeam', 'teams']);
+        $member->load(['branch', 'cellGroup', 'teams']);
         $typedOccupation = $member->occupation !== null && ! in_array($member->occupation, self::FIXED_OCCUPATIONS, true);
 
         return view('admin.members.edit', [
@@ -86,8 +86,8 @@ class MemberController extends Controller
             'statuses' => MemberStatus::cases(),
             'branches' => Branch::orderBy('id')->get(),
             'educationLevels' => EducationLevel::cases(),
-            'icareTeams' => Team::where('type', TeamType::Icare)->orderBy('name')->get(),
-            'allTeams' => Team::where('is_active', true)->orderBy('type')->orderBy('name')->get(),
+            'cellGroups' => CellGroup::query()->orderBy('name')->get(),
+            'allTeams' => Team::where('is_active', true)->orderBy('name')->get(),
             'roles' => TeamRole::cases(),
             'noIcare' => Member::NO_ICARE,
         ]);

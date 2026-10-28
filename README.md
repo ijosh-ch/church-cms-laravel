@@ -16,7 +16,7 @@ table and the ranked review findings are in [`DATA_MODEL.md`](DATA_MODEL.md).
 
 ### Database — entity-relationship diagram
 
-There are 12 domain tables. `sessions` belongs to the framework and is drawn because
+There are 16 domain tables. `sessions` belongs to the framework and is drawn because
 `sessions.user_id` points at a member. `cache`, `cache_locks`, `jobs`, `job_batches` and
 `failed_jobs` are left out, because no domain table refers to them.
 
@@ -33,10 +33,16 @@ erDiagram
   branches ||--o{ events : "held at"
   households ||--o{ members : groups
   institutions ||--o{ members : "studies or works at"
-  teams ||--o{ members : "icare_team_id"
+  cell_groups ||--o{ members : "cell_group_id (main iCare)"
+  branches ||--o{ cell_groups : "meets in"
+  cell_groups ||--o{ cell_group_leaders : "led by"
+  members ||--o{ cell_group_leaders : "leads"
+  cell_groups ||--o{ cell_group_attendances : "meets on"
+  members ||--o{ cell_group_attendances : "recorded_by"
+  cell_group_attendances ||--o{ cell_group_attendees : "one row per person"
+  members ||--o{ cell_group_attendees : "attends"
   teams ||--o{ member_team : has
   members ||--o{ member_team : "serves in"
-  teams ||--o{ events : hosts
   events ||--o{ occurrences : "happens on"
   occurrences ||--o{ attendances : has
   members ||--o{ attendances : attends
@@ -57,12 +63,42 @@ erDiagram
   }
   teams {
     bigint id PK
-    varchar type "TeamType"
     varchar name
     bigint branch_id FK "null"
-    smallint meeting_weekday "null"
     varchar ability "TeamAbility, null"
     boolean is_active
+  }
+  cell_groups {
+    bigint id PK
+    uuid public_ref UK
+    varchar name
+    bigint branch_id FK "null"
+    varchar location "null"
+    varchar gmaps_url "null"
+    smallint meeting_weekday "0-6, null"
+    boolean is_active
+  }
+  cell_group_leaders {
+    bigint id PK
+    bigint cell_group_id FK "one current leader"
+    bigint member_id FK
+    varchar role "CellGroupRole"
+    timestamp left_at "null"
+  }
+  cell_group_attendances {
+    bigint id PK
+    bigint cell_group_id FK "UK with met_on"
+    date met_on
+    varchar photo_path "null = Tanpa foto"
+    bigint recorded_by FK "null"
+  }
+  cell_group_attendees {
+    bigint id PK
+    bigint attendance_id FK "UK with member_id"
+    bigint member_id FK "null for a guest"
+    varchar guest_name "null"
+    varchar status "AttendeeStatus"
+    varchar reason "null, online or absent"
   }
   households {
     bigint id PK
@@ -81,7 +117,8 @@ erDiagram
     bigint household_id FK "null"
     varchar household_role "HouseholdRole, null"
     bigint branch_id FK
-    bigint icare_team_id FK "null"
+    bigint cell_group_id FK "null"
+    boolean cell_group_active
     bigint institution_id FK "null"
     varchar full_name
     varchar chinese_name "null"
@@ -98,6 +135,8 @@ erDiagram
     varchar qr_token_hash UK "null"
     text qr_token_enc "encrypted, null"
     varchar short_code UK "null"
+    varchar photo_path "null, photos disk"
+    timestamp photo_consent_at "null"
     varchar calendar_event_id "null"
     timestamp calendar_synced_at "null"
     timestamp profile_reminded_at "null, pending"
@@ -118,7 +157,6 @@ erDiagram
     varchar type "EventType"
     varchar name
     bigint branch_id FK "null"
-    bigint team_id FK "null"
     varchar recurrence "Recurrence"
     smallint weekday "null"
     boolean is_active
@@ -222,17 +260,40 @@ classDiagram
     +events() HasMany~Event~
   }
   class Team {
-    +TeamType type
     +string name
     +int branch_id
-    +int meeting_weekday
     +TeamAbility ability
     +bool is_active
     +branch() BelongsTo~Branch~
     +members() BelongsToMany~Member~
     +leaders() BelongsToMany~Member~
-    +icareMembers() HasMany~Member~
-    +events() HasMany~Event~
+  }
+  class CellGroup {
+    +string public_ref
+    +string name
+    +int branch_id
+    +string location
+    +string gmaps_url
+    +int meeting_weekday
+    +bool is_active
+    +members() HasMany~Member~
+    +leaders() BelongsToMany~Member~
+    +attendances() HasMany~CellGroupAttendance~
+    +isLedBy(Member member) bool
+  }
+  class CellGroupLeader {
+    +CellGroupRole role
+    +DateTime left_at
+  }
+  class CellGroupAttendance {
+    +Date met_on
+    +string photo_path
+    +attendees() HasMany~CellGroupAttendee~
+  }
+  class CellGroupAttendee {
+    +AttendeeStatus status
+    +string guest_name
+    +string reason
   }
   class Household {
     +string name
@@ -274,7 +335,8 @@ classDiagram
     +branch() BelongsTo~Branch~
     +household() BelongsTo~Household~
     +institution() BelongsTo~Institution~
-    +icareTeam() BelongsTo~Team~
+    +cellGroup() BelongsTo~CellGroup~
+    +ledCellGroups() BelongsToMany~CellGroup~
     +teams() BelongsToMany~Team~
     +attendances() HasMany~Attendance~
     +changeRequests() HasMany~ChangeRequest~
@@ -286,12 +348,10 @@ classDiagram
     +EventType type
     +string name
     +int branch_id
-    +int team_id
     +Recurrence recurrence
     +int weekday
     +bool is_active
     +branch() BelongsTo~Branch~
-    +team() BelongsTo~Team~
     +occurrences() HasMany~Occurrence~
   }
   class Occurrence {
@@ -348,10 +408,16 @@ classDiagram
     +creator() BelongsTo~Member~
   }
 
-  class TeamType {
+  class CellGroupRole {
     <<enumeration>>
-    Icare
-    Ministry
+    Leader
+    CoLeader
+  }
+  class AttendeeStatus {
+    <<enumeration>>
+    Onsite
+    Online
+    Absent
   }
   class TeamAbility {
     <<enumeration>>
@@ -396,7 +462,6 @@ classDiagram
   class EventType {
     <<enumeration>>
     SundayService
-    Icare
     WorshipNight
     ClassSession
     Special
@@ -434,9 +499,11 @@ classDiagram
   Branch "1" --> "*" Event : events
   Household "1" --> "*" Member : members
   Institution "1" --> "*" Member : members
-  Team "1" --> "*" Member : icareMembers
+  CellGroup "1" --> "*" Member : members
+  CellGroup "*" -- "*" Member : cell_group_leaders
+  CellGroup "1" --> "*" CellGroupAttendance : attendances
+  CellGroupAttendance "1" --> "*" CellGroupAttendee : attendees
   Team "*" -- "*" Member : member_team
-  Team "1" --> "*" Event : events
   Event "1" --> "*" Occurrence : occurrences
   Occurrence "1" --> "*" Attendance : attendances
   Occurrence "1" --> "0..1" Headcount : headcount
@@ -446,7 +513,8 @@ classDiagram
   ChangeRequest "*" --> "1" Member : requester
   ImportBatch "*" --> "0..1" Member : creator
 
-  Team ..> TeamType
+  CellGroupLeader ..> CellGroupRole
+  CellGroupAttendee ..> AttendeeStatus
   Team ..> TeamAbility
   Member ..> HouseholdRole
   Member ..> EducationLevel

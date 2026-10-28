@@ -20,7 +20,7 @@
 | Front-end built **on the server** (`npm ci && npm run build`) | `public/build/` (includes the hand-rendered `_design/` page) |
 | | The `jobs`, `sessions` and `cache` tables — they live in the dev database |
 | | Test members (`*@example.test`), the dev Google calendar's events |
-| | The legacy workbook, LINE recaps, `wp1-salvage/`, `graphify-out/` |
+| | The legacy workbook, LINE recaps, `graphify-out/` |
 
 Real member data enters production in exactly two ways: **people registering**, and the
 **workbook import run on the server** (WP7) from a file that is copied straight to the server,
@@ -133,3 +133,34 @@ WP9's checklist and happens after this, on the server.
 backup taken in step 9 into `ifgf_app_prod` — registrations made since then are listed from the
 log and entered again by hand. A schema change that cannot be undone needs a written plan before
 it is deployed, not after.
+
+## 8. iCare meeting photos — their own folder, readable only by the web server
+
+The photos show members' faces (PRD FR-9), so they never live in the code checkout, never under
+`public/`, and never in a synced or shared folder. The app writes them through the `photos` disk
+(`config/filesystems.php`), whose root is `IFGF_PHOTO_ROOT`; on this development PC it falls back
+to `storage/app/private/assets`.
+
+Once per server (production; staging gets its own folder):
+
+```bash
+sudo install -d -o www-data -g www-data -m 0700 /srv/ifgf/production/photos
+echo 'IFGF_PHOTO_ROOT=/srv/ifgf/production/photos' >> /path/to/the/production/.env
+```
+
+- **Owner and mode:** `www-data` (the PHP-FPM user) owns the folder, mode `0700`; the app writes
+  files `0600` and folders `0700`. No other account, the deploy user included, can list or open a
+  photo. Check with `sudo -u <deploy user> ls /srv/ifgf/production/photos` — it must be refused.
+- **PHP-FPM** must run as `www-data` and nothing else may run as that user. `php artisan`
+  commands that touch photos run as `sudo -u www-data php artisan …`.
+- **Disk:** the server's disk is encrypted (LUKS, chosen at install). A stolen or repaired PC must
+  not give away faces.
+- **Backups** of this folder are encrypted, like the database dumps, and restored once as a test.
+- **Upload limits** (a browser sends at most 3 MB; without JavaScript a phone photo can be larger):
+  `php.ini` `upload_max_filesize = 10M`, `post_max_size = 12M`, `memory_limit = 256M`; nginx
+  `client_max_body_size 12m;`. Cloudflare's own limit (100 MB on the free plan) is far above this.
+- **Cloudflare cache:** the photo address is `/icare/{group}/attendance/{date}/photo`, sent with
+  `Cache-Control: private, no-store`. Never add a "Cache Everything" rule that covers `/icare/*`.
+- **Retention:** photos are kept until a leader or the IT admin deletes one (owner, 2026-10-28).
+- **HEIC** (some iPhone files) is readable only with `sudo apt install php-imagick` and a
+  matching change in `AttendancePhotoStore`; until then the page asks for a JPG.

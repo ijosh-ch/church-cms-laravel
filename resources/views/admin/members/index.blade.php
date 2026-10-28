@@ -35,7 +35,7 @@
                 <label for="icare" class="mb-1 block text-sm font-medium text-stone-800">iCare</label>
                 <select id="icare" name="icare" class="block w-full rounded-md border border-stone-400 bg-white px-3 py-2 text-base">
                     <option value="">{{ __('All') }}</option>
-                    <option value="{{ $noIcare }}" @selected($filter['icare'] === $noIcare)>{{ __('Belum mengikuti') }}</option>
+                    <option value="{{ $noIcare }}" @selected($filter['icare'] === $noIcare)>{{ __('Belum join iCare') }}</option>
                     @foreach ($teams as $team)
                         <option value="{{ $team->id }}" @selected($filter['icare'] === (string) $team->id)>iCare {{ $team->name }}</option>
                     @endforeach
@@ -84,7 +84,7 @@
                                 {{ $member->full_name }}@if ($member->chinese_name) <span class="font-normal text-stone-600">{{ $member->chinese_name }}</span>@endif
                             </span>
                             <span class="block text-sm text-stone-600">
-                                {{ $member->branch->name }} · {{ $member->icareTeam ? 'iCare '.$member->icareTeam->name : __('Belum mengikuti') }}
+                                {{ $member->branch->name }} · {{ $member->cellGroup ? 'iCare '.$member->cellGroup->name : __('Belum join iCare') }}
                             </span>
                         </span>
                         <span class="flex gap-2 text-xs font-medium">

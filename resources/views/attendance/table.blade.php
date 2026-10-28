@@ -51,7 +51,7 @@
                     <span>
                         <span class="block text-base font-medium">{{ $row->member?->full_name ?? $row->guest_name ?? '—' }}</span>
                         <span class="block text-sm text-stone-600">
-                            {{ $row->member?->icareTeam ? 'iCare '.$row->member->icareTeam->name : ($row->member ? __('Belum mengikuti') : __('Guest')) }}
+                            {{ $row->member?->cellGroup ? 'iCare '.$row->member->cellGroup->name : ($row->member ? __('Belum join iCare') : __('Guest')) }}
                             @if ($row->category) · {{ $row->category->label() }}@endif
                         </span>
                     </span>

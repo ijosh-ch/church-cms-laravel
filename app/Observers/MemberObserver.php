@@ -15,7 +15,7 @@ use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 class MemberObserver implements ShouldHandleEventsAfterCommit
 {
     /** The columns the calendar event is built from. */
-    public const SHOWN_IN_CALENDAR = ['full_name', 'chinese_name', 'birthday', 'icare_team_id'];
+    public const SHOWN_IN_CALENDAR = ['full_name', 'chinese_name', 'birthday', 'cell_group_id'];
 
     /**
      * Handle the Member "created" event.

@@ -10,6 +10,7 @@ use App\Enums\MemberStatus;
 use App\Enums\TeamAbility;
 use App\Enums\TeamRole;
 use App\Models\Branch;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Team;
 use Illuminate\Support\Facades\DB;
@@ -144,18 +145,18 @@ class MemberTest extends TestCase
 
     public function test_a_member_has_a_branch_an_icare_and_the_teams_they_serve_in_now(): void
     {
-        $icare = Team::factory()->create();
+        $icare = CellGroup::factory()->create();
         $usher = Team::factory()->withAbility(TeamAbility::Scan)->create();
-        $former = Team::factory()->ministry()->create();
-        $member = Member::factory()->create(['icare_team_id' => $icare->id]);
+        $former = Team::factory()->create();
+        $member = Member::factory()->create(['cell_group_id' => $icare->id]);
 
         $member->teams()->attach($usher, ['role' => TeamRole::Member->value]);
         $member->teams()->attach($former, ['role' => TeamRole::Member->value, 'left_at' => now()]);
 
         $member = $member->fresh();
 
-        $this->assertTrue($member->icareTeam->is($icare));
-        $this->assertTrue($icare->icareMembers->first()->is($member));
+        $this->assertTrue($member->cellGroup->is($icare));
+        $this->assertTrue($icare->members->first()->is($member));
         $this->assertNotNull($member->branch);
         $this->assertSame([$usher->id], $member->teams->pluck('id')->all());
         $this->assertSame(TeamRole::Member->value, $member->teams->first()->pivot->role);

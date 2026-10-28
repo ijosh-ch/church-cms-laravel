@@ -5,12 +5,11 @@
 namespace App\Http\Controllers\Member;
 
 use App\Enums\EducationLevel;
-use App\Enums\TeamType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Branch;
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use App\Services\MemberEditor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,7 +26,7 @@ class ProfileController extends Controller
 
     public function edit(Request $request): View
     {
-        $member = $request->user()->load(['branch', 'icareTeam']);
+        $member = $request->user()->load(['branch', 'cellGroup']);
         $typedOccupation = $member->occupation !== null && ! in_array($member->occupation, self::FIXED_OCCUPATIONS, true);
 
         return view('member.profile', [
@@ -42,7 +41,7 @@ class ProfileController extends Controller
             ],
             'branches' => Branch::where('is_active', true)->orderBy('id')->get(),
             'educationLevels' => EducationLevel::cases(),
-            'teams' => Team::where('type', TeamType::Icare)->where('is_active', true)->orderBy('name')->get(),
+            'teams' => CellGroup::where('is_active', true)->orderBy('name')->get(),
             'noIcare' => Member::NO_ICARE,
         ]);
     }

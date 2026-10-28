@@ -3,13 +3,31 @@
 > Item 1 is always the literal next action. Rewritten every session end.
 > Hard cap: 1,500 tokens.
 
-**Branch:** `dev` · **Updated:** 2026-10-14 · **Scope:** `PRD.md` 3.0 · **Plan:** `EXECUTION_PLAN.md`
+**Branch:** `dev` · **Updated:** 2026-10-28 · **Scope:** `PRD.md` 3.0 · **Plan:** `EXECUTION_PLAN.md`
 
 ---
 
 ## Now
 
-1. **Next restyle session: `/profile`.** It is now where new members finish their profile, so it
+1. **Run `/security-review` on the iCare commit** (2026-10-28; not run yet), then check it by eye
+   signed in: the owner adds `ianjoseph2204@gmail.com` as a test user of the Google project
+   `ifgf-site-dev` (Google Auth Platform → Audience), signs in at `http://localhost:8080`, and is
+   made leader of iCare NTUST in `cell_group_leaders`. PHP here accepts uploads up to 2 MB only
+   (`C:\php\8.4\php.ini`): raise it to try a 3 MB meeting photo.
+2. **Owner: answer before the next iCare pages** (mock-ups shown 2026-10-28): (a) **decided
+   2026-10-28:** the IT admin assigns each iCare's leader (an admin page, not built yet); the
+   leader then picks their co-leaders and fills in the iCare's own information (place, Maps link,
+   meeting day). Also decided: an iCare-leaders management page, and both the admin and an
+   iCare leader can create a new iCare. Still open: does a leader who creates one lead it at once,
+   and may a leader add/remove members and rename the group?
+   (b) "mulai jarang hadir" = present at most 1 of the group's last 4 meetings?; (c) the chart:
+   Chart.js (new npm package, needs a yes) or a plain SVG line; (d) birthdays: next 30 days plus
+   a month picker, day and month only; (e) which profile fields an iCare leader may see, and the
+   "please update your profile" reminder (privacy: STANDARDS §4.2). None of this is in the PRD.
+3. **Then, one session each:** "Edit iCare" page (with the status toggle button), the iCare
+   progress page (onsite/online/absent chart, rarely-attending list, birthdays), then FR-10
+   (leader-proposed changes). Each needs its PRD lines first (scope rule).
+4. **Next restyle session: `/profile`.** It is now where new members finish their profile, so it
    matters most. Start with `design/RESTYLE_PROMPT.md` at step 3 (the audit and the foundations
    are done). Order after it: `/me`, `/register/done`, `/usher`, `/usher/scan` (its class names also live in `scanner.js`),
    `/usher/roster`, `/usher/attendance`, `/admin/members`, the member page, then
@@ -17,35 +35,35 @@
    "If other, please specify" only for "Other" needs a few lines of script, or Alpine — ask
    first. When the last page is done: delete `x-form.field` and the unused `welcome.blade.php`.
    Registration is one page since 2026-10-21; `/register/details` no longer exists.
-2. **Owner: get an admin back in development.** Sign in with Google at `http://localhost:8080`,
+5. **Owner: get an admin back in development.** Sign in with Google at `http://localhost:8080`,
    then run `php artisan ifgf:admin:grant <that email>`. Until then no signed-in page can be
    opened in the browser pane, so their restyle cannot be checked by eye.
-3. **Owner: try the Google birthday.** Enable the People API in the Cloud project, add the
+6. **Owner: try the Google birthday.** Enable the People API in the Cloud project, add the
    `user.birthday.read` scope to the consent screen, put `IFGF_GOOGLE_BIRTHDAY=true` in `.env`,
    and sign in with an unregistered Google account. Tested so far only against fakes.
-4. **Owner: run `php artisan ifgf:calendar:sync`** so the dev calendar's events get the new
+7. **Owner: run `php artisan ifgf:calendar:sync`** so the dev calendar's events get the new
    title, `🎂 Name (iCare X)'s Birthday`. Two made-up members are kept in `ifgf_app` on purpose
    (`e2e.check.1021@example.test`, `e2e.quick.1021@example.test`); their welcome mail and
    calendar jobs wait in the queue.
-5. **Owner: decide the remember cookie.** It has never signed anyone in (`Member` has no
+8. **Owner: decide the remember cookie.** It has never signed anyone in (`Member` has no
    password, so Laravel ignores the cookie); sign-in lasts 120 idle minutes. One line turns on a
    400-day sign-in — for ushers and admins too. See the `MEMORY.md` entry of 2026-10-13.
-6. **The email sign-in link** (rest of WP2). Without it, a person who registered by hand with a
+9. **The email sign-in link** (rest of WP2). Without it, a person who registered by hand with a
    non-Google email can never verify it, so can never hold a role — and can never sign in again
    once the session ends. The first verification must end earlier sign-ins.
-7. **Then WP2S — staging through Cloudflare.** Must include: trusted proxies and the visitor IP
+10. **Then WP2S — staging through Cloudflare.** Must include: trusted proxies and the visitor IP
    (behind the tunnel every visitor shares one address, so the registration throttle would lock
    everyone out), security headers (PRD §5.12), forced HTTPS, Secure cookies, `ifgf:smoke`.
    Once `dev` is pushed, run `/security-review`; it has not been run on the 2026-10-14 commit.
-8. **Still to build, in rough order of need:**
+11. **Still to build, in rough order of need:**
    - Usher: another event of today (FR-7 last line), headcount entry (FR-12).
    - Attendance: members × weeks grid and CSV export (FR-11); attendance history on `/me`.
    - Admin: team CRUD (FR-14), member deletion/anonymise (PRD §5.14), households (FR-3).
-   - iCare leader workspace (WP5), institutions search (WP6), imports (WP7), reports (WP8).
+   - Rest of WP5 (FR-10, FR-6 group table, FR-14 team CRUD), institutions search (WP6), imports (WP7), reports (WP8).
    - Locale switch and `lang/` (also the plain-language error wording of `DESIGN.md` §9); a
      poster page with the QR of the site address.
-9. Rebuild the graph (`graphify` CLI has no build command; the skill is not in the desktop app).
-10. The camera scanner is **untested** — the preview pane blocks cameras. Try
+12. Rebuild the graph (`graphify` CLI has no build command; the skill is not in the desktop app).
+13. The camera scanner is **untested** — the preview pane blocks cameras. Try
     `http://localhost:8080/usher/scan` in Chrome with a webcam; a phone needs HTTPS (WP2S).
 
 ## Owner — can be done any time, each unblocks a work package
@@ -80,7 +98,7 @@
 - **Real member data in development.** `STANDARDS.md` §1 and `CLAUDE.md` forbid it; the `log`
   mailer also writes each welcome email, with name and backup code, into `laravel.log`.
 - `simplesoftwareio/simple-qrcode` 4.2 raises three PHP 8.4 deprecation notices. It works.
-- Delete `wp1-salvage/` (untracked duplicate of WP1) and `custompackages/`?
+- Delete `custompackages/`?
 - **Database review (`DATA_MODEL.md` §8, 2026-10-21) — each needs a yes before a migration:**
   - *Must, before production:*
     - M1: make `occurrences.event_id`, `attendances.occurrence_id` and

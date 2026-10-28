@@ -6,9 +6,8 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\EducationLevel;
 use App\Enums\MemberStatus;
-use App\Enums\TeamType;
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -33,7 +32,7 @@ class UpdateMemberRequest extends FormRequest
      */
     public function rules(): array
     {
-        $icareIds = Team::where('type', TeamType::Icare)
+        $icareIds = CellGroup::query()
             ->pluck('id')
             ->map(fn (int $id) => (string) $id)
             ->all();

@@ -38,7 +38,7 @@ class AttendanceTableController extends Controller
             ->first();
 
         $rows = $occurrence === null ? collect() : Attendance::query()
-            ->with(['member.icareTeam'])
+            ->with(['member.cellGroup'])
             ->where('occurrence_id', $occurrence->id)
             ->orderBy('recorded_at')
             ->get();

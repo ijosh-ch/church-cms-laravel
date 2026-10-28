@@ -8,6 +8,7 @@ use App\Enums\AttendanceMethod;
 use App\Enums\AttendanceMode;
 use App\Enums\TeamRole;
 use App\Models\Attendance;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Team;
 use Tests\TestCase;
@@ -50,12 +51,12 @@ class RosterTest extends TestCase
 
     public function test_searching_finds_members_by_name_without_the_name_entering_the_url(): void
     {
-        Member::factory()->create(['full_name' => 'Maria Tan', 'chinese_name' => '陳瑪麗', 'icare_team_id' => Team::where('name', 'U')->value('id')]);
+        Member::factory()->create(['full_name' => 'Maria Tan', 'chinese_name' => '陳瑪麗', 'cell_group_id' => CellGroup::where('name', 'NTUST')->value('id')]);
         Member::factory()->create(['full_name' => 'Budi Santoso']);
 
         $this->post('/usher/roster/search', ['q' => 'mari'])->assertRedirect('/usher/roster');
 
-        $this->get('/usher/roster')->assertSee('Maria Tan')->assertSee('iCare U')->assertDontSee('Budi Santoso');
+        $this->get('/usher/roster')->assertSee('Maria Tan')->assertSee('iCare NTUST')->assertDontSee('Budi Santoso');
 
         $this->post('/usher/roster/search', ['q' => '瑪麗']);
         $this->get('/usher/roster')->assertSee('Maria Tan');

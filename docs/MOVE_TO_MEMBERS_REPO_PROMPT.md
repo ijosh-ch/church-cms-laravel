@@ -69,9 +69,8 @@ repository.
    - `STANDARDS.md` §1 and §3.
 
    Then state the plan in ten lines or fewer and wait for "go".
-2. `git branch --show-current` must print `dev`, and `git status --short` must show nothing but
-   `wp1-salvage/`. If another session has uncommitted work, stop and say so: the move would leave
-   it behind.
+2. `git branch --show-current` must print `dev`, and `git status --short` must show nothing. If another
+   session has uncommitted work, stop and say so: the move would leave it behind.
 3. **Do not create, switch, rebase or delete a branch in this repository.** The history is
    rebuilt in a throwaway clone in the scratchpad, never here.
 4. **Never force-push. Never push GegoSoft history to `ifgf-tpe/members`.** Never push to

@@ -5,7 +5,11 @@ use App\Http\Controllers\Admin\MemberTeamController;
 use App\Http\Controllers\AttendanceTableController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\SignOutController;
+use App\Http\Controllers\CellGroup\AttendanceController as IcareAttendanceController;
+use App\Http\Controllers\CellGroup\MemberStatusController;
+use App\Http\Controllers\CellGroup\PhotoController as IcarePhotoController;
 use App\Http\Controllers\Member\HomeController;
+use App\Http\Controllers\Member\PhotoController as SelfPhotoController;
 use App\Http\Controllers\Member\ProfileController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\Usher\BranchController;
@@ -35,6 +39,12 @@ Route::middleware('auth')->group(function () {
     Route::get('me', HomeController::class)->name('home');
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::get('profile/photo', [SelfPhotoController::class, 'show'])->name('profile.photo');
+    Route::post('profile/photo', [SelfPhotoController::class, 'store'])->middleware('throttle:photo')->name('profile.photo.store');
+    Route::get('profile/photo/image', [SelfPhotoController::class, 'image'])->name('profile.photo.image');
+    Route::delete('profile/photo', [SelfPhotoController::class, 'destroy'])->name('profile.photo.destroy');
+    // "Hubungkan dengan Google" (FR-2): returns through auth.google.callback.
+    Route::post('auth/google/connect', [GoogleController::class, 'connect'])->middleware('throttle:sign-in')->name('auth.google.connect');
     Route::post('sign-out', SignOutController::class)->name('sign-out');
 });
 
@@ -60,4 +70,20 @@ Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group
     Route::put('members/{member}', [MemberController::class, 'update'])->name('members.update');
     Route::post('members/{member}/teams', [MemberTeamController::class, 'store'])->name('members.teams.store');
     Route::delete('members/{member}/teams', [MemberTeamController::class, 'destroy'])->name('members.teams.destroy');
+});
+
+// iCare leaders and co-leaders, for the groups they lead, and IT admins (PRD FR-9).
+// A group travels by its public_ref, a member by theirs, a meeting by its date.
+Route::middleware('auth')->prefix('icare')->name('icare.')->group(function () {
+    Route::get('/', [IcareAttendanceController::class, 'index'])->name('index');
+
+    Route::middleware('can:lead,cellGroup')->group(function () {
+        Route::get('{cellGroup}/attendance', [IcareAttendanceController::class, 'edit'])->name('attendance.edit');
+        Route::put('{cellGroup}/attendance', [IcareAttendanceController::class, 'update'])->middleware('throttle:photo')->name('attendance.update');
+        Route::get('{cellGroup}/attendance/{date}/photo', [IcarePhotoController::class, 'show'])
+            ->where('date', '\d{4}-\d{2}-\d{2}')->name('photo.show');
+        Route::delete('{cellGroup}/attendance/{date}/photo', [IcarePhotoController::class, 'destroy'])
+            ->where('date', '\d{4}-\d{2}-\d{2}')->name('photo.destroy');
+        Route::put('{cellGroup}/members/{member}/status', MemberStatusController::class)->name('members.status');
+    });
 });

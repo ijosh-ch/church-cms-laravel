@@ -107,11 +107,11 @@
             <label for="icare" class="mb-1 block text-sm font-medium text-stone-800">{{ __('iCare') }}</label>
             <select id="icare" name="icare"
                 class="block w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-base shadow-xs focus:outline-2 focus:outline-offset-1 focus:outline-sky-700">
-                <option value="{{ $noIcare }}" @selected(old('icare', $member->icare_team_id === null ? $noIcare : (string) $member->icare_team_id) === $noIcare)>
-                    {{ __('Belum mengikuti') }}
+                <option value="{{ $noIcare }}" @selected(old('icare', $member->cell_group_id === null ? $noIcare : (string) $member->cell_group_id) === $noIcare)>
+                    {{ __('Belum join iCare') }}
                 </option>
                 @foreach ($teams as $team)
-                    <option value="{{ $team->id }}" @selected(old('icare', (string) $member->icare_team_id) === (string) $team->id)>
+                    <option value="{{ $team->id }}" @selected(old('icare', (string) $member->cell_group_id) === (string) $team->id)>
                         iCare {{ $team->name }}
                     </option>
                 @endforeach

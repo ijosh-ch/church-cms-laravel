@@ -10,6 +10,7 @@ use App\Enums\EducationLevel;
 use App\Enums\TeamRole;
 use App\Models\Attendance;
 use App\Models\Branch;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Occurrence;
 use App\Models\Team;
@@ -69,7 +70,7 @@ class AttendanceTableTest extends TestCase
 
     public function test_each_row_shows_who_when_icare_category_and_how(): void
     {
-        $member = Member::factory()->student()->create(['full_name' => 'Maria Tan', 'icare_team_id' => Team::where('name', 'U')->value('id')]);
+        $member = Member::factory()->student()->create(['full_name' => 'Maria Tan', 'cell_group_id' => CellGroup::where('name', 'NTUST')->value('id')]);
         $occurrence = $this->service('TPE', '2026-10-18');
 
         $this->travelTo(CarbonImmutable::parse('2026-10-18 15:07:00', 'Asia/Taipei'), fn () => app(AttendanceRecorder::class)
@@ -78,7 +79,7 @@ class AttendanceTableTest extends TestCase
         $this->actingAs($this->usher)
             ->get('/usher/attendance?date=2026-10-18&branch=TPE')
             ->assertSee('Maria Tan')
-            ->assertSee('iCare U')
+            ->assertSee('iCare NTUST')
             ->assertSee('College')
             ->assertSee('15:07')
             ->assertSee('Onsite')

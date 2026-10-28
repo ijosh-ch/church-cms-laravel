@@ -162,7 +162,7 @@ Each is one Blade component. Variants are props, never copied markup.
 | Member home | QR card → "My attendance" (last eight Sundays, missing weeks muted) → "My household". |
 | Sign-in | One email field, one primary button, then "Continue with Google" as `secondary`. The state after sending replaces the form: "Check your email — the link works for 15 minutes." |
 | Usher scan | Branch picker as two very large `x-radio-cards` → camera filling the screen, result band (§6), a running count, "Type a code" and "Find by name" as `secondary`. |
-| iCare attendance | `x-month-nav`-style week switcher, a list of `x-checkbox-row`, "9 of 14", sticky "Save attendance". |
+| iCare attendance | Owner's choice, 2026-10-28 ("design B"). In order: **1 Foto** — a dashed drop area (take or upload) and a checkbox "Tanpa foto"; **2 Tanggal** — a date field that opens the calendar (future dates refused, "sudah disimpan" under a saved date); **3 Anggota** — a count tile "9 dari 14 hadir — 7 onsite, 2 online", then one `x-checkbox-row` per member, ticked by default, with an Onsite/Online pill on ticked rows and a reason input under online and absent rows; **4 Tamu** — guest rows with the same pill and a remove button, then a name input and "Tambah"; **5** "Simpan absensi" at the very bottom, **not** sticky. Errors gather above the button. |
 | Attendance table | Filters → five summary tiles (Adult, College, Teens and Youth, Kids, Sub-total) → `x-table`. |
 | Birthdays | See §8. |
 

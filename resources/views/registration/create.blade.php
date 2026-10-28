@@ -64,7 +64,7 @@
         <x-field name="icare" label="iCare" :hint="__('Not in an iCare group yet? Choose Belum mengikuti.')">
             <x-select required>
                 <option value="">{{ __('Choose one') }}</option>
-                <option value="{{ $noIcare }}" @selected(old('icare') === $noIcare)>{{ __('Belum mengikuti') }}</option>
+                <option value="{{ $noIcare }}" @selected(old('icare') === $noIcare)>{{ __('Belum join iCare') }}</option>
                 @foreach ($teams as $team)
                     <option value="{{ $team->id }}" @selected(old('icare') === (string) $team->id)>iCare {{ $team->name }}</option>
                 @endforeach

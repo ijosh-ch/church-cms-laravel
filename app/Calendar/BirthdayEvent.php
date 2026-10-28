@@ -10,7 +10,7 @@ use App\Models\Member;
  * What a member's birthday looks like in the calendar (PRD FR-6).
  *
  *   Title        🎂 Alicia Ardella (iCare Hsinchu)'s Birthday
- *                🎂 Budi Santoso (no iCare)'s Birthday
+ *                🎂 Budi Santoso (Belum join iCare)'s Birthday
  *   Description  English Name: Alicia Ardella
  *                Chinese Name: 林淑愛
  *                Year of Birth: 2002
@@ -39,13 +39,13 @@ final readonly class BirthdayEvent
     public static function forMember(Member $member): self
     {
         $birthday = $member->birthday;
-        $icare = trim(preg_replace('/\s+/u', ' ', (string) $member->icareTeam?->name));
+        $icare = trim(preg_replace('/\s+/u', ' ', (string) $member->cellGroup?->name));
         $name = trim(preg_replace('/\s+/', ' ', $member->full_name));
         $chineseName = trim(preg_replace('/\s+/u', ' ', (string) $member->chinese_name));
 
         return new self(
             title: $icare === ''
-                ? "🎂 {$name} (no iCare)'s Birthday"
+                ? "🎂 {$name} (Belum join iCare)'s Birthday"
                 : "🎂 {$name} (iCare {$icare})'s Birthday",
             description: implode("\n", [
                 'English Name: '.$name,

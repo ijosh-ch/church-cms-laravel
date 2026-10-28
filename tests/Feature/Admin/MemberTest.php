@@ -7,6 +7,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\MemberCategory;
 use App\Enums\MemberStatus;
 use App\Enums\TeamRole;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Team;
 use Illuminate\Support\Facades\Log;
@@ -41,7 +42,7 @@ class MemberTest extends TestCase
     {
         $target = Member::factory()->create(['full_name' => 'Target Person']);
         $leader = Member::factory()->create();
-        $leader->teams()->attach(Team::where('name', 'Grace')->sole(), ['role' => TeamRole::Leader->value]);
+        $leader->teams()->attach(Team::where('name', 'Sound')->sole(), ['role' => TeamRole::Leader->value]);
 
         foreach ([Member::factory()->create(), $this->memberIn('Usher'), $leader] as $member) {
             $this->actingAs($member);
@@ -69,7 +70,7 @@ class MemberTest extends TestCase
     {
         $member = Member::factory()->student()->create([
             'full_name' => 'Demo Student',
-            'icare_team_id' => Team::where('name', 'Grace')->value('id'),
+            'cell_group_id' => CellGroup::where('name', 'Grace')->value('id'),
         ]);
 
         $this->actingAs($this->admin)
@@ -102,8 +103,8 @@ class MemberTest extends TestCase
 
     public function test_the_list_filters_by_status_branch_and_icare_and_can_be_cleared(): void
     {
-        $grace = Team::where('name', 'Grace')->sole();
-        Member::factory()->create(['full_name' => 'In Grace', 'icare_team_id' => $grace->id]);
+        $grace = CellGroup::where('name', 'Grace')->sole();
+        Member::factory()->create(['full_name' => 'In Grace', 'cell_group_id' => $grace->id]);
         Member::factory()->visitor()->create(['full_name' => 'Just Visiting']);
 
         $this->actingAs($this->admin)->post('/admin/members/search', ['status' => 'visitor']);
@@ -129,7 +130,7 @@ class MemberTest extends TestCase
     public function test_an_admin_changes_a_members_details_and_the_category_follows(): void
     {
         $member = Member::factory()->student()->create(['full_name' => 'Demo Student']);
-        $hsinchu = Team::where('name', 'Hsinchu')->sole();
+        $hsinchu = CellGroup::where('name', 'Hsinchu')->sole();
 
         $this->actingAs($this->admin)
             ->put('/admin/members/'.$member->public_ref, $this->form([
@@ -147,7 +148,7 @@ class MemberTest extends TestCase
         $this->assertSame('Demo Graduate', $member->full_name);
         $this->assertSame('886987654321', $member->phone);
         $this->assertSame('ZL', $member->branch->code);
-        $this->assertSame($hsinchu->id, $member->icare_team_id);
+        $this->assertSame($hsinchu->id, $member->cell_group_id);
         $this->assertSame(MemberCategory::Adult, $member->category);
     }
 

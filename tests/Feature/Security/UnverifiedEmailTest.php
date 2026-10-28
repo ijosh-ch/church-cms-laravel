@@ -34,7 +34,7 @@ class UnverifiedEmailTest extends TestCase
 
     public function test_a_role_on_an_unverified_email_grants_nothing_until_the_email_is_verified(): void
     {
-        $grace = Team::where('name', 'Grace')->sole();
+        $grace = Team::where('name', 'Sound')->sole();
         $member = Member::factory()->create(['email_verified_at' => null]);
         $member->teams()->attach(Team::where('name', 'Usher')->sole(), ['role' => TeamRole::Member->value]);
         $member->teams()->attach(Team::where('name', 'IT')->sole(), ['role' => TeamRole::Member->value]);

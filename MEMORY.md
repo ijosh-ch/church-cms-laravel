@@ -6,6 +6,59 @@
 
 ---
 
+## 2026-10-28 — iCare leaves `teams`; FR-9 weekly iCare attendance built
+
+**Summary:** The owner reviewed the ERD and split iCare out of `teams`: `cell_groups`,
+`cell_group_leaders`, `cell_group_attendances` (one per group and date, with the photo) and
+`cell_group_attendees` (one per person: onsite / online / absent + reason, or a guest). A member
+has one main iCare (`members.cell_group_id`); only leaders and co-leaders may lead several. The
+attendance page follows the owner's "design B": photo first (or "Tanpa foto"), calendar date,
+everyone onsite by default, reasons for online and absent, several guests, save at the bottom.
+Indonesian is now the default locale. 308 tests.
+
+### Learned
+
+- **The owner's decisions (2026-10-28):** iCare is not a ministry team; `teams` keeps the
+  divisions. One main iCare per member, NULL shows "Belum join iCare"; co-leaders may save
+  attendance; the calendar title names the main iCare or `(Belum join iCare)`; the photo is
+  kept big enough for face detection later — the best JPEG under 3 MB, up to 4096 px, quality at
+  least 80 — and stays until a leader or the admin deletes it (no retention period); any image
+  format becomes JPG. Photos live on their own `photos` disk (`IFGF_PHOTO_ROOT`), on the server a
+  folder only `www-data` can open (`docs/DEPLOY.md` §8). Face recognition stays future
+  work and needs consent (STANDARDS §4.5).
+- **The 3 MB rule is calculated, not tried** (owner's idea): measure at quality 90 and 80,
+  interpolate the quality on a log scale, or shrink by √(cap · 0.97 / size) and correct once.
+  Shrinking noise lowers its bytes per pixel, so one square-root step undershoots: measure again.
+- **iCare U is now iCare NTUST** (owner, 2026-10-28): seeder, tests and `ifgf_app` renamed.
+- **Google sign-in in development** fails with "Access blocked" for any account that is not a
+  test user of `ifgf-site-dev` (Testing mode; the birthday scope is on).
+- **Own photo** (owner, 2026-10-28): optional, with consent, 1 MB / 1600 px, member-only view.
+- **Python on this PC rewrites `\r`** inside files (universal newlines): it silently changed the
+  line-break test in `BirthdaySyncTest`. `sed -i` in Git Bash does too. Edit with PHP
+  `str_replace` or the Edit tool. A bash heredoc with an odd number of apostrophes fails to parse
+  in this tool; write scripts to the scratchpad with the file tool.
+- **A grid column grows to its widest child**: plain `grid` let a guest row push the page to
+  396 px at 375. Use `grid-cols-1` (minmax(0, 1fr)) on form grids.
+- **Checking a signed-in page without Google:** render it in tinker inside
+  `DB::beginTransaction()` … `rollBack()` with `auth()->login()` and
+  `app()->handle(Request::create('http://localhost:8080/…'))` (the full URL, or the assets point
+  at `http://localhost`), write it to `public/_preview-*.html`, view it, delete the file.
+- After a failed FormRequest, `old()` holds the *merged* input: read `old('members.X.status')`,
+  not the ticks.
+- A flash message shows on the next GET: a test asserting that a name has left the list must not
+  be fooled by "Citra Wu sekarang tidak aktif."
+
+### Failed, or not done
+
+- `/security-review` not run. By hand: every new route is behind `auth` and `CellGroupPolicy`;
+  input in FormRequests; the photo is decoded and re-encoded, size-capped, outside the code and
+  `public/`, served `no-store`; a group travels by `public_ref`, the photo path by `public_ref` and date.
+- Not checked with a real phone camera or a HEIC file; HEIC needs `php-imagick` on the server.
+- The status toggle has no button yet (it belongs on the "Edit iCare" page, not built).
+- Laravel's own validation messages (e.g. the date format) are still English: there is no
+  `lang/id/validation.php`. The other pages are still English.
+- `PRD.md` is now about 7,000 tokens, at its cap.
+
 ## 2026-10-21 — Registration checked end to end, made one page, phone country codes, deploy plan
 
 **Summary:** A made-up person was registered through the browser and every field read back from

@@ -6,9 +6,8 @@ namespace App\Http\Requests;
 
 use App\Enums\EducationLevel;
 use App\Enums\MemberStatus;
-use App\Enums\TeamType;
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use App\Rules\NotRegistered;
 use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
@@ -39,8 +38,7 @@ class UpdateProfileRequest extends FormRequest
         // A visitor never answered page two of the form, so those fields stay optional for them.
         $pageTwo = $this->user()->status === MemberStatus::Visitor ? 'nullable' : 'required';
 
-        $icareIds = Team::where('type', TeamType::Icare)
-            ->where('is_active', true)
+        $icareIds = CellGroup::where('is_active', true)
             ->pluck('id')
             ->map(fn (int $id) => (string) $id)
             ->all();

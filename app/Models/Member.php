@@ -36,7 +36,7 @@ use Illuminate\Support\Str;
     'household_id',
     'household_role',
     'branch_id',
-    'icare_team_id',
+    'cell_group_id',
     'institution_id',
     'full_name',
     'chinese_name',
@@ -50,7 +50,7 @@ use Illuminate\Support\Str;
     'school_or_company',
     'status',
 ])]
-#[Hidden(['qr_token_hash', 'qr_token_enc', 'remember_token'])]
+#[Hidden(['qr_token_hash', 'qr_token_enc', 'remember_token', 'photo_path'])]
 #[ObservedBy(MemberObserver::class)]
 class Member extends Authenticatable
 {
@@ -60,7 +60,7 @@ class Member extends Authenticatable
     /** The choices of "Profesi saat ini"; `other` takes typed text. */
     public const OCCUPATIONS = ['worker', 'student', 'homemaker', 'other'];
 
-    /** "Belum mengikuti" — not in an iCare group yet. */
+    /** "Belum join iCare" — the form value for no main iCare (cell_group_id null). */
     public const NO_ICARE = 'none';
 
     /**
@@ -147,10 +147,27 @@ class Member extends Authenticatable
         return $this->belongsTo(Institution::class);
     }
 
-    /** @return BelongsTo<Team, $this> */
-    public function icareTeam(): BelongsTo
+    /**
+     * The member's one main iCare (PRD FR-9); null is "Belum join iCare".
+     *
+     * @return BelongsTo<CellGroup, $this>
+     */
+    public function cellGroup(): BelongsTo
     {
-        return $this->belongsTo(Team::class, 'icare_team_id');
+        return $this->belongsTo(CellGroup::class);
+    }
+
+    /**
+     * iCare groups the member leads now, as leader or co-leader. Only these may lead several.
+     *
+     * @return BelongsToMany<CellGroup, $this>
+     */
+    public function ledCellGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(CellGroup::class, 'cell_group_leaders')
+            ->withPivot(['role', 'left_at'])
+            ->withTimestamps()
+            ->wherePivotNull('left_at');
     }
 
     /**
@@ -178,6 +195,13 @@ class Member extends Authenticatable
     {
         return $this->email_verified_at !== null
             && $this->teams()->where('ability', $ability)->where('is_active', true)->exists();
+    }
+
+    /** Whether the member leads any active iCare group now. Needs a verified email, as above. */
+    public function leadsAnyCellGroup(): bool
+    {
+        return $this->email_verified_at !== null
+            && $this->ledCellGroups()->where('is_active', true)->exists();
     }
 
     /**

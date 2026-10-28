@@ -1,13 +1,13 @@
 # DATA_MODEL — the database as built
 
-**Reviewed:** 2026-10-21 · **Branch:** `dev` at `ef44257` plus the uncommitted work in the tree ·
+**Reviewed:** 2026-10-21 · **Updated:** 2026-10-28, iCare moved out of `teams` into the four `cell_group*` tables (migration `move_icare_from_teams_to_cell_groups`) · **Branch:** `dev` at `ef44257` plus the uncommitted work in the tree ·
 **Sources:** `database/migrations`, `app/Models`, `app/Enums`, and the schema of `ifgf_app`
 (structure only; no row was read). Where a document and the code disagree, this file describes
 the code and lists the difference in §6.
 
 ## 1. Summary
 
-The app has 12 domain tables, the framework's `sessions`, and five framework tables from the
+The app has 16 domain tables, the framework's `sessions`, and five framework tables from the
 cache and jobs migrations (`cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs`). `members`
 is the centre and also the sign-in model, with no `users` table. Attendance hangs off
 `events → occurrences → attendances`, with one `headcounts` row per occurrence. Every fixed list
@@ -24,7 +24,7 @@ in `ifgf_app`. The biggest risks are these:
 ## 2. Entity-relationship diagram
 
 The ERD lives in [README.md → Data model](README.md#data-model), so there is one copy to keep up
-to date. It draws all 12 domain tables and `sessions`, but not `cache`, `cache_locks`,
+to date. It draws all 16 domain tables and `sessions`, but not `cache`, `cache_locks`,
 `jobs`, `job_batches` or `failed_jobs`.
 
 ## 3. Class diagram
@@ -47,12 +47,16 @@ without time zone`, nullable). All timestamps are written in UTC (`config/app.ph
 | Table | Columns (type · null · default) | Indexes | Foreign keys (ON DELETE) |
 |---|---|---|---|
 | `branches` | code varchar(8) · name varchar · name_zh varchar null · gmaps_url varchar null · is_active bool default true · ts | PK; UQ(code) | — |
-| `teams` | type varchar(16) [TeamType] · name · branch_id null · meeting_weekday smallint null · ability varchar(16) null [TeamAbility] · is_active bool default true · ts | PK; (type) | branch_id → branches **SET NULL** |
+| `teams` | name · branch_id null · ability varchar(16) null [TeamAbility] · is_active bool default true · ts | PK | branch_id → branches **SET NULL** |
+| `cell_groups` | public_ref uuid · name · branch_id null · location null · gmaps_url varchar(2048) null · meeting_weekday smallint null (CHECK 0–6) · is_active bool default true · ts | PK; UQ(public_ref) | branch_id → branches **SET NULL** |
+| `cell_group_leaders` | cell_group_id · member_id · role varchar(16) [CellGroupRole] (CHECK) · left_at null · ts | PK; partial UQ(cell_group_id) WHERE role = 'leader' AND left_at IS NULL; partial UQ(cell_group_id, member_id) WHERE left_at IS NULL; (member_id) | cell_group_id → cell_groups **CASCADE**; member_id → members **CASCADE** |
+| `cell_group_attendances` | cell_group_id · met_on date · photo_path null · recorded_by null · ts | PK; UQ(cell_group_id, met_on) | cell_group_id → cell_groups **RESTRICT**; recorded_by → members **SET NULL** |
+| `cell_group_attendees` | attendance_id · member_id null · guest_name varchar(100) null · status varchar(16) [AttendeeStatus] · reason null · ts; CHECK status list, onsite has no reason, a guest is never absent | PK; UQ(attendance_id, member_id); (member_id) | attendance_id → cell_group_attendances **CASCADE**; member_id → members **SET NULL** |
 | `households` | name varchar · ts | PK | — |
 | `institutions` | country varchar(2) · code varchar(32) null · name_en · name_zh null · ts | PK; UQ(country, code) | — |
-| `members` | public_ref uuid · household_id null · household_role varchar(16) null [HouseholdRole] · branch_id · icare_team_id null · institution_id null · full_name · chinese_name null · email null · phone varchar(20) null · line_id null · birthday date null · domicile_taiwan null · occupation null · education_level varchar(16) null [EducationLevel] · school_or_company null · category varchar(16) [MemberCategory] · status varchar(16) [MemberStatus] · qr_token_hash varchar(64) null · qr_token_enc text null · short_code varchar(8) null · calendar_event_id null · calendar_synced_at null · profile_reminded_at null *(pending)* · email_verified_at null · remember_token varchar(100) null · legacy_ref null · ts · deleted_at null | PK; UQ(public_ref); UQ(email); UQ(qr_token_hash); UQ(short_code); (phone); (status); (legacy_ref) | household_id → households **SET NULL**; branch_id → branches **RESTRICT**; icare_team_id → teams **SET NULL**; institution_id → institutions **SET NULL** |
+| `members` | public_ref uuid · household_id null · household_role varchar(16) null [HouseholdRole] · branch_id · cell_group_id null · cell_group_active bool default true · institution_id null · full_name · chinese_name null · email null · phone varchar(20) null · line_id null · birthday date null · domicile_taiwan null · occupation null · education_level varchar(16) null [EducationLevel] · school_or_company null · category varchar(16) [MemberCategory] · status varchar(16) [MemberStatus] · qr_token_hash varchar(64) null · qr_token_enc text null · short_code varchar(8) null · photo_path null · photo_consent_at null · calendar_event_id null · calendar_synced_at null · profile_reminded_at null *(pending)* · email_verified_at null · remember_token varchar(100) null · legacy_ref null · ts · deleted_at null | PK; UQ(public_ref); UQ(email); UQ(qr_token_hash); UQ(short_code); (phone); (status); (legacy_ref) | household_id → households **SET NULL**; branch_id → branches **RESTRICT**; cell_group_id → cell_groups **SET NULL** (indexed); institution_id → institutions **SET NULL** |
 | `member_team` | member_id · team_id · role varchar(16) [TeamRole] · left_at null · ts | PK; partial UQ(member_id, team_id) WHERE left_at IS NULL; (team_id) | member_id → members **CASCADE**; team_id → teams **CASCADE** |
-| `events` | type varchar(16) [EventType] · name · branch_id null · team_id null · recurrence varchar(16) [Recurrence] · weekday smallint null · is_active bool default true · ts | PK; (type) | branch_id → branches **SET NULL**; team_id → teams **SET NULL** |
+| `events` | type varchar(16) [EventType] · name · branch_id null · recurrence varchar(16) [Recurrence] · weekday smallint null · is_active bool default true · ts | PK; (type) | branch_id → branches **SET NULL** |
 | `occurrences` | event_id · occurs_on date · locked_at null · ts | PK; UQ(event_id, occurs_on) | event_id → events **CASCADE** |
 | `attendances` | occurrence_id · member_id null · guest_name null · mode varchar(16) [AttendanceMode] · method varchar(16) [AttendanceMethod] · category varchar(16) null [MemberCategory] · recorded_by null · recorded_at · ts | PK; UQ(occurrence_id, member_id); (member_id) | occurrence_id → occurrences **CASCADE**; member_id → members **SET NULL**; recorded_by → members **SET NULL** |
 | `headcounts` | occurrence_id · adult, college, teens_youth, kids, online, total integer default 0 · reporter varchar null · source varchar(16) *(no enum)* · ts | PK; UQ(occurrence_id) | occurrence_id → occurrences **CASCADE** |
@@ -85,7 +89,7 @@ foreign keys by itself:
 | Branch→members, teams, events | yes | **no** (`members.branch_id`, `teams.branch_id`, `events.branch_id`) |
 | Household→members | yes | **no** |
 | Institution→members | yes | **no** |
-| Team→icareMembers (`icare_team_id`) | yes | **no** |
+| CellGroup→members (`cell_group_id`) | yes | yes (2026-10-28) |
 | Team↔Member (`member_team`, pivot `role`, `left_at`, ts; filtered to `left_at IS NULL`) | yes | yes: partial UQ leads with member_id; (team_id) |
 | Team→events | yes | **no** |
 | Event→occurrences | yes | yes (UQ leads with event_id) |
@@ -111,7 +115,7 @@ foreign keys by itself:
 | Sunday Service event by type + branch + active (`AttendanceRecorder::occurrenceFor`) | (type) | fine at this size; nothing stops two active ones |
 | Roster and admin search, `full_name`/`chinese_name`/`email ILIKE '%q%'` | **none**, full scan | fine at ~250 members; `pg_trgm` only past thousands |
 | Members missing profile data (`ifgf:...` reminder: `profile_reminded_at`, `status`, `created_at`) | (status) | fine at this size |
-| Members by `icare_team_id` (admin filter; later FR-9) | **none** | add when FR-9 lands |
+| Members by `cell_group_id` (admin filter; FR-9 list) | (cell_group_id) | added 2026-10-28 |
 
 ## 6. Differences from the PRD
 
@@ -145,9 +149,11 @@ foreign keys by itself:
 
 | Table | Columns holding personal data |
 |---|---|
-| `members` | full_name, chinese_name, email, phone, line_id, birthday, domicile_taiwan, occupation, education_level, school_or_company, institution_id, household_id + household_role, branch_id, icare_team_id, status, category (derived from age), legacy_ref (links to the workbook row), calendar_event_id. Credentials: qr_token_hash, qr_token_enc, short_code, remember_token |
+| `members` | full_name, chinese_name, email, phone, line_id, birthday, domicile_taiwan, occupation, education_level, school_or_company, institution_id, household_id + household_role, branch_id, cell_group_id, status, category (derived from age), legacy_ref (links to the workbook row), calendar_event_id. Credentials: qr_token_hash, qr_token_enc, short_code, remember_token |
+| `members` (photo) | photo_path: the member's own face photo on the `photos` disk, kept only with `photo_consent_at`; deleting it clears both (owner, 2026-10-28) |
 | `households` | name (usually a family name) |
 | `attendances` | member_id with recorded_at and mode: a record of church attendance; guest_name (a non-member's name) |
+| `cell_group_attendees` / `cell_group_attendances` | guest_name; **reason** (why someone was online or absent, may be about health or work: seen only by the group's leaders and the IT admin); the meeting **photo** (faces) on the `photos` disk (`IFGF_PHOTO_ROOT`, readable only by the web-server user on the server), `photo_path`. Anonymise (§5.14) must also clear the member's reasons; a photo shows several people and is deleted by a leader or the admin |
 | `headcounts` | reporter (a person's name, free text) |
 | `change_requests` | changes (proposed personal values, jsonb) |
 | `import_batches` | summary: the PRD allows row references only, but the schema does not enforce it |
@@ -230,7 +236,7 @@ neither**, and FR-8, FR-11 and FR-14 pages will need to address them.
   - `weekday` and `meeting_weekday`: between 0 and 6 (and decide which convention).
 - **S9. Future pages will need a public reference for teams, events and occurrences.** Add a
   `public_ref` to each before FR-8, FR-11 or FR-14 adds a route that names one.
-- **S10. Some foreign-key columns have no index.** Index `members.icare_team_id` (FR-9 and the
+- **S10. Some foreign-key columns have no index.** Index `members.cell_group_id` (done 2026-10-28), the
   leader's roster), `members.household_id` (FR-3) and `change_requests.member_id`. The rest are
   harmless at this size.
 

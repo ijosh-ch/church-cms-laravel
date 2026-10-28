@@ -97,9 +97,9 @@
         <div class="mb-6">
             <label for="icare" class="mb-1 block text-sm font-medium text-stone-800">iCare</label>
             <select id="icare" name="icare" class="block w-full rounded-md border border-stone-400 bg-white px-3 py-2 text-base">
-                <option value="{{ $noIcare }}" @selected(old('icare', $member->icare_team_id === null ? $noIcare : '') === $noIcare)>{{ __('Belum mengikuti') }}</option>
-                @foreach ($icareTeams as $team)
-                    <option value="{{ $team->id }}" @selected(old('icare', (string) $member->icare_team_id) === (string) $team->id)>iCare {{ $team->name }}</option>
+                <option value="{{ $noIcare }}" @selected(old('icare', $member->cell_group_id === null ? $noIcare : '') === $noIcare)>{{ __('Belum join iCare') }}</option>
+                @foreach ($cellGroups as $team)
+                    <option value="{{ $team->id }}" @selected(old('icare', (string) $member->cell_group_id) === (string) $team->id)>iCare {{ $team->name }}</option>
                 @endforeach
             </select>
             @error('icare')
@@ -128,7 +128,7 @@
                 @foreach ($member->teams as $team)
                     <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                         <span>
-                            <span class="block text-base font-medium">{{ $team->type->value === 'icare' ? 'iCare '.$team->name : $team->name }}</span>
+                            <span class="block text-base font-medium">{{ $team->name }}</span>
                             <span class="block text-sm text-stone-600">
                                 {{ ucfirst($team->pivot->role) }}@if ($team->ability) · {{ __('grants :ability', ['ability' => $team->ability->value]) }}@endif
                             </span>
@@ -154,7 +154,7 @@
                     <label for="team_id" class="mb-1 block text-sm font-medium text-stone-800">{{ __('Team') }}</label>
                     <select id="team_id" name="team_id" required class="block w-full rounded-md border border-stone-400 bg-white px-3 py-2 text-base">
                         @foreach ($allTeams as $team)
-                            <option value="{{ $team->id }}">{{ $team->type->value === 'icare' ? 'iCare '.$team->name : $team->name }}</option>
+                            <option value="{{ $team->id }}">{{ $team->name }}</option>
                         @endforeach
                     </select>
                 </div>

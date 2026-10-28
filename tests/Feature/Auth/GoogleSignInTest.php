@@ -4,8 +4,8 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Socialite\Contracts\Provider;
@@ -260,7 +260,7 @@ class GoogleSignInTest extends TestCase
             'line_id' => '',
             'phone' => '0987 654 321',
             'branch' => 'ZL',
-            'icare' => (string) Team::where('name', 'Grace')->value('id'),
+            'icare' => (string) CellGroup::where('name', 'Grace')->value('id'),
             'attend_again' => 'yes',
             ...$overrides,
         ];

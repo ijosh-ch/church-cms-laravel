@@ -3,8 +3,8 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-10-21 · **Branch:** `dev`, seven commits ahead of `origin/dev`, nothing
-pushed · **Stage:** registration, Google sign-in, profile, birthday calendar, roles, admin member
+**Updated:** 2026-10-28 · **Branch:** `dev`, seven commits ahead of `origin/dev`, nothing
+pushed; WP5 FR-9 uncommitted · **Stage:** iCare weekly attendance (FR-9) is built; registration, Google sign-in, profile, birthday calendar, roles, admin member
 management and the usher screens are built and reviewed once; the restyle to `design/DESIGN.md`
 has its foundations and two pages. `TODO.md` lists what is not built yet.
 
@@ -20,8 +20,8 @@ Nothing is deployed; the legacy Google Form and Apps Script are still the live s
 The tree is a clean Laravel 13.35 app. The GegoSoft fork survives only on
 `feat/postgresql-multisite`.
 
-**Numbers:** 282/282 tests on `ifgf_app_test`; 27 routes; `composer audit` and `npm audit` clean.
-12 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
+**Numbers:** 308/308 tests on `ifgf_app_test`; 33 routes; `composer audit` and `npm audit` clean.
+16 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
 no passwords).
 **Data model:** the ERD and the class diagrams are in `README.md` → "Data model". `DATA_MODEL.md`
 has the table inventory and the ranked findings of the 2026-10-21 review.
@@ -50,10 +50,28 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
   `Member::hasAbility()` and `leads()` return false until `email_verified_at` is set. The first
   Google verification deletes that member's other sessions and replaces the remember token.
 - **Roles** — Gates `scan`, `lead-team`, `admin` in `AppServiceProvider`, from team membership
-  only. First admin: `php artisan ifgf:admin:grant <email>` (refuses an unverified email).
+  only; iCare pages use `CellGroupPolicy::lead` (current leader or co-leader, verified email, or admin). First admin: `php artisan ifgf:admin:grant <email>` (refuses an unverified email).
 - **Admin** — `/admin/members`: search kept in the session, edit, status, teams and roles; the
   member page says when an email is not verified. Changes go to the `audit` log channel
   (`storage/logs/audit-*.log`, ids only).
+- **iCare (FR-9, 2026-10-28)** — iCare groups are `cell_groups`, no longer `teams` (which now holds
+  ministry divisions only). A member has one main iCare, `members.cell_group_id` (null = "Belum
+  join iCare"), and `cell_group_active`; leaders and co-leaders are `cell_group_leaders` and may
+  lead several. `/icare` → `/icare/{public_ref}/attendance`: photo first (or "Tanpa foto"),
+  calendar date (no future), everyone onsite by default, online/absent need a reason, any number
+  of guests, save at the bottom; re-saving a date updates it. `Services/AttendancePhotoStore`
+  re-encodes any image to the best JPEG under 3 MB (≤ 4096 px, quality ≥ 80), no metadata, on the
+  `photos` disk (`IFGF_PHOTO_ROOT`, here `storage/app/private/assets`) at
+  `icare/{public_ref}/{date}.jpg`; `resources/js/icare-attendance.js` shrinks it in the browser
+  first (HEIC is not readable: no Imagick). Server steps: `docs/DEPLOY.md` §8. Status toggle
+  `PUT /icare/{group}/members/{member}/status` is audited but has no button yet (edit page).
+- **Own photo (2026-10-28)** — `/profile/photo`: optional, consent box required, JPEG ≤ 1 MB /
+  1600 px at `members/{public_ref}.jpg` on the photos disk, only the member sees it, delete =
+  consent withdrawn (audited). A card on `/me` offers it. Uploads (this and iCare attendance) are
+  throttled to 10 a minute per person (`photo` limiter). `resources/js/photo-shrink.js` holds the
+  browser-side shrink for both.
+- **Language** — default locale `id` (`config/app.php`, `.env.example`, `phpunit.xml`);
+  `lang/id.json` holds only the iCare page's strings. Other pages still show English keys.
 - **Usher** — `/usher`: pick a branch → `/usher/scan` (camera through `jsqr` in
   `resources/js/scanner.js`, typed backup code, find by name) → `/usher/attendance` (one Sunday
   of one branch with the totals block). `Services/AttendanceRecorder` creates the day's Sunday
@@ -93,7 +111,8 @@ ignored). `ifgf_app` (development) and `ifgf_app_test` (tests) are owned by role
 - In `ifgf_app` nobody is an admin until the owner signs in with Google and runs
   `ifgf:admin:grant` (`TODO.md` item 2).
 - The dev calendar's events keep the old title until `ifgf:calendar:sync` is run.
-- `wp1-salvage/` is an untracked duplicate of the WP1 files; the owner has not said to delete it.
+- PHP here has `upload_max_filesize = 2M`: a 3 MB iCare photo is refused until `php.ini` says
+  `upload_max_filesize = 10M` and `post_max_size = 12M` (the owner's machine setting).
 
 ## Facts a session will need
 

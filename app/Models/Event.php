@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * What recurs. One date of it is an Occurrence; attendance hangs off the occurrence.
  */
-#[Fillable(['type', 'name', 'branch_id', 'team_id', 'recurrence', 'weekday', 'is_active'])]
+#[Fillable(['type', 'name', 'branch_id', 'recurrence', 'weekday', 'is_active'])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */
@@ -39,12 +39,6 @@ class Event extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
-    }
-
-    /** @return BelongsTo<Team, $this> */
-    public function team(): BelongsTo
-    {
-        return $this->belongsTo(Team::class);
     }
 
     /** @return HasMany<Occurrence, $this> */

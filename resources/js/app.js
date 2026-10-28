@@ -56,3 +56,27 @@ document.querySelectorAll('[data-phone-country]').forEach((select) => {
         input.placeholder = select.selectedOptions[0]?.dataset.example ?? '';
     });
 });
+
+// A form with data-confirm asks first (deleting an iCare meeting photo).
+document.addEventListener('submit', (event) => {
+    const message = event.target.dataset?.confirm;
+
+    if (message && !window.confirm(message)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }
+}, true);
+
+// iCare attendance (PRD FR-9) — loaded only on that page.
+const icareAttendance = document.querySelector('[data-icare-attendance]');
+
+if (icareAttendance) {
+    import('./icare-attendance.js').then(({ init }) => init(icareAttendance));
+}
+
+// A member's own photo — shrunk in the browser before it is sent.
+const selfPhoto = document.querySelector('[data-self-photo]');
+
+if (selfPhoto) {
+    import('./photo-shrink.js').then(({ wirePhoto }) => wirePhoto(selfPhoto));
+}

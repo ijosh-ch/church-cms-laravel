@@ -4,11 +4,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\TeamType;
 use App\Http\Requests\RegisterMemberRequest;
 use App\Models\Branch;
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use App\Services\MemberRegistrar;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,7 +35,7 @@ class RegistrationController extends Controller
 
         return view('registration.create', [
             'branches' => Branch::where('is_active', true)->orderBy('id')->get(),
-            'teams' => Team::where('type', TeamType::Icare)->where('is_active', true)->orderBy('name')->get(),
+            'teams' => CellGroup::where('is_active', true)->orderBy('name')->get(),
             'noIcare' => Member::NO_ICARE,
             'google' => $google,
             // What Google supplied fills the form in; the person can still change it.

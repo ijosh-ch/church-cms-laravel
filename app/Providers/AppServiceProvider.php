@@ -62,6 +62,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('scan', fn (Request $request) => Limit::perMinute(120)->by('scan:'.$request->user()?->id));
         RateLimiter::for('short-code', fn (Request $request) => Limit::perMinute(10)->by('code:'.$request->user()?->id));
 
+        // Photos are the heaviest thing anyone can send: a few a minute is plenty for a person,
+        // and keeps a misused account from filling the disk.
+        RateLimiter::for('photo', fn (Request $request) => Limit::perMinute(10)->by('photo:'.$request->user()?->id));
+
         // Three Gates carry all authorisation (PRD §2). Deny by default; `admin` implies the others.
         Gate::define('admin', fn (Member $member) => $member->hasAbility(TeamAbility::Admin));
         Gate::define('scan', fn (Member $member) => $member->hasAbility(TeamAbility::Scan)

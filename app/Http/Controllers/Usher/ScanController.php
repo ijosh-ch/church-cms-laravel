@@ -80,7 +80,7 @@ class ScanController extends Controller
         return [
             'status' => $created ? 'recorded' : 'already',
             'name' => $member->full_name,
-            'icare' => $member->icareTeam?->name,
+            'icare' => $member->cellGroup?->name,
             'time' => $attendance->recorded_at->timezone('Asia/Taipei')->format('H:i'),
             'count' => $occurrence->attendances()->count(),
         ];

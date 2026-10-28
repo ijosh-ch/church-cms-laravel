@@ -39,7 +39,7 @@ class MemberEditor
                 : $this->blankToNull($occupation),
             'education_level' => $this->blankToNull($data['education_level'] ?? null),
             'school_or_company' => $this->blankToNull($data['school_or_company'] ?? null),
-            'icare_team_id' => in_array($icare, [null, '', Member::NO_ICARE], true) ? null : (int) $icare,
+            'cell_group_id' => in_array($icare, [null, '', Member::NO_ICARE], true) ? null : (int) $icare,
         ];
     }
 

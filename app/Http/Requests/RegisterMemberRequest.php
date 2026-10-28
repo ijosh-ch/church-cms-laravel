@@ -5,10 +5,9 @@
 namespace App\Http\Requests;
 
 use App\Enums\PhoneCountry;
-use App\Enums\TeamType;
 use App\Http\Controllers\RegistrationController;
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use App\Rules\NotRegistered;
 use App\Rules\PersonName;
 use App\Rules\PhoneNumber;
@@ -67,8 +66,7 @@ class RegisterMemberRequest extends FormRequest
      */
     public function rules(): array
     {
-        $icareIds = Team::where('type', TeamType::Icare)
-            ->where('is_active', true)
+        $icareIds = CellGroup::where('is_active', true)
             ->pluck('id')
             ->map(fn (int $id) => (string) $id)
             ->all();

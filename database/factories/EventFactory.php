@@ -26,7 +26,6 @@ class EventFactory extends Factory
             'type' => EventType::SundayService,
             'name' => 'Sunday Service',
             'branch_id' => Branch::factory(),
-            'team_id' => null,
             'recurrence' => Recurrence::Weekly,
             'weekday' => 0,
             'is_active' => true,

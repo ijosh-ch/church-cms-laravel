@@ -8,8 +8,8 @@ use App\Enums\EducationLevel;
 use App\Enums\MemberCategory;
 use App\Enums\MemberStatus;
 use App\Models\Branch;
+use App\Models\CellGroup;
 use App\Models\Member;
-use App\Models\Team;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -50,7 +50,7 @@ class ProfileTest extends TestCase
     public function test_saving_changes_the_members_own_record(): void
     {
         $member = $this->member();
-        $hsinchu = Team::where('name', 'Hsinchu')->sole();
+        $hsinchu = CellGroup::where('name', 'Hsinchu')->sole();
 
         $this->actingAs($member)
             ->put('/profile', $this->profile([
@@ -81,7 +81,7 @@ class ProfileTest extends TestCase
         $this->assertSame('worker', $member->occupation);
         $this->assertSame(EducationLevel::S2, $member->education_level);
         $this->assertSame('Demo Company', $member->school_or_company);
-        $this->assertSame($hsinchu->id, $member->icare_team_id);
+        $this->assertSame($hsinchu->id, $member->cell_group_id);
 
         // Student + S1 was College; a worker is an Adult (FR-5).
         $this->assertSame(MemberCategory::Adult, $member->category);
@@ -177,7 +177,7 @@ Year of Birth: 1900'], 'chinese_name'],
         ]));
 
         $this->assertSame('Pastor', $member->fresh()->occupation);
-        $this->assertNull($member->fresh()->icare_team_id);
+        $this->assertNull($member->fresh()->cell_group_id);
 
         $this->actingAs($member)->get('/profile')->assertSee('value="Pastor"', false);
     }
@@ -231,7 +231,7 @@ Year of Birth: 1900'], 'chinese_name'],
             'full_name' => 'Demo Student',
             'birthday' => '2004-03-15',
             'branch_id' => Branch::where('code', 'TPE')->value('id'),
-            'icare_team_id' => Team::where('name', 'Grace')->value('id'),
+            'cell_group_id' => CellGroup::where('name', 'Grace')->value('id'),
         ]);
     }
 
@@ -253,7 +253,7 @@ Year of Birth: 1900'], 'chinese_name'],
             'occupation_other' => '',
             'education_level' => 's1',
             'school_or_company' => 'National Taiwan University',
-            'icare' => (string) Team::where('name', 'Grace')->value('id'),
+            'icare' => (string) CellGroup::where('name', 'Grace')->value('id'),
             ...$overrides,
         ];
     }

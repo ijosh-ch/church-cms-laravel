@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             BranchSeeder::class,
             TeamSeeder::class,
+            CellGroupSeeder::class,
             EventSeeder::class,
         ]);
     }

@@ -44,7 +44,7 @@
                 <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <span>
                         <span class="block text-base font-medium">{{ $member->full_name }}@if ($member->chinese_name) <span class="font-normal text-stone-600">{{ $member->chinese_name }}</span>@endif</span>
-                        <span class="block text-sm text-stone-600">{{ $member->icareTeam ? 'iCare '.$member->icareTeam->name : __('Belum mengikuti') }}</span>
+                        <span class="block text-sm text-stone-600">{{ $member->cellGroup ? 'iCare '.$member->cellGroup->name : __('Belum join iCare') }}</span>
                     </span>
 
                     @if ($row = $recorded->get($member->id))

@@ -6,9 +6,9 @@ namespace Tests\Feature;
 
 use App\Enums\TeamAbility;
 use App\Enums\TeamRole;
-use App\Enums\TeamType;
 use App\Models\Attendance;
 use App\Models\Branch;
+use App\Models\CellGroup;
 use App\Models\Event;
 use App\Models\Headcount;
 use App\Models\Institution;
@@ -21,26 +21,31 @@ use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
- * PRD §4 — the 12 domain tables, their columns and their unique rules.
+ * PRD §4 — the 16 domain tables, their columns and their unique rules.
  */
 class SchemaTest extends TestCase
 {
-    /** The 12 domain tables and their columns, exactly as PRD §4 lists them. */
+    /** The 16 domain tables and their columns, exactly as PRD §4 lists them. */
     private const DOMAIN = [
         'branches' => ['id', 'code', 'name', 'name_zh', 'gmaps_url', 'is_active'],
-        'teams' => ['id', 'type', 'name', 'branch_id', 'meeting_weekday', 'ability', 'is_active'],
+        'teams' => ['id', 'name', 'branch_id', 'ability', 'is_active'],
+        'cell_groups' => ['id', 'public_ref', 'name', 'branch_id', 'location', 'gmaps_url', 'meeting_weekday', 'is_active'],
+        'cell_group_leaders' => ['id', 'cell_group_id', 'member_id', 'role', 'left_at'],
+        'cell_group_attendances' => ['id', 'cell_group_id', 'met_on', 'photo_path', 'recorded_by'],
+        'cell_group_attendees' => ['id', 'attendance_id', 'member_id', 'guest_name', 'status', 'reason'],
         'member_team' => ['id', 'member_id', 'team_id', 'role', 'left_at'],
         'households' => ['id', 'name'],
         'institutions' => ['id', 'country', 'code', 'name_en', 'name_zh'],
         'members' => [
-            'id', 'public_ref', 'household_id', 'household_role', 'branch_id', 'icare_team_id',
+            'id', 'public_ref', 'household_id', 'household_role', 'branch_id', 'cell_group_id',
+            'cell_group_active',
             'institution_id', 'full_name', 'chinese_name', 'email', 'phone', 'line_id',
             'birthday', 'domicile_taiwan', 'occupation', 'education_level', 'school_or_company',
-            'category', 'status', 'qr_token_hash', 'qr_token_enc', 'short_code',
+            'category', 'status', 'qr_token_hash', 'qr_token_enc', 'short_code', 'photo_path', 'photo_consent_at',
             'calendar_event_id', 'calendar_synced_at', 'profile_reminded_at', 'email_verified_at', 'remember_token',
             'legacy_ref', 'deleted_at',
         ],
-        'events' => ['id', 'type', 'name', 'branch_id', 'team_id', 'recurrence', 'weekday', 'is_active'],
+        'events' => ['id', 'type', 'name', 'branch_id', 'recurrence', 'weekday', 'is_active'],
         'occurrences' => ['id', 'event_id', 'occurs_on', 'locked_at'],
         'attendances' => [
             'id', 'occurrence_id', 'member_id', 'guest_name', 'mode', 'method', 'category',
@@ -73,11 +78,11 @@ class SchemaTest extends TestCase
         }
     }
 
-    public function test_there_are_twelve_domain_tables_and_nothing_else(): void
+    public function test_there_are_sixteen_domain_tables_and_nothing_else(): void
     {
         $tables = array_column(Schema::getTables(), 'name');
 
-        $this->assertCount(12, self::DOMAIN);
+        $this->assertCount(16, self::DOMAIN);
         $this->assertEqualsCanonicalizing(
             [...array_keys(self::DOMAIN), ...self::FRAMEWORK],
             $tables,
@@ -104,12 +109,18 @@ class SchemaTest extends TestCase
         $this->assertUniqueIndex('attendances', ['occurrence_id', 'member_id']);
         $this->assertUniqueIndex('headcounts', ['occurrence_id']);
         $this->assertUniqueIndex('change_requests', ['token_hash']);
+        $this->assertUniqueIndex('cell_groups', ['public_ref']);
+        $this->assertUniqueIndex('cell_group_leaders', ['cell_group_id', 'member_id']);
+        $this->assertUniqueIndex('cell_group_attendances', ['cell_group_id', 'met_on']);
+        $this->assertUniqueIndex('cell_group_attendees', ['attendance_id', 'member_id']);
     }
 
     public function test_fixed_lists_are_plain_strings_not_database_enums(): void
     {
         $fixed = [
-            'teams' => ['type', 'ability'],
+            'teams' => ['ability'],
+            'cell_group_leaders' => ['role'],
+            'cell_group_attendees' => ['status'],
             'member_team' => ['role'],
             'members' => ['household_role', 'education_level', 'category', 'status'],
             'events' => ['type', 'recurrence'],
@@ -131,7 +142,7 @@ class SchemaTest extends TestCase
     public function test_a_member_has_one_live_membership_per_team_but_history_may_repeat(): void
     {
         $member = Member::factory()->create();
-        $team = Team::factory()->ministry()->create();
+        $team = Team::factory()->create();
 
         $team->members()->attach($member, ['role' => TeamRole::Member->value]);
 
@@ -215,8 +226,8 @@ class SchemaTest extends TestCase
         $this->seed();
 
         $this->assertEqualsCanonicalizing(['TPE', 'ZL'], Branch::pluck('code')->all());
-        $this->assertSame(27, Team::where('type', TeamType::Icare)->count());
-        $this->assertSame(7, Team::where('type', TeamType::Ministry)->count());
+        $this->assertSame(27, CellGroup::count());
+        $this->assertSame(7, Team::count());
 
         $this->assertSame(
             ['Usher' => TeamAbility::Scan, 'IT' => TeamAbility::Admin],
@@ -224,7 +235,6 @@ class SchemaTest extends TestCase
         );
 
         $this->assertSame(2, Event::where('type', 'sunday_service')->count());
-        $this->assertSame(27, Event::where('type', 'icare')->whereNotNull('team_id')->count());
         $this->assertSame(0, Member::count());
         $this->assertSame(0, Occurrence::count());
     }
@@ -235,8 +245,9 @@ class SchemaTest extends TestCase
         $this->seed();
 
         $this->assertSame(2, Branch::count());
-        $this->assertSame(34, Team::count());
-        $this->assertSame(29, Event::count());
+        $this->assertSame(7, Team::count());
+        $this->assertSame(27, CellGroup::count());
+        $this->assertSame(2, Event::count());
     }
 
     /**

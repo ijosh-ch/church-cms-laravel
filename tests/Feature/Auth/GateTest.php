@@ -6,6 +6,7 @@ namespace Tests\Feature\Auth;
 
 use App\Enums\TeamAbility;
 use App\Enums\TeamRole;
+use App\Models\CellGroup;
 use App\Models\Member;
 use App\Models\Team;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -27,10 +28,10 @@ class GateTest extends TestCase
 
     public function test_the_gate_matrix(): void
     {
-        $teamA = Team::where('name', 'Grace')->sole();
-        $teamB = Team::where('name', 'Hsinchu')->sole();
+        $teamA = Team::where('name', 'Sound')->sole();
+        $teamB = Team::where('name', 'Multimedia')->sole();
 
-        $plain = Member::factory()->create(['icare_team_id' => $teamA->id]);
+        $plain = Member::factory()->create(['cell_group_id' => CellGroup::where('name', 'Grace')->value('id')]);
         $usher = $this->memberIn('Usher');
         $admin = $this->memberIn('IT');
         $leaderOfA = Member::factory()->create();
@@ -48,10 +49,10 @@ class GateTest extends TestCase
 
     public function test_having_an_icare_is_not_leading_it(): void
     {
-        $team = Team::where('name', 'Grace')->sole();
-        $member = Member::factory()->create(['icare_team_id' => $team->id]);
+        $group = CellGroup::where('name', 'Grace')->sole();
+        $member = Member::factory()->create(['cell_group_id' => $group->id]);
 
-        $this->assertFalse($member->can('lead-team', $team));
+        $this->assertFalse($member->can('lead', $group));
     }
 
     public function test_leaving_a_team_ends_the_access_it_gave(): void

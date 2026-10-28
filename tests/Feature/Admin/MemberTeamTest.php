@@ -77,7 +77,7 @@ class MemberTeamTest extends TestCase
 
     public function test_adding_someone_already_in_the_team_changes_their_role_instead(): void
     {
-        $grace = Team::where('name', 'Grace')->sole();
+        $grace = Team::where('name', 'Sound')->sole();
         $member = Member::factory()->create();
         $url = '/admin/members/'.$member->public_ref.'/teams';
 

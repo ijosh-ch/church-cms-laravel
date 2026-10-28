@@ -3,6 +3,8 @@
 **Version:** 3.0 · **Date:** 2026-10-04 · **Owner:** Ian Joseph Chandra · **Branch:** `dev`
 **Replaces:** PRD 2.5 (2026-08-08) — still readable with `git show feat/postgresql-multisite:PRD.md`.
 **Amended:** 2026-10-04 — FR-13 gains the live sheet sync (owner-authorised; D11, D12).
+**Amended:** 2026-10-28 — iCare groups leave `teams` for their own tables (cell groups); FR-9
+rewritten: onsite / online / absent with a reason, several guests, a meeting photo (owner).
 
 > This file is the scope. Read it whole (hard cap 7,000 tokens). Anything not written here is
 > **out of scope** until the owner adds it. Build order and session budgets: `EXECUTION_PLAN.md`.
@@ -30,17 +32,17 @@ readable on `feat/postgresql-multisite` as a reference.
 5. Birthday → Google Calendar, and birthday tables (FR-6)
 6. Sunday attendance by QR scan, short code or roster tick; usher picks the branch (FR-7)
 7. Events of any kind — weekly or annual (FR-8)
-8. Weekly iCare attendance with guests and back-filled weeks (FR-9)
+8. Weekly iCare attendance: onsite, online or absent, guests, any past date, a photo (FR-9)
 9. iCare-leader edits confirmed by the member through email (FR-10)
 10. Attendance table and category counts (FR-11); quarterly review (FR-12)
 11. Imports: the legacy workbook, and LINE recaps (FR-13)
-12. Teams: iCare groups and ministry divisions with leaders and members (FR-14)
+12. Teams: ministry divisions with leaders and members (FR-14); iCare groups have their own (FR-9)
 
 **Out of scope** — website builder, donations, sermons, discipleship (CGSL) tracking, service
-scheduling, NFC tags, photo/face attendance, ticketing, Zoom import, Google Forms ingestion, a
-mobile API, Apple sign-in, multi-church, profile photos. Photo and camera attendance, the event
+scheduling, NFC tags, face recognition on photos, ticketing, Zoom import, Google Forms ingestion, a
+mobile API, Apple sign-in, multi-church. Face recognition, photo and camera attendance, the event
 photo finder, analytics, offerings and asset management (Snipe-IT) are future modules, drafted in `ROADMAP.md`; v1 only guarantees the stable keys they
-will attach to (`members.public_ref`, `teams.id`). **`ROADMAP.md` is not scope.**
+will attach to (`members.public_ref`, `cell_groups.public_ref`, `teams.id`). **`ROADMAP.md` is not scope.**
 
 ---
 
@@ -53,12 +55,13 @@ may do comes from team membership — nothing else grants access.
 |---|---|---|
 | Member | registers | own profile, QR, attendance history, own household |
 | Usher | belongs to a team with `ability = scan` | record attendance at a branch they pick |
-| iCare leader | `leader` in an iCare team | FR-9, FR-10, FR-6 table — for that one group only |
+| iCare leader | `leader` or `co_leader` in `cell_group_leaders` | FR-9, FR-10, FR-6 table — for the iCare groups they lead |
 | Ministry team leader | `leader` in a ministry team | see that team's roster |
 | IT admin | belongs to a team with `ability = admin` | everything: teams, events, imports, reports |
 
 Deny by default. Three Gates carry all authorisation: `scan`, `lead-team` (takes the team),
-`admin`. `admin` implies the other two. Only an IT admin changes team membership or roles.
+`admin`; iCare pages add `CellGroupPolicy` (a current leader or co-leader of that group).
+`admin` implies all of them. Only an IT admin changes team membership or roles.
 The first IT admin is created by an artisan command, never through a web form.
 
 ---
@@ -79,7 +82,7 @@ changes.
 | 3 | WhatsApp Number | `phone` | yes, required | stored E.164; the country code is chosen first (`phone_country`, default +886) and the number must have that country's mobile shape (owner, 2026-10-21) |
 | 4 | Tanggal Lahir | `birthday` | yes, required | |
 | 5 | Domisili Gereja IFGF | `branch_id` | yes, required | Taipei / Zhongli |
-| 6 | iCare | `icare_team_id` | yes, required | active iCare teams, or "Belum mengikuti" = null |
+| 6 | iCare | `cell_group_id` | yes, required | active iCare groups, or "Belum join iCare" = null |
 | 7 | Plan to attend again? | `status` | yes, required | **No → `visitor`**, Yes → `active` |
 | 8 | Chinese Name | `chinese_name` | profile | optional |
 | 9 | Line ID | `line_id` | profile | optional |
@@ -119,9 +122,17 @@ one reminder are each covered by a test.
   for a new person only, fills the birthday in — still editable, and the form still asks when
   Google has none, has no year, or the person says no (owner, 2026-10-14). The scope is
   sensitive: Google must verify the app before it is switched on in production.
+- **Connect with Google** (owner, 2026-10-28): a signed-in member whose email is not verified yet
+  links Google from the profile ("Hubungkan dengan Google"); accepted only when the Google email
+  equals theirs (case-insensitive), then verified exactly as a Google sign-in; any other changes nothing.
 - Either way sets `email_verified_at`. Sessions in the database, secure cookies.
 - Signed in, a member sees their QR, their attendance history, and edits their own profile —
   every FR-1 field except email. A change to name, birthday or iCare re-syncs the calendar (FR-6).
+- **Own photo, optional** (owner, 2026-10-28): `/profile/photo`, offered by a card on `/me` until
+  there is one. Kept only with a ticked consent (`photo_consent_at`), as a JPEG of at most 1 MB
+  and 1600 px on the photos disk (`members/{public_ref}.jpg`); only the member sees it for now.
+  Deleting it withdraws the consent. Both are audited. Later used to recognise faces in FR-9
+  meeting photos — who else may then see it is decided with that feature.
 
 ### FR-3 Households
 
@@ -161,7 +172,7 @@ One addition for family members who have no education level: age under 13 → Ki
 
 - **Calendar sync (legacy behaviour kept).** One all-day event per member in the church birthday
   calendar, repeating yearly until birth year + 99, reminders at 1 week and 1 day.
-  Title `🎂 {full_name} (iCare {name})'s Birthday`, or `(no iCare)` for a member who has not
+  Title `🎂 {full_name} (iCare {name})'s Birthday`, or `(Belum join iCare)` for a member who has not
   joined one. Description, one per line: `English Name:`, `Chinese Name:`, `Year of Birth:`
   (owner, 2026-10-14). No age in the calendar: it would have to be rewritten every
   year; the app can show it later. The event id lives in `members.calendar_event_id`.
@@ -194,10 +205,10 @@ One addition for family members who have no education level: age under 13 → Ki
 ### FR-8 Events
 
 `events` describes what recurs; `occurrences` is one date of it; `attendances` hang off the
-occurrence. Types: `sunday_service`, `icare`, `worship_night`, `class`, `special`. Recurrence:
+occurrence. Types: `sunday_service`, `worship_night`, `class`, `special`. Recurrence:
 `weekly`, `annual`, `once`. An occurrence is created the first time someone records attendance
-for that date — no scheduled job inserts weeks. Seeded: Sunday Service for each branch, and one
-weekly iCare event per iCare team. An IT admin adds the rest (Worship Night, a discipleship class,
+for that date — no scheduled job inserts weeks. Seeded: Sunday Service for each branch. iCare
+meetings are not events: they have their own tables (FR-9). An IT admin adds the rest (Worship Night, a discipleship class,
 Christmas, Passover).
 
 **Later, not in this PRD (owner, 2026-10-21):** special events — created by the usher leader, with
@@ -206,11 +217,28 @@ to the usher leader and the IT admin (`ROADMAP.md` M8). Its check-ins come back 
 
 ### FR-9 Weekly iCare attendance
 
-For a leader, on their own group:
-- The page lists the group's active members; tick who came, save. Re-saving updates the same date.
-- **Guest:** add a name for someone not registered yet (kept as `guest_name`).
-- **Forgotten weeks:** pick any past date and fill it in the same way.
-- Set a member **active** or **inactive** — applied at once, and logged.
+An iCare group (`cell_groups`) has a name, a branch, a place (`location`, `gmaps_url`), a meeting
+weekday, one leader and any number of co-leaders (`cell_group_leaders`, which keeps `left_at`).
+A member has **one** main iCare (`members.cell_group_id`, null = "Belum join iCare"); only leaders
+and co-leaders may lead several. Owner, 2026-10-28.
+
+For the group's leader or co-leader, and the IT admin (`/icare/{public_ref}/attendance`):
+1. **Photo first.** One photo of the meeting, or tick "Tanpa foto"; without either, saving is
+   refused. The browser turns any image it can open into the best JPEG under 3 MB (long side up
+   to 4096 px, quality at least 80); the server decodes it again, re-encodes it the same way and
+   drops its metadata. Stored outside the code at `{IFGF_PHOTO_ROOT}/icare/{public_ref}/{date}.jpg`,
+   readable only by the web-server user; kept until deleted. Only the group's leaders and the IT
+   admin see or delete it. Face recognition is future work (`ROADMAP.md`) and needs
+   each member's own consent first (`STANDARDS.md` §4.5).
+2. **Date** from a calendar picker; any past date, never a future one. A saved date opens with
+   its values and re-saving updates it (`unique(cell_group_id, met_on)`).
+3. **Members:** every active member of the group starts as **onsite**. Untick = **absent**; a
+   switch makes it **online**. Online and absent each need a short reason.
+4. **Guests:** any number, by name (`guest_name`), onsite or online.
+5. Save once, at the bottom. The count reads "9 of 14 came — 7 onsite, 2 online".
+
+Set a member **active** or **inactive** in the group (`members.cell_group_active`) — applied at
+once, and logged. Inactive members are not listed or counted.
 
 ### FR-10 Leader-proposed changes
 
@@ -278,26 +306,30 @@ All three are dry-run first, repeatable without duplicates, and leave an `import
 
 ### FR-14 Teams
 
-`teams` holds both iCare groups (`type = icare`) and ministry divisions (`type = ministry`):
-Usher, IT, Praise and Worship, Multimedia, Sound, Publication, Documentation, and whatever the IT
-admin adds. `member_team` records who is in a team and whether as `leader` or `member`; a team may
-have several leaders. Every member additionally has at most one iCare (`members.icare_team_id`).
+`teams` holds the ministry divisions: Usher, IT, Praise and Worship, Multimedia, Sound,
+Publication, Documentation, and whatever the IT admin adds. iCare groups are not teams (FR-9).
+`member_team` records who is in a team and whether as `leader` or `member`; a team may
+have several leaders.
 IT admins maintain rosters and roles. Leaving a team sets `left_at`; the row is kept, so who
 served where, and when, stays answerable (`ROADMAP.md` M6).
 
 ---
 
-## 4. Data model — 12 tables
+## 4. Data model — 16 tables
 
 ```mermaid
 erDiagram
   branches   ||--o{ members : "home branch"
   households ||--o{ members : groups
   institutions ||--o{ members : "studies/works at"
-  teams      ||--o{ members : "iCare of"
+  cell_groups ||--o{ members : "main iCare of"
+  cell_groups ||--o{ cell_group_leaders : "led by"
+  members    ||--o{ cell_group_leaders : leads
+  cell_groups ||--o{ cell_group_attendances : "meets on"
+  cell_group_attendances ||--o{ cell_group_attendees : "one row per person"
+  members    ||--o{ cell_group_attendees : attends
   teams      ||--o{ member_team : has
   members    ||--o{ member_team : "serves in"
-  teams      ||--o{ events : hosts
   branches   ||--o{ events : at
   events     ||--o{ occurrences : "happens on"
   occurrences ||--o{ attendances : has
@@ -308,21 +340,29 @@ erDiagram
 
 ```
 branches        id, code (TPE|ZL), name, name_zh, gmaps_url, is_active
-teams           id, type (icare|ministry), name, branch_id?, meeting_weekday?, ability? (scan|admin),
+teams           id, name, branch_id?, ability? (scan|admin), is_active
+cell_groups     id, public_ref (uuid), name, branch_id, location?, gmaps_url?, meeting_weekday,
                 is_active
+cell_group_leaders  id, cell_group_id, member_id, role (leader|co_leader), left_at?
+                one current leader per group; unique(cell_group_id, member_id) while current
+cell_group_attendances  id, cell_group_id, met_on, photo_path?, recorded_by?
+                unique(cell_group_id, met_on); photo_path is null only when "Tanpa foto" was ticked
+cell_group_attendees  id, attendance_id, member_id?, guest_name?, status (onsite|online|absent),
+                reason? (required for online and absent)          unique(attendance_id, member_id)
 member_team     id, member_id, team_id, role (leader|member), left_at?
                 unique(member_id, team_id) among rows where left_at is null
 households      id, name
 institutions    id, country, code?, name_en, name_zh?               unique(country, code)
-members         id, public_ref (uuid), household_id?, household_role?, branch_id, icare_team_id?,
+members         id, public_ref (uuid), household_id?, household_role?, branch_id, cell_group_id?,
                 institution_id?, full_name, chinese_name?, email? (unique), phone?, line_id?,
                 birthday?, domicile_taiwan?, occupation?, education_level?, school_or_company?,
-                category, status (active|inactive|visitor),
-                qr_token_hash? (unique), qr_token_enc?, short_code? (unique),
+                cell_group_active (default true), category, status (active|inactive|visitor),
+                qr_token_hash? (unique), qr_token_enc?, short_code? (unique), photo_path?,
+                photo_consent_at?,
                 calendar_event_id?, calendar_synced_at?, profile_reminded_at?,
                 email_verified_at?, remember_token,
                 legacy_ref?, timestamps, deleted_at
-events          id, type, name, branch_id?, team_id?, recurrence, weekday?, is_active
+events          id, type, name, branch_id?, recurrence, weekday?, is_active
 occurrences     id, event_id, occurs_on, locked_at?                  unique(event_id, occurs_on)
 attendances     id, occurrence_id, member_id?, guest_name?, mode (onsite|online),
                 method (qr|code|manual|import), category?, recorded_by?, recorded_at
@@ -341,13 +381,13 @@ Plus the framework's own `sessions`, `cache` and `jobs`. All tables have `timest
 - `member_credentials` → three columns (one live QR per member; replacing it overwrites)
 - `calendar_links` → two columns (there is one calendar)
 - `member_categories` → a PHP enum (four fixed values defined by a formula)
-- `group_memberships` → `members.icare_team_id` (attendance already records history)
-- `icare_groups` + roles → `teams` + `member_team` (an iCare group and a ministry team are the
-  same shape: a name, leaders, members)
+- `group_memberships` → `members.cell_group_id` (one main iCare; attendance records history)
+- iCare groups were folded into `teams` until 2026-10-28; the owner split them out, because an
+  iCare is a fellowship with weekly attendance and a ministry team is a place to serve
 - `service_occurrences` → `events` + `occurrences` (so non-Sunday events need no schema change)
 - `import_conflicts` → `import_batches.summary`; `form_ingestions`, `is_demo` → dropped
 
-Values with a fixed list (`category`, `status`, `mode`, `method`, team `type`, …) are short string
+Values with a fixed list (`category`, `status`, `mode`, `method`, leader `role`, …) are short string
 columns backed by PHP enums — no database enums, no lookup tables.
 
 ---

@@ -38,6 +38,23 @@ return [
             'report' => false,
         ],
 
+        // Meeting photos of iCare groups (PRD FR-9): faces of members, so kept outside the code
+        // checkout on a server. On production, IFGF_PHOTO_ROOT points at a folder that only the
+        // web-server user can open (docs/DEPLOY.md §8). Never served directly, never public.
+        'photos' => [
+            'driver' => 'local',
+            // `?:` and not a default: an empty IFGF_PHOTO_ROOT= line must not mean "the current folder".
+            'root' => env('IFGF_PHOTO_ROOT') ?: storage_path('app/private/assets'),
+            'visibility' => 'private',
+            'permissions' => [
+                'file' => ['public' => 0600, 'private' => 0600],
+                'dir' => ['public' => 0700, 'private' => 0700],
+            ],
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

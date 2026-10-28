@@ -84,7 +84,7 @@ class MemberRegistrar
             'birthday' => $data['birthday'],
             'phone' => $phone,
             'branch_id' => Branch::where('code', $data['branch'])->value('id'),
-            'icare_team_id' => $data['icare'] === Member::NO_ICARE ? null : (int) $data['icare'],
+            'cell_group_id' => $data['icare'] === Member::NO_ICARE ? null : (int) $data['icare'],
             // "Not planning to attend again" makes a visitor.
             'status' => $data['attend_again'] === 'yes' ? MemberStatus::Active : MemberStatus::Visitor,
         ];

@@ -41,7 +41,7 @@ class RosterController extends Controller
             $like = '%'.addcslashes($q, '%_\\').'%';
 
             $members = Member::query()
-                ->with('icareTeam')
+                ->with('cellGroup')
                 ->where(fn ($where) => $where->where('full_name', 'ilike', $like)->orWhere('chinese_name', 'ilike', $like))
                 ->orderBy('full_name')
                 ->limit(30)
