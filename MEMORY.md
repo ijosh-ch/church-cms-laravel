@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-10-31 — Stay signed in: the 400-day remember cookie works (FR-2)
+
+**Summary:** The owner decided (2026-10-31) that once signed in, a member stays signed in. One method,
+`Member::getAuthPassword(): string` returning `''`, makes Laravel accept the remember cookie it
+was already setting. PRD FR-2 records it; `Auth/RememberTest` covers it.
+
+### Learned
+
+- Laravel's `SessionGuard::userFromRecaller` drops a recaller whose user has a non-string
+  password; with `''` the cookie's third part is the HMAC of an empty string, so its strength is
+  the 60-character `remember_token` alone. The default `rememberDuration` (576000 min) is 400 days.
+- `Auth::logout()` rotates `remember_token` and forgets the cookie, so signing out on one device
+  ends every remembered device (the owner accepted this in the plan).
+- Testing a remember cookie: `withCookie()`, not `withUnencryptedCookie()` (EncryptCookies drops
+  a cookie it cannot decrypt), and `Auth::forgetGuards()` + `flushSession()` to play a reopened
+  browser.
+
+### Failed, or not done
+
+- The cookie is Secure only once WP2S sets `SESSION_SECURE_COOKIE` / HTTPS; until then it would
+  travel over plain HTTP — fine on localhost, not on a real host.
+
 ## 2026-10-31 — Email sign-in link (rest of WP2 / FR-2) and the GitHub-style sign-in page
 
 **Summary:** `/sign-in` asks for an email and mails a one-time link (15 min, single use, hash only),

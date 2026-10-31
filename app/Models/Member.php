@@ -70,6 +70,17 @@ class Member extends Authenticatable
         'status' => MemberStatus::Active->value,
     ];
 
+    /**
+     * There are no passwords (PRD FR-2). Laravel accepts the remember cookie only when this is a
+     * string, so an empty one turns on the 400-day sign-in (owner, 2026-10-31). The cookie is then
+     * as strong as `remember_token`: 60 random characters, replaced on sign-out and on the first
+     * proof of the email, which ends every remembered device.
+     */
+    public function getAuthPassword(): string
+    {
+        return '';
+    }
+
     protected static function booted(): void
     {
         // PRD FR-5: the category is stored, and recomputed whenever its inputs change.

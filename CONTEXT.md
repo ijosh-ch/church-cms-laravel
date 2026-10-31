@@ -3,8 +3,8 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-10-31 · **Branch:** `dev`, ahead of `origin/dev`, nothing pushed; the email
-sign-in link and the workbook import uncommitted · **Stage:** iCare weekly attendance and iCare management (FR-9) are built; registration, Google and email-link sign-in, profile, birthday calendar, roles, admin member
+**Updated:** 2026-10-31 · **Branch:** `dev`, ahead of `origin/dev`, nothing pushed; the 400-day
+sign-in and the workbook import uncommitted · **Stage:** iCare weekly attendance and iCare management (FR-9) are built; registration, Google and email-link sign-in, profile, birthday calendar, roles, admin member
 management and the usher screens are built and reviewed once; the restyle to `design/DESIGN.md`
 has its foundations and two pages. `TODO.md` lists what is not built yet.
 
@@ -20,7 +20,7 @@ Nothing is deployed; the legacy Google Form and Apps Script are still the live s
 The tree is a clean Laravel 13.35 app. The GegoSoft fork survives only on
 `feat/postgresql-multisite`.
 
-**Numbers:** 404/404 tests on `ifgf_app_test` (with the uncommitted workbook import); 51 routes;
+**Numbers:** 408/408 tests on `ifgf_app_test` (with the uncommitted workbook import); 51 routes;
 `npm audit` clean, `composer audit` reports `symfony/mime` CVE-2026-45070 (`TODO.md` item 3).
 16 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
 no passwords).
@@ -51,8 +51,9 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
   the `POST` uses it once, under a cache lock. Throttles: 5/min per address and 3/hour per email
   to ask, 10/min to use. In development the link is in `storage/logs/laravel.log`.
   **Google:** a Google-verified email that matches a member signs them in; an unknown one goes to
-  `/register` with the email fixed. The remember cookie is set but Laravel ignores it, so
-  sign-in lasts 120 idle minutes. With `IFGF_GOOGLE_BIRTHDAY=true` (off by default) the sign-in
+  `/register` with the email fixed. **Every sign-in is remembered for 400 days** (owner,
+  2026-10-31): `Member::getAuthPassword()` returns `''` so Laravel accepts the remember cookie;
+  sign-out and the first proof of an email rotate `remember_token`, ending it on every device. With `IFGF_GOOGLE_BIRTHDAY=true` (off by default) the sign-in
   also asks for Google's birthday permission and `Services/GoogleBirthday` fills the birthday in
   for a new person; it needs the People API, and Google's verification before production.
 - **Verified email is what carries access.** Registration signs a person in without proof, so

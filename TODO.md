@@ -9,9 +9,10 @@
 
 ## Now
 
-1. **Owner: commit the email sign-in link** (2026-10-31, message shown in chat; only its own
-   files — the 13 workbook-import files stay out). Then the next queued session: households (FR-3),
-   then FR-10, FR-11 (history on `/me`, a leader's own rows), FR-6 tables, FR-4 search.
+1. **Owner: commit the 400-day sign-in** (2026-10-31, message shown in chat; only its own files —
+   the 13 workbook-import files stay out; the email link is `e62c300`). Then the waiting session
+   (the QR code as a URL), then households (FR-3), FR-10, FR-11 (history on `/me`, a leader's own
+   rows), FR-6 tables, FR-4 search.
 2. **Run `/security-review` on the iCare commit** (2026-10-28; not run yet), then check it by eye
    signed in: the owner adds `ianjoseph2204@gmail.com` as a test user of the Google project
    `ifgf-site-dev` (Google Auth Platform → Audience), signs in at `http://localhost:8080`, and is
@@ -45,25 +46,21 @@
    title, `🎂 Name (iCare X)'s Birthday`. Two made-up members are kept in `ifgf_app` on purpose
    (`e2e.check.1021@example.test`, `e2e.quick.1021@example.test`); their welcome mail and
    calendar jobs wait in the queue.
-10. **Owner: decide the remember cookie.** It has never signed anyone in (`Member` has no
-   password, so Laravel ignores the cookie); sign-in lasts 120 idle minutes. One line turns on a
-   400-day sign-in — for ushers and admins too. See the `MEMORY.md` entry of 2026-10-13.
-   Without it, a member without Google signs in by email link again after 120 idle minutes.
-11. **Then WP2S — staging through Cloudflare.** Must include: trusted proxies and the visitor IP
+10. **Then WP2S — staging through Cloudflare.** Must include: trusted proxies and the visitor IP
    (behind the tunnel every visitor shares one address, so the registration and sign-in-link
    throttles would lock everyone out), trusted hosts (do not trust `X-Forwarded-Host`; the
    sign-in link already uses `APP_URL`), security headers (PRD §5.12), forced HTTPS, Secure
-   cookies, `ifgf:smoke`.
+   cookies (the 400-day remember cookie needs Secure most), `ifgf:smoke`.
    Once `dev` is pushed, run `/security-review`; it has not been run on the 2026-10-14 commit.
-12. **Still to build, in rough order of need:**
+11. **Still to build, in rough order of need:**
    - Usher: another event of today (FR-7 last line), headcount entry (FR-12).
    - Attendance: members × weeks grid and CSV export (FR-11); attendance history on `/me`.
    - Admin: team CRUD (FR-14), member deletion/anonymise (PRD §5.14), households (FR-3).
    - Rest of WP5 (FR-10, FR-6 group table, FR-14 team CRUD), institutions search (WP6), imports (WP7), reports (WP8).
    - Locale switch and `lang/` (also the plain-language error wording of `DESIGN.md` §9); a
      poster page with the QR of the site address.
-13. Rebuild the graph (`graphify` CLI has no build command; the skill is not in the desktop app).
-14. The camera scanner is **untested** — the preview pane blocks cameras. Try
+12. Rebuild the graph (`graphify` CLI has no build command; the skill is not in the desktop app).
+13. The camera scanner is **untested** — the preview pane blocks cameras. Try
     `http://localhost:8080/usher/scan` in Chrome with a webcam; a phone needs HTTPS (WP2S).
 
 ## Owner — can be done any time, each unblocks a work package

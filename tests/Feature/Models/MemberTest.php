@@ -140,7 +140,9 @@ class MemberTest extends TestCase
         $this->actingAs($member);
 
         $this->assertTrue(auth()->user()->is($member));
-        $this->assertNull($member->getAuthPassword());
+        // No password is stored; an empty one only lets the remember cookie work (FR-2).
+        $this->assertSame('', $member->getAuthPassword());
+        $this->assertArrayNotHasKey('password', $member->fresh()->getAttributes());
     }
 
     public function test_a_member_has_a_branch_an_icare_and_the_teams_they_serve_in_now(): void

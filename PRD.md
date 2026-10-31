@@ -127,6 +127,9 @@ one reminder are each covered by a test.
   links Google from the profile ("Hubungkan dengan Google"); accepted only when the Google email
   equals theirs (case-insensitive), then verified exactly as a Google sign-in; any other changes nothing.
 - Either way sets `email_verified_at`. Sessions in the database, secure cookies.
+- **Stay signed in** (owner, 2026-10-31): every sign-in is remembered for 400 days, through a
+  closed browser and the idle timeout — ushers and admins too. Signing out ends it on every
+  device, and so does the first proof of an email.
 - Signed in, a member sees their QR, their attendance history, and edits their own profile —
   every FR-1 field except email. A change to name, birthday or iCare re-syncs the calendar (FR-6).
 - **Own photo, optional** (owner, 2026-10-28): `/profile/photo`, offered by a card on `/me` until
