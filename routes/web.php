@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\MemberTeamController;
 use App\Http\Controllers\AttendanceTableController;
+use App\Http\Controllers\Auth\EmailLinkController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\SignOutController;
 use App\Http\Controllers\Admin\CellGroupController as AdminCellGroupController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\Usher\BranchController;
 use App\Http\Controllers\Usher\RosterController;
 use App\Http\Controllers\Usher\ScanController;
+use App\Services\SignInLinks;
 use Illuminate\Support\Facades\Route;
 
 // Public — PRD §5.1. Every URI here must also be on the allow-list in Security/RouteAuditTest.
@@ -30,6 +32,14 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route(auth()->check() ? 'home' : 'login'));
 
 Route::view('sign-in', 'auth.sign-in')->middleware('guest')->name('login');
+
+// The email sign-in link (FR-2). Not guest-only: a signed-in member may follow their own link
+// to prove their email.
+Route::controller(EmailLinkController::class)->where(['token' => SignInLinks::PATTERN])->group(function () {
+    Route::post('sign-in', 'send')->middleware('throttle:sign-in-link')->name('sign-in.send');
+    Route::get('sign-in/link/{token}', 'show')->middleware('throttle:sign-in-link-use')->name('sign-in.link');
+    Route::post('sign-in/link/{token}', 'consume')->middleware('throttle:sign-in-link-use')->name('sign-in.link.use');
+});
 
 Route::controller(GoogleController::class)->middleware('throttle:sign-in')->group(function () {
     Route::get('auth/google', 'redirect')->name('auth.google');

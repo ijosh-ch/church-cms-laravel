@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Enums\MemberCategory;
 use App\Enums\MemberStatus;
+use App\Mail\SignInLink;
 use App\Mail\WelcomeWithQr;
 use App\Models\CellGroup;
 use App\Models\Member;
@@ -215,7 +216,11 @@ Santoso'], 'full_name'],
         $this->assertSame('Original Name', $existing->fresh()->full_name);
         $this->assertNull($existing->fresh()->qr_token_hash);
         $this->assertGuest();
-        Mail::assertNothingOutgoing();
+
+        // FR-1: the member is emailed a sign-in link at the address on record, and nothing else.
+        Mail::assertNotOutgoing(WelcomeWithQr::class);
+        Mail::assertSent(SignInLink::class, fn (SignInLink $mail) => $mail->hasTo('demo.student@example.com'));
+        Mail::assertSentCount(1);
 
         $this->get('/register/done')
             ->assertOk()

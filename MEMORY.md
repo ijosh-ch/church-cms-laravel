@@ -6,6 +6,44 @@
 
 ---
 
+## 2026-10-31 — Email sign-in link (rest of WP2 / FR-2) and the GitHub-style sign-in page
+
+**Summary:** `/sign-in` asks for an email and mails a one-time link (15 min, single use, hash only),
+with Google below it and "New here? Register" under the card. A duplicate registration now mails
+the existing member a link too (FR-1). Google sign-in, Google connect and the link share
+`Services/EmailVerifier::prove()`. `/security-review`: no finding at confidence 8+; the one at 7
+(link host taken from the request) is fixed.
+
+### Learned
+
+- **Owner (2026-10-31):** no passwords — the email link is the "forgot password"; the sign-in page
+  should be minimal like GitHub's. A GitHub-style mock-up was approved before building.
+- **`dispatchAfterResponse()` callbacks pile up inside one test** (the app is reused between test
+  requests, and `terminate()` re-runs every registered callback), so earlier links were re-sent.
+  `defer(fn () => Job::dispatchSync(...))` is per request and works in tests and production.
+- **`route()` takes its host from the request.** For anything mailed, build on `config('app.url')`
+  + `route(..., absolute: false)`; behind Cloudflare `X-Forwarded-Host` would otherwise decide
+  where a sign-in link points (WP2S: trusted hosts).
+- PostgreSQL sorts `NULL` first in `DESC`: `orderByRaw('coalesce(email = ?, false) desc')`.
+- A link GET must not use the token up — mail scanners open every link. GET shows a button, POST
+  uses it (CSRF comes from the GET page).
+- Signing in with a link verifies the email: in development pick a made-up member with no team,
+  or a demo admin quietly becomes a working admin.
+- On desktop the Sign out button is inside the closed menu; a click there misses, and a
+  navigation right after a POST click cancels it.
+- Heredocs with many PHP files in one Bash call failed ("unexpected EOF"); the Write tool is
+  safer for several files.
+- `ianjoseph2204@gmail.com` is only in `ifgf_app_real`; the dev site uses `ifgf_app`, so Google
+  sign-in there treated the owner as new.
+
+### Failed, or not done
+
+- Not tried with a real mailbox (`log` mailer only); no mail provider chosen yet.
+- `composer audit` still reports `symfony/mime`; `composer.lock` carries the uncommitted workbook
+  import, so it was not updated.
+- An unverified signed-in member still has no "email me a link" button on `/profile`; they sign
+  out and use `/sign-in`. Not in the PRD.
+
 ## 2026-10-29 — iCare management: admin list, New iCare, Edit iCare (FR-9)
 
 **Summary:** `/admin/icare`, `/icare/create` and `/icare/{public_ref}` are built on

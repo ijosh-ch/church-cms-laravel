@@ -3,29 +3,31 @@
 > Item 1 is always the literal next action. Rewritten every session end.
 > Hard cap: 1,500 tokens.
 
-**Branch:** `dev` · **Updated:** 2026-10-29 · **Scope:** `PRD.md` 3.0 · **Plan:** `EXECUTION_PLAN.md`
+**Branch:** `dev` · **Updated:** 2026-10-31 · **Scope:** `PRD.md` 3.0 · **Plan:** `EXECUTION_PLAN.md`
 
 ---
 
 ## Now
 
-1. **Run `/security-review` on the iCare commit** (2026-10-28; not run yet), then check it by eye
+1. **Owner: commit the email sign-in link** (2026-10-31, message shown in chat; only its own
+   files — the 13 workbook-import files stay out). Then the next queued session: households (FR-3),
+   then FR-10, FR-11 (history on `/me`, a leader's own rows), FR-6 tables, FR-4 search.
+2. **Run `/security-review` on the iCare commit** (2026-10-28; not run yet), then check it by eye
    signed in: the owner adds `ianjoseph2204@gmail.com` as a test user of the Google project
    `ifgf-site-dev` (Google Auth Platform → Audience), signs in at `http://localhost:8080`, and is
    made leader of iCare NTUST in `cell_group_leaders`. PHP here accepts uploads up to 2 MB only
    (`C:\php\8.4\php.ini`): raise it to try a 3 MB meeting photo.
-2. **Owner: commit iCare management** (2026-10-29, message shown in chat): `/admin/icare`, New
-   iCare, Edit iCare. Then `composer update symfony/mime` (CVE-2026-45070, reported 2026-10-28;
-   `composer.lock` also holds the workbook import's uncommitted change, so do it after that commit).
-   Check Edit iCare by eye signed in, once item 1's sign-in works.
-3. **Owner: answer before the iCare progress page** (mock-ups shown 2026-10-28):
+3. **`composer update symfony/mime`** (CVE-2026-45070, reported 2026-10-28) once the workbook
+   import is committed — `composer.lock` holds its uncommitted change. iCare management is
+   committed (`9efb232`); check Edit iCare by eye signed in.
+4. **Owner: answer before the iCare progress page** (mock-ups shown 2026-10-28):
    (b) "mulai jarang hadir" = present at most 1 of the group's last 4 meetings?; (c) the chart:
    Chart.js (new npm package, needs a yes) or a plain SVG line; (d) birthdays: next 30 days plus
    a month picker, day and month only; (e) which profile fields an iCare leader may see, and the
    "please update your profile" reminder (privacy: STANDARDS §4.2). None of this is in the PRD.
-4. **Then, one session each:** the iCare progress page (onsite/online/absent chart, rarely-attending list, birthdays), then FR-10
+5. **Then, one session each:** the iCare progress page (onsite/online/absent chart, rarely-attending list, birthdays), then FR-10
    (leader-proposed changes). Each needs its PRD lines first (scope rule).
-5. **Next restyle session: `/profile`.** It is now where new members finish their profile, so it
+6. **Next restyle session: `/profile`.** It is now where new members finish their profile, so it
    matters most. Start with `design/RESTYLE_PROMPT.md` at step 3 (the audit and the foundations
    are done). Order after it: `/me`, `/register/done`, `/usher`, `/usher/scan` (its class names also live in `scanner.js`),
    `/usher/roster`, `/usher/attendance`, `/admin/members`, the member page, then
@@ -33,27 +35,25 @@
    "If other, please specify" only for "Other" needs a few lines of script, or Alpine — ask
    first. When the last page is done: delete `x-form.field` and the unused `welcome.blade.php`.
    Registration is one page since 2026-10-21; `/register/details` no longer exists.
-6. **Owner: get an admin back in development.** Sign in with Google at `http://localhost:8080`,
-   then run `php artisan ifgf:admin:grant <that email>`. Until then no signed-in page can be
-   opened in the browser pane, so their restyle cannot be checked by eye.
-7. **Owner: try the Google birthday.** Enable the People API in the Cloud project, add the
+7. **Admin in development:** `ianjoseph.finance@gmail.com` is a verified admin in `ifgf_app`.
+   `ianjoseph2204@gmail.com` exists only in `ifgf_app_real` (unverified, not admin). Any made-up
+   member can now sign in through the email link; the link is in `storage/logs/laravel.log`.
+8. **Owner: try the Google birthday.** Enable the People API in the Cloud project, add the
    `user.birthday.read` scope to the consent screen, put `IFGF_GOOGLE_BIRTHDAY=true` in `.env`,
    and sign in with an unregistered Google account. Tested so far only against fakes.
-8. **Owner: run `php artisan ifgf:calendar:sync`** so the dev calendar's events get the new
+9. **Owner: run `php artisan ifgf:calendar:sync`** so the dev calendar's events get the new
    title, `🎂 Name (iCare X)'s Birthday`. Two made-up members are kept in `ifgf_app` on purpose
    (`e2e.check.1021@example.test`, `e2e.quick.1021@example.test`); their welcome mail and
    calendar jobs wait in the queue.
-9. **Owner: decide the remember cookie.** It has never signed anyone in (`Member` has no
+10. **Owner: decide the remember cookie.** It has never signed anyone in (`Member` has no
    password, so Laravel ignores the cookie); sign-in lasts 120 idle minutes. One line turns on a
    400-day sign-in — for ushers and admins too. See the `MEMORY.md` entry of 2026-10-13.
-10. **The email sign-in link** (rest of WP2). Without it, a person who registered by hand with a
-   non-Google email can never verify it, so can never hold a role — and can never sign in again
-   once the session ends. The first verification must end earlier sign-ins.
-   ("Hubungkan dengan Google" on `/profile`, 2026-10-28, covers only someone whose registered email
-   is a Google account.)
+   Without it, a member without Google signs in by email link again after 120 idle minutes.
 11. **Then WP2S — staging through Cloudflare.** Must include: trusted proxies and the visitor IP
-   (behind the tunnel every visitor shares one address, so the registration throttle would lock
-   everyone out), security headers (PRD §5.12), forced HTTPS, Secure cookies, `ifgf:smoke`.
+   (behind the tunnel every visitor shares one address, so the registration and sign-in-link
+   throttles would lock everyone out), trusted hosts (do not trust `X-Forwarded-Host`; the
+   sign-in link already uses `APP_URL`), security headers (PRD §5.12), forced HTTPS, Secure
+   cookies, `ifgf:smoke`.
    Once `dev` is pushed, run `/security-review`; it has not been run on the 2026-10-14 commit.
 12. **Still to build, in rough order of need:**
    - Usher: another event of today (FR-7 last line), headcount entry (FR-12).
@@ -75,7 +75,8 @@
   Stitch's classes") disagrees with `DESIGN.md` and needs fixing.
 - **Before WP2S:** SSH access to the Ubuntu PC and a staging hostname on the Cloudflare domain.
 - **Before production with the Google birthday on:** Google's verification of the OAuth app.
-- **Before the sign-in link:** choose a mail provider.
+- **Before production:** choose a mail provider. The sign-in link is the only way back in for a
+  member without Google, so mail must arrive (and not in spam).
 - **Before WP6:** the Ministry of Education university CSV (data.gov.tw dataset 27929).
 - **Before WP7:** a service account with **Viewer** access to the live spreadsheet only; confirm
   D11 and D12.
@@ -91,8 +92,8 @@
 - **Registration reveals membership** (review finding M2, left as it is on 2026-10-13). A new
   registrant lands on `/me`, an existing one on `/register/done`, so an email or a phone number
   can be tested, 20 tries a minute. PRD FR-1 asks for both behaviours; decide which wins.
-- **The wording** of the privacy notice on page one, and of the two cards on `/sign-in`, is a
-  session's draft.
+- **The wording** of the privacy notice on page one, of `/sign-in` (GitHub-style since
+  2026-10-31) and of the sign-in email is a session's draft.
 - **Year of birth in the calendar description** (owner's choice, FR-6): everyone the calendar is
   shared with can read it, which `STANDARDS.md` §4.2 would not allow on a page.
 - **Real member data in development.** `STANDARDS.md` §1 and `CLAUDE.md` forbid it; the `log`

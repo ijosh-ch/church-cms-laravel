@@ -56,6 +56,18 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('registration', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
         RateLimiter::for('sign-in', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
 
+        // The email sign-in link (PRD §5.5). Asking: 5 a minute per address, and 3 links an hour
+        // for any one email, so nobody can flood a member's inbox. Using: 10 tries a minute per
+        // address, against 2^256 possible tokens. The email is hashed: no address in a cache key.
+        $tooMany = fn () => redirect()->route('login')->withErrors([
+            'email' => __('Too many tries. Wait a few minutes, then ask again.'),
+        ]);
+        RateLimiter::for('sign-in-link', fn (Request $request) => [
+            Limit::perMinute(5)->by('link-ip:'.$request->ip())->response($tooMany),
+            Limit::perHour(3)->by('link-email:'.hash('sha256', mb_strtolower(trim((string) $request->input('email')))))->response($tooMany),
+        ]);
+        RateLimiter::for('sign-in-link-use', fn (Request $request) => Limit::perMinute(10)->by('link-use:'.$request->ip()));
+
         // Per usher, not per address: several ushers share the church's Wi-Fi. A queue at the
         // door is about one scan every two seconds. The typed code is guessable, so it gets
         // the hardest limit of all (PRD §5.5).

@@ -5,6 +5,7 @@
 namespace App\Services;
 
 use App\Enums\MemberStatus;
+use App\Jobs\SendSignInLink;
 use App\Mail\WelcomeWithQr;
 use App\Models\Branch;
 use App\Models\Member;
@@ -13,6 +14,8 @@ use App\Support\PhoneNormalizer;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+
+use function Illuminate\Support\defer;
 
 /**
  * PRD FR-1 — turns a validated registration into a member.
@@ -39,7 +42,14 @@ class MemberRegistrar
         $phone = $this->normalizer->normalize($data['phone']);
 
         // A child under 13 may give a parent's number, so for them only the email identifies.
-        if ($this->alreadyRegistered($email, NotRegistered::isChild($data['birthday'] ?? null) ? '' : $phone)) {
+        $existing = $this->existing($email, NotRegistered::isChild($data['birthday'] ?? null) ? '' : $phone);
+
+        if ($existing !== null) {
+            // FR-1: nothing changes, and the member gets a sign-in link at the address on record —
+            // never at the one just typed. The page shows the same answer either way.
+            $address = (string) $existing->email;
+            defer(fn () => SendSignInLink::dispatchSync($address));
+
             return null;
         }
 
@@ -63,12 +73,14 @@ class MemberRegistrar
         }
     }
 
-    private function alreadyRegistered(string $email, string $phone): bool
+    /** The member with this email or, failing that, this phone. */
+    private function existing(string $email, string $phone): ?Member
     {
         return Member::query()
             ->where('email', $email)
             ->when($phone !== '', fn ($query) => $query->orWhere('phone', $phone))
-            ->exists();
+            ->orderByRaw('coalesce(email = ?, false) desc', [$email])
+            ->first();
     }
 
     /**

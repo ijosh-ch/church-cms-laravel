@@ -7,13 +7,11 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\RegistrationController;
 use App\Models\Member;
+use App\Services\EmailVerifier;
 use App\Services\GoogleBirthday;
-use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
@@ -31,6 +29,8 @@ class GoogleController extends Controller
 {
     /** Session key: the id of the signed-in member who started connect mode. Never in the URL. */
     public const CONNECT = 'google.connect';
+
+    public function __construct(private readonly EmailVerifier $verifier) {}
 
     public function redirect(Request $request, GoogleBirthday $birthdays): RedirectResponse|SymfonyRedirectResponse
     {
@@ -108,9 +108,7 @@ class GoogleController extends Controller
             return redirect()->route('register');
         }
 
-        if ($member->email_verified_at === null) {
-            $this->proveEmail($member);
-        }
+        $this->verifier->prove($member, 'google');
 
         Auth::login($member, remember: true);
         $request->session()->regenerate();
@@ -133,28 +131,14 @@ class GoogleController extends Controller
             return $this->backToProfile(__('Akun Google itu memakai email yang berbeda, jadi tidak ada yang diubah. Pilih akun Google dengan email yang sama seperti saat pendaftaran.'));
         }
 
-        if ($member->email_verified_at === null) {
-            $this->proveEmail($member);
-            Audit::record('member.email_verified', $member, ['via' => 'google-connect']);
-        }
+        $this->verifier->prove($member, 'google-connect');
 
-        // proveEmail ended every session of this member, this one too: carry on in a fresh one,
+        // prove() ended every session of this member, this one too: carry on in a fresh one,
         // with a remember cookie for the new token.
         Auth::login($member, remember: true);
         $request->session()->regenerate();
 
         return redirect()->route('profile.edit')->with('google_connected', true);
-    }
-
-    /**
-     * Until now nobody had proved this email: registration signs in whoever typed it. Its owner
-     * has just arrived, so every earlier sign-in for this member ends here.
-     */
-    private function proveEmail(Member $member): void
-    {
-        DB::table(config('session.table', 'sessions'))->where('user_id', $member->id)->delete();
-
-        $member->forceFill(['email_verified_at' => now(), 'remember_token' => Str::random(60)])->save();
     }
 
     private function backToSignIn(string $message): RedirectResponse

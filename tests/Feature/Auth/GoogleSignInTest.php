@@ -36,7 +36,7 @@ class GoogleSignInTest extends TestCase
             ->assertOk()
             ->assertSee('Continue with Google')
             ->assertSee('href="'.route('auth.google').'"', false)
-            ->assertSee('Register without Google')
+            ->assertSee('Register')
             ->assertSee('href="'.route('register', ['manual' => 1]).'"', false);
     }
 

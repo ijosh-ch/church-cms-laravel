@@ -3,8 +3,8 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-10-29 · **Branch:** `dev`, ahead of `origin/dev`, nothing pushed; iCare
-management uncommitted · **Stage:** iCare weekly attendance and iCare management (FR-9) are built; registration, Google sign-in, profile, birthday calendar, roles, admin member
+**Updated:** 2026-10-31 · **Branch:** `dev`, ahead of `origin/dev`, nothing pushed; the email
+sign-in link and the workbook import uncommitted · **Stage:** iCare weekly attendance and iCare management (FR-9) are built; registration, Google and email-link sign-in, profile, birthday calendar, roles, admin member
 management and the usher screens are built and reviewed once; the restyle to `design/DESIGN.md`
 has its foundations and two pages. `TODO.md` lists what is not built yet.
 
@@ -20,8 +20,8 @@ Nothing is deployed; the legacy Google Form and Apps Script are still the live s
 The tree is a clean Laravel 13.35 app. The GegoSoft fork survives only on
 `feat/postgresql-multisite`.
 
-**Numbers:** 387/387 tests on `ifgf_app_test`; 48 routes; `npm audit` clean, `composer audit`
-reports `symfony/mime` CVE-2026-45070 (2026-10-28; `TODO.md` item 2).
+**Numbers:** 404/404 tests on `ifgf_app_test` (with the uncommitted workbook import); 51 routes;
+`npm audit` clean, `composer audit` reports `symfony/mime` CVE-2026-45070 (`TODO.md` item 3).
 16 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
 no passwords).
 **Data model:** the ERD and the class diagrams are in `README.md` → "Data model". `DATA_MODEL.md`
@@ -32,7 +32,7 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
 - **Registration** — one page since 2026-10-21: full name, email, WhatsApp (country code first,
   `Enums/PhoneCountry` checks the mobile shape), birthday, branch, iCare, "come again?" (No →
   visitor). → `/me` with the QR, or `/register/done` for someone already registered or already
-  signed in. A registered phone is refused (`Rules/NotRegistered`; a child under 13 may share a
+  signed in; someone already registered is mailed a sign-in link at the address on record. A registered phone is refused (`Rules/NotRegistered`; a child under 13 may share a
   parent's). Chinese name, Line ID, domicile, occupation, education and school are asked later:
   `Member::needsProfile()` drives a card on `/me` and a note on `/profile`, and
   `ifgf:profile:remind` (daily 19:00 Taipei) sends one email seven days after registering
@@ -41,18 +41,27 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
   nothing the registrant typed).
 - **Deployment** — not deployed. `docs/DEPLOY.md` is the procedure: only a Git tag travels,
   never development data; the guards it names are built in WP2S.
-- **Sign-in** — `/sign-in` offers Google or "Register without Google". A Google-verified email
-  that matches a member signs them in; an unknown one goes to `/register` with the email fixed.
-  There is no email sign-in link yet. The remember cookie is set but Laravel ignores it, so
+- **Sign-in** — `/sign-in` is one narrow column like GitHub's (2026-10-31): an email field
+  ("Email me a sign-in link"), "or", Google, then "New here? Register". No passwords.
+  **Email link:** `POST /sign-in` always gives the same answer; `defer()` then runs
+  `Jobs/SendSignInLink` (never queued), which mails `Mail/SignInLink` (nothing typed in it) if a
+  member has that email. `Services/SignInLinks`: 256-bit token, only its SHA-256 in the cache for
+  15 minutes, a new link replaces the last, built on `APP_URL` (not the Host header).
+  `GET /sign-in/link/{token}` only shows a "Sign in" button (mail scanners must not use it up);
+  the `POST` uses it once, under a cache lock. Throttles: 5/min per address and 3/hour per email
+  to ask, 10/min to use. In development the link is in `storage/logs/laravel.log`.
+  **Google:** a Google-verified email that matches a member signs them in; an unknown one goes to
+  `/register` with the email fixed. The remember cookie is set but Laravel ignores it, so
   sign-in lasts 120 idle minutes. With `IFGF_GOOGLE_BIRTHDAY=true` (off by default) the sign-in
   also asks for Google's birthday permission and `Services/GoogleBirthday` fills the birthday in
   for a new person; it needs the People API, and Google's verification before production.
 - **Verified email is what carries access.** Registration signs a person in without proof, so
-  `Member::hasAbility()` and `leads()` return false until `email_verified_at` is set. The first
-  Google verification deletes that member's other sessions and replaces the remember token.
-  A member who registered without Google verifies later from `/profile` with "Hubungkan dengan
-  Google" (`POST auth/google/connect`; connect mode lives in the session, the callback is shared):
-  only a Google account with the same email is accepted, and it is audited.
+  `Member::hasAbility()` and `leads()` return false until `email_verified_at` is set. Google
+  sign-in, "Hubungkan dengan Google" and the email link all prove it through
+  `Services/EmailVerifier::prove()`: the first time, it deletes that member's other sessions,
+  replaces the remember token and audits `member.email_verified` with `via`. "Hubungkan dengan
+  Google" on `/profile` (`POST auth/google/connect`; connect mode lives in the session, the
+  callback is shared) accepts only a Google account with the same email.
 - **Roles** — Gates `scan`, `lead-team`, `admin` in `AppServiceProvider`, from team membership
   only; iCare pages use `CellGroupPolicy::lead` (current leader or co-leader, verified email, or admin). First admin: `php artisan ifgf:admin:grant <email>` (refuses an unverified email).
 - **Admin** — `/admin/members`: search kept in the session, edit, status, teams and roles; the
@@ -105,8 +114,9 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
   `resources/views/design/components.blade.php`, rendered by hand (newest `MEMORY.md` entry).
 - **Input rules** — every form validates in a FormRequest. Names pass `Rules/PersonName` (one
   line, no markup or links). Session rows are always encrypted (`config/session.php`).
-- **Throttles** — registration and sign-in 20 a minute per address; scan, roster tick and
-  roster search 120 a minute per usher; the typed code 10.
+- **Throttles** — registration and Google sign-in 20 a minute per address; asking for a sign-in
+  link 5 a minute per address and 3 an hour per email, using one 10 a minute; scan, roster tick
+  and roster search 120 a minute per usher; the typed code 10.
 
 ## This PC
 
@@ -138,7 +148,7 @@ ignored). `ifgf_app` (development) and `ifgf_app_test` (tests) are owned by role
 
 ## Not built — known gaps in the security baseline
 
-Security headers, trusted proxies, forced HTTPS (all WP2S); the email sign-in link; member
+Security headers, trusted proxies and trusted hosts, forced HTTPS (all WP2S); member
 deletion/anonymise (PRD §5.14). Registration still reveals who is a member (owner's decision).
 
 ## Licensing

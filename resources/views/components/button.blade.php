@@ -1,11 +1,13 @@
-@props(['variant' => 'primary', 'href' => null, 'type' => 'submit'])
+@props(['variant' => 'primary', 'href' => null, 'type' => 'submit', 'full' => false])
 
 @php
-    // DESIGN.md §5. Full width on phones, natural width from the tablet up; 48 px high, 44 on desktop.
+    // DESIGN.md §5. Full width on phones, natural width from the tablet up (`full`: always full
+    // width, for a narrow column); 48 px high, 44 on desktop.
     $classes = [
         'group focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control px-5 py-2.5 text-center text-body font-medium transition-colors duration-150 ease-out',
         'disabled:cursor-not-allowed disabled:opacity-60 aria-busy:pointer-events-none',
-        'md:w-auto lg:min-h-11 lg:text-label',
+        'lg:min-h-11 lg:text-label',
+        'md:w-auto' => ! $full,
         match ($variant) {
             'secondary' => 'border border-line-strong bg-surface text-ink hover:bg-canvas active:bg-canvas',
             'quiet' => 'text-primary hover:bg-primary-soft hover:text-primary-hover active:bg-primary-soft',
