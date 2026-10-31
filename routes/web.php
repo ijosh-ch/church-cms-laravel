@@ -5,9 +5,16 @@ use App\Http\Controllers\Admin\MemberTeamController;
 use App\Http\Controllers\AttendanceTableController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\SignOutController;
+use App\Http\Controllers\Admin\CellGroupController as AdminCellGroupController;
 use App\Http\Controllers\CellGroup\AttendanceController as IcareAttendanceController;
+use App\Http\Controllers\CellGroup\CoLeaderController;
+use App\Http\Controllers\CellGroup\GroupController as IcareGroupController;
+use App\Http\Controllers\CellGroup\LeaderController as IcareLeaderController;
+use App\Http\Controllers\CellGroup\MembershipController;
 use App\Http\Controllers\CellGroup\MemberStatusController;
+use App\Http\Controllers\CellGroup\PeopleSearchController;
 use App\Http\Controllers\CellGroup\PhotoController as IcarePhotoController;
+use App\Models\CellGroup;
 use App\Http\Controllers\Member\HomeController;
 use App\Http\Controllers\Member\PhotoController as SelfPhotoController;
 use App\Http\Controllers\Member\ProfileController;
@@ -70,12 +77,19 @@ Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group
     Route::put('members/{member}', [MemberController::class, 'update'])->name('members.update');
     Route::post('members/{member}/teams', [MemberTeamController::class, 'store'])->name('members.teams.store');
     Route::delete('members/{member}/teams', [MemberTeamController::class, 'destroy'])->name('members.teams.destroy');
+    Route::get('icare', [AdminCellGroupController::class, 'index'])->name('icare.index');
 });
 
 // iCare leaders and co-leaders, for the groups they lead, and IT admins (PRD FR-9).
 // A group travels by its public_ref, a member by theirs, a meeting by its date.
 Route::middleware('auth')->prefix('icare')->name('icare.')->group(function () {
     Route::get('/', [IcareAttendanceController::class, 'index'])->name('index');
+
+    // New iCare: the IT admin or a current iCare leader.
+    Route::middleware('can:create,'.CellGroup::class)->group(function () {
+        Route::get('create', [IcareGroupController::class, 'create'])->name('create');
+        Route::post('/', [IcareGroupController::class, 'store'])->name('store');
+    });
 
     Route::middleware('can:lead,cellGroup')->group(function () {
         Route::get('{cellGroup}/attendance', [IcareAttendanceController::class, 'edit'])->name('attendance.edit');
@@ -86,4 +100,18 @@ Route::middleware('auth')->prefix('icare')->name('icare.')->group(function () {
             ->where('date', '\d{4}-\d{2}-\d{2}')->name('photo.destroy');
         Route::put('{cellGroup}/members/{member}/status', MemberStatusController::class)->name('members.status');
     });
+
+    // Edit iCare: the group's current leader and the IT admin; co-leaders are refused.
+    Route::middleware('can:manage,cellGroup')->group(function () {
+        Route::get('{cellGroup}', [IcareGroupController::class, 'edit'])->name('edit');
+        Route::put('{cellGroup}', [IcareGroupController::class, 'update'])->name('update');
+        Route::post('{cellGroup}/search', PeopleSearchController::class)->middleware('throttle:people-search')->name('search');
+        Route::post('{cellGroup}/co-leaders', [CoLeaderController::class, 'store'])->name('co-leaders.store');
+        Route::delete('{cellGroup}/co-leaders/{member}', [CoLeaderController::class, 'destroy'])->name('co-leaders.destroy');
+        Route::post('{cellGroup}/members', [MembershipController::class, 'store'])->name('members.store');
+        Route::delete('{cellGroup}/members/{member}', [MembershipController::class, 'destroy'])->name('members.destroy');
+    });
+
+    // Only the IT admin assigns or changes a group's leader.
+    Route::put('{cellGroup}/leader', IcareLeaderController::class)->middleware('can:admin')->name('leader.update');
 });

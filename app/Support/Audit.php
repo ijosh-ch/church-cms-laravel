@@ -4,6 +4,7 @@
 
 namespace App\Support;
 
+use App\Models\CellGroup;
 use App\Models\Member;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,20 @@ class Audit
         Log::channel('audit')->info($action, [
             'actor' => Auth::id() ?? 'console',
             'member' => $subject->getKey(),
+            ...$context,
+        ]);
+    }
+
+    /**
+     * A change to an iCare group itself (created, renamed, moved, closed).
+     *
+     * @param  array<string, int|string|null>  $context  ids, field names and fixed values only
+     */
+    public static function recordGroup(string $action, CellGroup $group, array $context = []): void
+    {
+        Log::channel('audit')->info($action, [
+            'actor' => Auth::id() ?? 'console',
+            'cell_group' => $group->getKey(),
             ...$context,
         ]);
     }

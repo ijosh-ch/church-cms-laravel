@@ -66,6 +66,10 @@ class AppServiceProvider extends ServiceProvider
         // and keeps a misused account from filling the disk.
         RateLimiter::for('photo', fn (Request $request) => Limit::perMinute(10)->by('photo:'.$request->user()?->id));
 
+        // Finding church members by name on the Edit iCare page: enough for typing, not for
+        // walking the whole member list.
+        RateLimiter::for('people-search', fn (Request $request) => Limit::perMinute(30)->by('people:'.$request->user()?->id));
+
         // Three Gates carry all authorisation (PRD §2). Deny by default; `admin` implies the others.
         Gate::define('admin', fn (Member $member) => $member->hasAbility(TeamAbility::Admin));
         Gate::define('scan', fn (Member $member) => $member->hasAbility(TeamAbility::Scan)

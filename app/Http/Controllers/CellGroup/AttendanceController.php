@@ -19,21 +19,31 @@ use Illuminate\View\View;
  */
 class AttendanceController extends Controller
 {
-    /** /icare — the groups this person leads; with only one, straight to its attendance. */
+    /**
+     * /icare — the groups this person leads, each with its attendance and (for its leader) Edit
+     * iCare, plus New iCare. Someone who can only take attendance in one group goes straight there.
+     */
     public function index(Request $request): View|RedirectResponse
     {
         $member = $request->user();
-        $groups = $member->can('admin')
+        $isAdmin = $member->can('admin');
+        $groups = $isAdmin
             ? CellGroup::where('is_active', true)->orderBy('name')->get()
             : $member->ledCellGroups()->where('is_active', true)->orderBy('name')->get();
 
-        abort_if($groups->isEmpty() || $member->email_verified_at === null, 403);
+        abort_if(! $isAdmin && ($groups->isEmpty() || $member->email_verified_at === null), 403);
 
-        if ($groups->count() === 1) {
+        $canCreate = $member->can('create', CellGroup::class);
+
+        if (! $canCreate && $groups->count() === 1) {
             return redirect()->route('icare.attendance.edit', $groups->first());
         }
 
-        return view('cell-group.index', ['groups' => $groups]);
+        return view('cell-group.index', [
+            'groups' => $groups,
+            'canCreate' => $canCreate,
+            'isAdmin' => $isAdmin,
+        ]);
     }
 
     public function edit(Request $request, CellGroup $cellGroup): View

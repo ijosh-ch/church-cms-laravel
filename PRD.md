@@ -5,6 +5,7 @@
 **Amended:** 2026-10-04 — FR-13 gains the live sheet sync (owner-authorised; D11, D12).
 **Amended:** 2026-10-28 — iCare groups leave `teams` for their own tables (cell groups); FR-9
 rewritten: onsite / online / absent with a reason, several guests, a meeting photo (owner).
+FR-9 gains iCare management: the admin's list, New iCare and Edit iCare (owner).
 
 > This file is the scope. Read it whole (hard cap 7,000 tokens). Anything not written here is
 > **out of scope** until the owner adds it. Build order and session budgets: `EXECUTION_PLAN.md`.
@@ -240,6 +241,20 @@ For the group's leader or co-leader, and the IT admin (`/icare/{public_ref}/atte
 Set a member **active** or **inactive** in the group (`members.cell_group_active`) — applied at
 once, and logged. Inactive members are not listed or counted.
 
+**Managing iCare groups** (owner, 2026-10-28). Every change below is audited (ids only).
+- `/admin/icare` (IT admin): every group with its leader, co-leaders, active-member count and
+  status. Only the admin assigns or changes a group's leader; the previous leader's row gets
+  `left_at` and is kept. The admin also sets a group active or inactive.
+- **New iCare** (`/icare/create`) — the IT admin or the **leader** of an active iCare: name, branch,
+  place, Google Maps link, meeting day; a random `public_ref`. A leader who creates one leads it
+  at once; one created by the admin has no leader until the admin assigns one.
+- **Edit iCare** (`/icare/{public_ref}`) — the group's current leader and the IT admin: rename,
+  place, Maps link (Google Maps addresses only), meeting day; add or remove co-leaders; add
+  members, remove them (their main iCare becomes empty) and set them active or inactive.
+  Adding someone whose main iCare is another group moves them. People are found by name; a
+  search shows name, branch and main iCare only, and the typed name never reaches a URL. Co-leaders save
+  attendance and set members active or inactive, but never appoint co-leaders.
+
 ### FR-10 Leader-proposed changes
 
 A leader may propose new values for a group member's name, Chinese name, birthday, phone, Line ID,
@@ -307,7 +322,8 @@ All three are dry-run first, repeatable without duplicates, and leave an `import
 ### FR-14 Teams
 
 `teams` holds the ministry divisions: Usher, IT, Praise and Worship, Multimedia, Sound,
-Publication, Documentation, and whatever the IT admin adds. iCare groups are not teams (FR-9).
+Publication, Documentation, and whatever the IT admin adds. iCare groups are not teams (FR-9);
+their leaders are managed on the iCare pages, never through `member_team`.
 `member_team` records who is in a team and whether as `leader` or `member`; a team may
 have several leaders.
 IT admins maintain rosters and roles. Leaving a team sets `left_at`; the row is kept, so who

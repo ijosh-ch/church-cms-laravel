@@ -41,9 +41,11 @@
                             @endcan
                             @if (auth()->user()->can('admin') || auth()->user()->leadsAnyCellGroup())
                                 <a href="{{ route('icare.index') }}" @if (request()->routeIs('icare.*')) aria-current="page" @endif
-                                    class="flex min-h-11 items-center border-t border-stone-200 px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('iCare attendance') }}</a>
+                                    class="flex min-h-11 items-center border-t border-stone-200 px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('iCare') }}</a>
                             @endif
                             @can('admin')
+                                <a href="{{ route('admin.icare.index') }}" @if (request()->routeIs('admin.icare.*')) aria-current="page" @endif
+                                    class="flex min-h-11 items-center border-t border-stone-200 px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('Manage iCare groups') }}</a>
                                 <a href="{{ route('admin.members.index') }}" @if (request()->routeIs('admin.members.*')) aria-current="page" @endif
                                     class="flex min-h-11 items-center border-t border-stone-200 px-4 text-base text-stone-900 hover:bg-stone-100 aria-[current=page]:font-semibold">{{ __('Members') }}</a>
                             @endcan

@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-10-29 — iCare management: admin list, New iCare, Edit iCare (FR-9)
+
+**Summary:** `/admin/icare`, `/icare/create` and `/icare/{public_ref}` are built on
+`CellGroupPolicy::manage`/`create` and `Services/CellGroupLeadership`. PRD FR-9 has a "Managing
+iCare groups" block. Security review of these files: no findings at confidence 8+.
+
+### Learned
+
+- **Owner's answers (2026-10-28):** a leader who creates an iCare leads it at once (an admin's has
+  no leader); leaders may add members (moving them from another iCare) and remove them (no iCare);
+  leaders may rename, audited. My calls, not asked: only role `leader` of an **active** group may
+  create; co-leaders never reach Edit iCare.
+- **A people search must not use GET** — a typed name in `?q=` lands in the URL and the access log
+  (STANDARDS §4.3). Pattern: POST → validate → `->with('people_search', …)` flash → redirect to the
+  page with a `#section`; the page reads it once. One form per section, each input its own id.
+- `/icare` used to redirect a one-group leader straight to attendance; with Edit and New iCare that
+  hid both. Now only someone who cannot create (a co-leader) is redirected.
+- Seeded iCare names (`CellGroupSeeder::NAMES`, e.g. Linkou) collide with test names — pick others.
+- `with('leaders:members.id,members.full_name')`: qualify the columns on a belongsToMany.
+- A bare `cat > file` with no heredoc waits for stdin and hangs the Bash tool for two minutes.
+
+### Failed, or not done
+
+- Not checked signed in for real (no Google sign-in in development yet); rendered with the tinker
+  preview method at 375 px and 1280 px instead — no overflow, no console errors.
+- `composer audit` now flags `symfony/mime` (CVE-2026-45070); not updated because `composer.lock`
+  carries the workbook import's uncommitted change.
+
 ## 2026-10-28 — "Hubungkan dengan Google" (connect an existing account)
 
 **Summary:** A signed-in member whose email is not verified gets a "Hubungkan dengan Google" card

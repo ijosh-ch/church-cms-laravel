@@ -103,11 +103,21 @@ class AccessTest extends TestCase
         $this->actingAs($admin)->get('/icare/'.$this->groupB->public_ref.'/attendance')->assertOk();
     }
 
-    public function test_a_leader_of_one_group_goes_straight_to_it(): void
+    public function test_a_co_leader_of_one_group_goes_straight_to_it(): void
+    {
+        $this->actingAs($this->leaderOf($this->groupA, 'co_leader'))
+            ->get('/icare')
+            ->assertRedirect('/icare/'.$this->groupA->public_ref.'/attendance');
+    }
+
+    public function test_a_leader_of_one_group_sees_it_with_edit_and_new_icare(): void
     {
         $this->actingAs($this->leaderOf($this->groupA))
             ->get('/icare')
-            ->assertRedirect('/icare/'.$this->groupA->public_ref.'/attendance');
+            ->assertOk()
+            ->assertSee('/icare/'.$this->groupA->public_ref.'/attendance')
+            ->assertSee('/icare/'.$this->groupA->public_ref.'"', false)
+            ->assertSee('/icare/create');
     }
 
     public function test_the_status_of_someone_outside_the_group_cannot_be_changed(): void

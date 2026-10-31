@@ -3,8 +3,8 @@
 > Current state only. Rewritten every session end. Hard cap: 1,500 tokens.
 > History belongs in `MEMORY.md`. Next actions belong in `TODO.md`.
 
-**Updated:** 2026-10-28 · **Branch:** `dev`, seven commits ahead of `origin/dev`, nothing
-pushed; WP5 FR-9 uncommitted · **Stage:** iCare weekly attendance (FR-9) is built; registration, Google sign-in, profile, birthday calendar, roles, admin member
+**Updated:** 2026-10-29 · **Branch:** `dev`, ahead of `origin/dev`, nothing pushed; iCare
+management uncommitted · **Stage:** iCare weekly attendance and iCare management (FR-9) are built; registration, Google sign-in, profile, birthday calendar, roles, admin member
 management and the usher screens are built and reviewed once; the restyle to `design/DESIGN.md`
 has its foundations and two pages. `TODO.md` lists what is not built yet.
 
@@ -20,7 +20,8 @@ Nothing is deployed; the legacy Google Form and Apps Script are still the live s
 The tree is a clean Laravel 13.35 app. The GegoSoft fork survives only on
 `feat/postgresql-multisite`.
 
-**Numbers:** 308/308 tests on `ifgf_app_test`; 33 routes; `composer audit` and `npm audit` clean.
+**Numbers:** 387/387 tests on `ifgf_app_test`; 48 routes; `npm audit` clean, `composer audit`
+reports `symfony/mime` CVE-2026-45070 (2026-10-28; `TODO.md` item 2).
 16 domain tables plus `sessions`, `cache`, `jobs`; `Member` is the auth model (no `users` table,
 no passwords).
 **Data model:** the ERD and the class diagrams are in `README.md` → "Data model". `DATA_MODEL.md`
@@ -66,8 +67,17 @@ has the table inventory and the ranked findings of the 2026-10-21 review.
   re-encodes any image to the best JPEG under 3 MB (≤ 4096 px, quality ≥ 80), no metadata, on the
   `photos` disk (`IFGF_PHOTO_ROOT`, here `storage/app/private/assets`) at
   `icare/{public_ref}/{date}.jpg`; `resources/js/icare-attendance.js` shrinks it in the browser
-  first (HEIC is not readable: no Imagick). Server steps: `docs/DEPLOY.md` §8. Status toggle
-  `PUT /icare/{group}/members/{member}/status` is audited but has no button yet (edit page).
+  first (HEIC is not readable: no Imagick). Server steps: `docs/DEPLOY.md` §8.
+- **iCare management (2026-10-29)** — `CellGroupPolicy`: `lead` (leader or co-leader: attendance,
+  active switch), `manage` (the group's leader or admin: Edit iCare), `create` (admin or any
+  current leader); the leader change is the `admin` Gate. `/icare` lists the groups with
+  Attendance / Edit iCare / New iCare (a co-leader of one group still goes straight to it).
+  `/icare/create` — a leader's new group is led by them at once, an admin's has no leader.
+  `/icare/{public_ref}` — information (name unique ignoring case, `Rules/GoogleMapsUrl`), leader
+  (admin), co-leaders, members (add = move from another iCare, remove = no iCare, the status
+  button). People search is a POST flashed to the session (`people_search`, 30/min), never a URL.
+  `/admin/icare` — all groups, leader, co-leaders, active count, "Perlu leader". All changes go
+  through `Services/CellGroupLeadership` and `Audit` (`recordGroup` for the group itself).
 - **Own photo (2026-10-28)** — `/profile/photo`: optional, consent box required, JPEG ≤ 1 MB /
   1600 px at `members/{public_ref}.jpg` on the photos disk, only the member sees it, delete =
   consent withdrawn (audited). A card on `/me` offers it. Uploads (this and iCare attendance) are

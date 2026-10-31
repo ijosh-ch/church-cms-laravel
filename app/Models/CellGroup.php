@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * An iCare group (PRD FR-9). Shown as "iCare {name}"; travels in URLs by public_ref only.
@@ -94,13 +95,35 @@ class CellGroup extends Model
         return 'iCare '.$this->name;
     }
 
-    public function isLedBy(Member $member): bool
+    /** A current leader or co-leader with a verified email; with a role, only that role. */
+    public function isLedBy(Member $member, ?CellGroupRole $role = null): bool
     {
+        $roles = $role ? [$role->value] : [CellGroupRole::Leader->value, CellGroupRole::CoLeader->value];
+
         return $member->email_verified_at !== null
             && $this->leaderRows()
                 ->whereNull('left_at')
-                ->whereIn('role', [CellGroupRole::Leader->value, CellGroupRole::CoLeader->value])
+                ->whereIn('role', $roles)
                 ->where('member_id', $member->getKey())
                 ->exists();
+    }
+
+    /** The one current leader, if the group has one. */
+    public function currentLeader(): ?Member
+    {
+        return $this->leaders->first(fn (Member $member) => $member->pivot->role === CellGroupRole::Leader->value);
+    }
+
+    /**
+     * The current co-leaders, by name.
+     *
+     * @return Collection<int, Member>
+     */
+    public function currentCoLeaders(): Collection
+    {
+        return $this->leaders
+            ->filter(fn (Member $member) => $member->pivot->role === CellGroupRole::CoLeader->value)
+            ->sortBy('full_name')
+            ->values();
     }
 }
